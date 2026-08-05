@@ -310,6 +310,130 @@ export const ormProblems: ProblemDraft[] = [
   },
 
   {
+    slug: 'orm-ddl-lock-queue',
+    title: 'The migration that had not started yet',
+    category: 'orm',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'Postgres. A release adds a column to `orders`. One report query has been running for four minutes, so the `ALTER TABLE` is sitting behind it waiting for its lock, and it has modified nothing.',
+      '',
+      'Within seconds, every request that reads `orders` is timing out too, including the ones that were being served happily a moment earlier.',
+      '',
+      'Say why plain readers are stuck behind a statement that has not started, and what you set before the DDL so this cannot happen.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'queue',
+            'queues',
+            'queued',
+            'behind it',
+            'in line',
+            'lock request',
+            'the request',
+            'waiting request',
+            'ahead of them',
+            'first in',
+            'fifo',
+          ],
+          missingFeedback:
+            'The migration holds no lock yet. Say what its outstanding request does to a reader that arrives after it.',
+        },
+        {
+          synonyms: ['lock_timeout', 'lock timeout', 'locktimeout'],
+          missingFeedback:
+            'Name the setting that makes a statement give up rather than wait for a lock it cannot have.',
+        },
+      ],
+      hints: [
+        'Nothing has been altered. The migration is waiting, and waiting is the part that hurts.',
+        'Ask what happens to a `SELECT` that arrives while a stronger lock request is already in the queue.',
+        '`statement_timeout` bounds the work. You want the one that bounds the wait.',
+      ],
+    },
+    canonicalAnswer:
+      'Lock requests queue. The ALTER is waiting for an ACCESS EXCLUSIVE lock, which conflicts with every other mode including the ACCESS SHARE a plain SELECT takes, and a reader arriving afterwards lines up behind that request instead of joining the compatible read that actually holds the table. Set lock_timeout before the DDL, so a migration that cannot take its lock straight away is refused rather than left waiting, and no queue forms behind it.',
+    solution: md(
+      'Because lock requests queue, and the queue is what turns a slow migration into an outage.',
+      '',
+      'Measured on PostgreSQL 17.10, one long read held open and one `SELECT count(*)` sent after the `ALTER`:',
+      '',
+      code(
+        'text',
+        'reader, nothing in the way                          1000 rows',
+        'reader, alongside the long read                     1000 rows',
+        'reader, after the ALTER queued behind that read     ERROR:  canceling statement due to lock timeout',
+        'reader, same again but the ALTER SET lock_timeout   1000 rows  (the ALTER took the 55P03 instead)'
+      ),
+      '',
+      "So the DDL goes out as `SET lock_timeout = '100ms';` and then the `ALTER`, and a release that cannot have the table right now fails fast and is retried."
+    ),
+    explanation:
+      'An `ACCESS EXCLUSIVE` lock conflicts with every other mode, including the `ACCESS SHARE` that a bare `SELECT` takes, and Postgres does not let later requests overtake a waiting one. So a migration that is merely queued is already the incident: readers that would have been perfectly compatible with the transaction actually holding the table pile up behind the DDL instead, and the pile is what takes the API down. `lock_timeout` is the control, and it is the one that bounds the wait rather than the work: `statement_timeout` would let the queue form and then kill the migration halfway through it.',
+  },
+
+  {
+    slug: 'orm-add-foreign-key-scan',
+    title: 'The constraint that stopped every write',
+    category: 'orm',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'Postgres. A migration adds a foreign key that should have been there from the start:',
+      '',
+      code(
+        'sql',
+        'ALTER TABLE order_items ADD CONSTRAINT order_items_order_id_fkey',
+        '  FOREIGN KEY (order_id) REFERENCES orders (id);'
+      ),
+      '',
+      'Both tables are large. The statement verifies every existing row before it returns, and it holds its lock on both tables for the whole scan, so writes to either one wait it out.',
+      '',
+      'Say what you add to the statement so the scan does not happen inside it, and what you run afterwards instead.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: ['not valid'],
+          missingFeedback:
+            'Name the option that adds the constraint without checking the rows that are already there.',
+        },
+        {
+          synonyms: ['validate constraint', 'validate the constraint', 'validate'],
+          missingFeedback:
+            'The old rows still have to be checked at some point. Name the statement that does that checking.',
+        },
+      ],
+      hints: [
+        'Enforcing the rule from now on and proving it about the past are two different jobs.',
+        'Postgres has an option for the first half that explicitly skips the scan.',
+        'The second half takes a weaker lock than the first, which is the entire reason to split them.',
+      ],
+    },
+    canonicalAnswer:
+      'Add it NOT VALID, which skips the scan of the existing rows while still applying the constraint to every insert and update from that moment on. Then run ALTER TABLE order_items VALIDATE CONSTRAINT order_items_order_id_fkey as its own migration, which does the scan under a SHARE UPDATE EXCLUSIVE lock rather than blocking writers for the length of it.',
+    solution: md(
+      code(
+        'sql',
+        '-- Migration one: enforced immediately, no scan.',
+        'ALTER TABLE order_items ADD CONSTRAINT order_items_order_id_fkey',
+        '  FOREIGN KEY (order_id) REFERENCES orders (id) NOT VALID;',
+        '',
+        '-- Migration two, once the first is out: the scan, under a weaker lock.',
+        'ALTER TABLE order_items VALIDATE CONSTRAINT order_items_order_id_fkey;'
+      ),
+      '',
+      'Between the two, new rows are already covered. Only the history is unproven, and only until the second one runs.'
+    ),
+    explanation:
+      '`ADD FOREIGN KEY` is already gentler than most DDL, taking a `SHARE ROW EXCLUSIVE` lock rather than `ACCESS EXCLUSIVE`, and taking it on the referenced table as well as the one being altered. What costs you is not the lock level but how long it is held, because the statement scans the table to prove the constraint about rows that already exist. `NOT VALID` is Postgres offering exactly that split: the documented behaviour is that the potentially lengthy scan is skipped while the constraint still applies to subsequent inserts and updates. `VALIDATE CONSTRAINT` then does the scan under a `SHARE UPDATE EXCLUSIVE` lock, which writers can work alongside.',
+  },
+
+  {
     slug: 'orm-not-null-on-a-full-table',
     title: 'The column that would not add itself',
     category: 'orm',

@@ -5,6 +5,8 @@ order: 4
 practise:
   - orm-not-null-on-a-full-table
   - orm-rename-is-a-drop-and-an-add
+  - orm-ddl-lock-queue
+  - orm-add-foreign-key-scan
   - orm-expand-then-contract
   - orders-migration-postgres
   - slow-list-endpoint-kysely
@@ -21,6 +23,12 @@ sources:
   - author: PostgreSQL
     title: ALTER TABLE
     url: https://www.postgresql.org/docs/current/sql-altertable.html
+  - author: PostgreSQL
+    title: Explicit Locking
+    url: https://www.postgresql.org/docs/current/explicit-locking.html
+  - author: PostgreSQL
+    title: Client Connection Defaults
+    url: https://www.postgresql.org/docs/current/runtime-config-client.html
   - author: SQLite
     title: ALTER TABLE
     url: https://www.sqlite.org/lang_altertable.html
@@ -145,6 +153,28 @@ takes an `ACCESS EXCLUSIVE` lock "unless explicitly noted", and while adding a c
 non-volatile default is metadata-only, adding a `NOT NULL` constraint "requires scanning the table to
 verify that existing rows meet the constraint". A statement that takes milliseconds on your laptop
 holds an exclusive lock for the length of a scan on a table with real data in it.
+
+**The migration had not started, and the whole API was down.** This is the one that surprises people,
+because the DDL is not holding anything yet: it is queued behind somebody's long-running query, and
+lock requests queue. `ACCESS EXCLUSIVE` conflicts with every other mode, including the `ACCESS SHARE`
+a plain `SELECT` takes, so a reader arriving after the blocked `ALTER` waits behind the `ALTER`
+rather than joining the compatible read that actually holds the table. Measured here against a real
+PostgreSQL 17.10 server, because PGlite has one connection and cannot show a queue: a `SELECT
+count(*)` ran fine alongside a four-second read, and the same `SELECT` sent after an `ALTER TABLE`
+had queued behind that read waited until its own `lock_timeout` fired. The control is
+`SET lock_timeout` before the DDL, which aborts "any statement that waits longer than the specified
+amount of time while attempting to acquire a lock" with SQLSTATE `55P03`. Then the migration fails
+fast and is retried, and no queue ever forms. `statement_timeout` is the wrong instrument: it bounds
+the work rather than the wait, so the queue still forms and the migration is killed partway through
+it.
+
+**Adding the foreign key stopped every write to both tables.** `ADD FOREIGN KEY` is gentler than most
+DDL, taking a `SHARE ROW EXCLUSIVE` lock rather than `ACCESS EXCLUSIVE`, and Postgres notes it takes
+that on the referenced table too. The cost is the scan it holds that lock for, and the split is
+offered in the syntax: `ADD CONSTRAINT ... NOT VALID` skips what the docs call the
+"potentially-lengthy scan" while the constraint "will still be applied against subsequent inserts or
+updates", and a later `VALIDATE CONSTRAINT` does the scan under a `SHARE UPDATE EXCLUSIVE` lock that
+writers can work alongside. Two migrations, and the second one can wait for a quiet hour.
 
 **The migration deployed fine and the app started throwing.** Between the two deploys, the old code
 is running against the new schema. Dropping a column the running release still selects, or adding a
