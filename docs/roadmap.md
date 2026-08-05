@@ -8,7 +8,34 @@ target is practical knowledge for web engineering and AI engineering, judged aga
 morning session, and content is never picked to complete a set. Why something was deferred lives in
 [decisions.md](./decisions.md); how to write any of it lives in [content.md](./content.md).
 
-## 1. The rest of the decks
+## 1. Operating a model dependency over time
+
+Two pages, both about the half of the AI section that is not one request. The section covers what a
+call costs, what comes back and what you do with it; nothing covers living with the dependency for a
+year.
+
+**Prompt caching, and what invalidates it.** `what-inference-costs.md` already leans on this without
+owning it: it prices a cache write at 1.25 times base input and a read at a tenth, and says caching
+is usually what tips a long-prompt call from input-heavy to output-heavy. What no page says is that a
+cache is a prefix match, so any byte that changes before the breakpoint invalidates everything after
+it. The model to write down is that render order is tools, then system, then messages, which makes
+the cheap mistakes structural rather than careless: a timestamp interpolated into the system prompt,
+a tool list built by iterating an object, a session id in the preamble. It is checkable against the
+`usage` fields on every response, which is the kind of claim this section is built on. A page leaning
+on a mechanism nobody explains is the same signal that put the bundler in Deferred; the difference is
+that the reps here write themselves, because "which of these three edits invalidated the cache" is a
+real question with a definite answer rather than a definition. No rep in `ai-engineering` mentions
+caching today, so the page arrives with two or three of its own.
+
+**Upgrading the model.** A model upgrade is a dependency upgrade with no lockfile and no semver.
+An alias moves under you, a pinned id is retired on a date somebody else picked, and the behaviour
+change that arrives passes every type check you have: shorter answers, a different refusal boundary,
+a tool called half as often. The eval suite is the only regression gate, which is `evals-as-tests.md`
+read from the other end, and rollback is the part people discover late, because the version you want
+back may no longer be served. This joins two sections that already exist rather than opening one, and
+`dependencies/updating-a-dependency.md` is the page it should argue with.
+
+## 2. The rest of the decks
 
 Two decks suggest themselves and cannot be written, both for the same reason: `page` is mandatory and
 neither has one. No page owns the redirect codes, 301 against 302 against 307 against 308. Time
@@ -26,7 +53,7 @@ worth re-reading for the contrast set it just made checkable.
 `packages/decks/content/` is the inventory, and a deck named there and not on disk is a name that
 changed, not a deck that is missing.
 
-## 2. Sections with no practice behind them yet
+## 3. Sections with no practice behind them yet
 
 These are last because nothing in the problem set is waiting on them.
 
@@ -81,7 +108,7 @@ page, Will Larson's migrations essay, the listed books.
 
 ## The last pass, and what finishing means
 
-The two sections above are the whole content queue, and it is meant to run out. An empty roadmap is
+The three sections above are the whole content queue, and it is meant to run out. An empty roadmap is
 the intended end of this project rather than a failure to think of more work: the subject is
 practical knowledge for web engineering and AI engineering judged against a 15-minute morning, and
 that is a finite thing to cover. Everything past it is maintenance, which is a page going stale or a
