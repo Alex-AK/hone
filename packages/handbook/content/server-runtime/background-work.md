@@ -1,7 +1,7 @@
 ---
 title: Background work
 question: This endpoint takes nine seconds. What actually changes if I stop making the caller wait?
-order: 7
+order: 8
 practise:
   - debug-fire-and-forget-work
   - http-idempotency-key

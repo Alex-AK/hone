@@ -1,7 +1,7 @@
 ---
 title: Middleware and the order it runs in
 question: My middleware is registered and it never runs. Where in the file does it have to go?
-order: 8
+order: 9
 practise:
   - security-limiter-after-routes
   - http-webhook-raw-body

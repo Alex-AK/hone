@@ -2138,4 +2138,96 @@ export const httpProblems: ProblemDraft[] = [
     explanation:
       'Path versioning versions the **surface**: one breaking change to one resource reprints every URL in your documentation and every link a client stored, and the same resource ends up with two identities, which matters for caching and for anything that stores links. A header versions the **call**, so the URL is stable and a client moves one endpoint at a time. That is why anyone carrying many external integrations ends up at the header, and why the migration story is the real argument rather than aesthetics. The media type (`Accept: application/vnd.example.v2+json`) is content negotiation used as designed, and it is rare because client tooling makes it awkward.',
   },
+
+  {
+    slug: 'http-upload-size-limit',
+    title: 'The limit that only stops honest clients',
+    category: 'http',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'An upload endpoint accepts at most 25 MB, and enforces it like this:',
+      '',
+      code(
+        'js',
+        "const declared = Number(req.headers['content-length']);",
+        'if (declared > MAX_BYTES) return res.status(413).end();',
+        '',
+        'await pipeline(req, createWriteStream(destination));'
+      ),
+      '',
+      'Say what that check misses, and where the limit has to live instead.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'claim',
+            'claims',
+            'lie',
+            'lies',
+            'lying',
+            'cannot trust',
+            'not trustworthy',
+            'client controls',
+            'sender',
+            'chunked',
+            'no content-length',
+            'without a content-length',
+            'missing',
+            'absent',
+            'spoof',
+          ],
+          missingFeedback:
+            'The header arrived with the request and nothing has checked it. Say who wrote it, or what a request without one does here.',
+        },
+        {
+          synonyms: [
+            'count',
+            'counting',
+            'as they arrive',
+            'as it arrives',
+            'as it streams',
+            'while reading',
+            'bytes received',
+            'destroy',
+            'abort',
+            'stop reading',
+            'cut it off',
+            'in the stream',
+          ],
+          missingFeedback:
+            'Name the number that cannot be faked, and what you do to the request once it is exceeded.',
+        },
+      ],
+      hints: [
+        'Everything in a request except the bytes themselves is something the sender chose to say.',
+        'A chunked request carries no `Content-Length` at all. Work out what this code does with one.',
+        'The only honest measure is the one you take while the body is arriving.',
+      ],
+    },
+    canonicalAnswer:
+      'It trusts a number the sender wrote. A client can understate it, and a chunked request carries no Content-Length at all, in which case the comparison is against NaN and the check passes everything. Count the bytes as they arrive and destroy the request as soon as the running total passes the cap, so the limit is enforced against what actually reached you rather than against what was announced.',
+    solution: md(
+      'The header is a claim, and `Number(undefined)` is `NaN`, so a chunked upload sails straight through a `>` comparison.',
+      '',
+      code(
+        'js',
+        'let seen = 0;',
+        'const cap = new Transform({',
+        '  transform(chunk, _encoding, done) {',
+        '    seen += chunk.length;',
+        "    done(seen > MAX_BYTES ? new Error('too large') : null, chunk);",
+        '  },',
+        '});',
+        '',
+        'await pipeline(req, cap, createWriteStream(destination));'
+      ),
+      '',
+      'Keep the header check if you like: it refuses the honest oversized upload before any of it is transferred. It is an optimisation, not the limit.'
+    ),
+    explanation:
+      '`Content-Length` is arithmetic the sender did, so a header check binds only the clients that were not trying, and a chunked request has no length to check at all, which turns the comparison into one against `NaN` and lets everything through. The number that binds everybody is the one you count while the body arrives, which puts the enforcement in the stream: add up the chunk lengths and destroy the request the moment the total passes the cap. Doing it there also bounds what the rejection costs, since the alternative is learning the real size after buffering the thing you were refusing to buffer.',
+  },
 ];

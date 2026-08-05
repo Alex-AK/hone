@@ -1,7 +1,7 @@
 ---
 title: Failure and retries
 question: The call failed. Do I send it again, and how long do I wait first?
-order: 6
+order: 7
 practise:
   - http-retry-amplification
   - http-timeout-fetch

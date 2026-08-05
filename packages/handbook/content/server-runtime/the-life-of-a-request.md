@@ -1,7 +1,7 @@
 ---
 title: The life of a request in a framework
 question: What runs before my controller method, and where does the check I keep forgetting belong?
-order: 4
+order: 5
 practise:
   - auth-guard-nestjs
   - http-401-vs-403
