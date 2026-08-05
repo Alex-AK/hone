@@ -8,7 +8,28 @@ target is practical knowledge for web engineering and AI engineering, judged aga
 morning session, and content is never picked to complete a set. Why something was deferred lives in
 [decisions.md](./decisions.md); how to write any of it lives in [content.md](./content.md).
 
-## 1. Operating a model dependency over time
+## 1. Two writers, one row
+
+Two people open the same record, both save, and the second save throws the first away without
+anybody seeing an error. The halves of the answer are already written and the decision between them
+is not: `databases/transactions-and-acid.md` owns isolation and `SELECT ... FOR UPDATE`, and
+`headers/conditional-requests-and-ranges.md` owns `If-Match` and already notes that lost-update
+preconditions have stricter requirements than cache validation. Neither says which one to reach for.
+
+The model is that a read-then-write is not a write, and everything follows from what protects the
+gap between the two. Pessimistic locking takes the row and holds it, which is fine inside one request
+and useless across a form somebody left open at lunch. Optimistic carries what was read back into the
+update, a version column or a timestamp or an ETag, so a stale write matches nothing and lost updates
+become zero rows affected, which is a conflict you can actually show somebody. And what to do with
+that conflict is a product decision before it is a code one: refuse it, merge it, or take the last
+writer on purpose rather than by accident.
+
+It belongs in `databases/`, because the enforcement is in the shape of the `UPDATE` statement, and
+the HTTP half is already next door to cite. The reps are `sql` reps, and the easy one is real work
+rather than a definition: read an update whose `WHERE` carries the version, and say what zero rows
+affected means.
+
+## 2. Operating a model dependency over time
 
 Two pages, both about the half of the AI section that is not one request. The section covers what a
 call costs, what comes back and what you do with it; nothing covers living with the dependency for a
@@ -35,7 +56,7 @@ read from the other end, and rollback is the part people discover late, because 
 back may no longer be served. This joins two sections that already exist rather than opening one, and
 `dependencies/updating-a-dependency.md` is the page it should argue with.
 
-## 2. The rest of the decks
+## 3. The rest of the decks
 
 Two decks suggest themselves and cannot be written, both for the same reason: `page` is mandatory and
 neither has one. No page owns the redirect codes, 301 against 302 against 307 against 308. Time
@@ -53,7 +74,7 @@ worth re-reading for the contrast set it just made checkable.
 `packages/decks/content/` is the inventory, and a deck named there and not on disk is a name that
 changed, not a deck that is missing.
 
-## 3. Sections with no practice behind them yet
+## 4. Sections with no practice behind them yet
 
 These are last because nothing in the problem set is waiting on them.
 
@@ -66,10 +87,11 @@ you and what it does not; what a container is made of, which is namespaces and c
 everything still shares; where a virtual machine draws the line instead, and what that costs; microVMs,
 and why the people running other people's code ended up there; and running code a model wrote, which
 is the case a web engineer now actually meets. That last one is a gap inside a section that already
-ships: the AI engineering pages now cover running what a model asked for and treating what comes back
-as untrusted, and still say nothing about running code it wrote. Distinct from production below, which owns the image as a packaging and
-deploy concern: this section owns isolation as a security property. Credits: the Docker and Firecracker
-docs, the Linux man pages, `node:vm`'s own documented warning.
+ships: the AI engineering pages now cover running what a model asked for and treating what comes
+back as untrusted, and still say nothing about running code it wrote. Distinct from production
+below, which owns the image as a packaging and deploy concern: this section owns isolation as a
+security property. Credits: the Docker and Firecracker docs, the Linux man pages, `node:vm`'s own
+documented warning.
 
 **Unix, at the level a web engineer meets it.** Not a shell course and not systems administration:
 the handful of operating-system facts that decide how a Node process behaves once it is not on your
@@ -108,7 +130,7 @@ page, Will Larson's migrations essay, the listed books.
 
 ## The last pass, and what finishing means
 
-The three sections above are the whole content queue, and it is meant to run out. An empty roadmap is
+The four sections above are the whole content queue, and it is meant to run out. An empty roadmap is
 the intended end of this project rather than a failure to think of more work: the subject is
 practical knowledge for web engineering and AI engineering judged against a 15-minute morning, and
 that is a finite thing to cover. Everything past it is maintenance, which is a page going stale or a
