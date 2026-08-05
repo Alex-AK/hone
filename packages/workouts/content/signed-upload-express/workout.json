@@ -1,0 +1,40 @@
+{
+  "slug": "signed-upload-express",
+  "title": "Uploads that never touch the API",
+  "kind": "feature",
+  "minutes": 25,
+  "difficulty": "medium",
+  "relevance": "occasional",
+  "stack": {
+    "server": "express, with a fake object store mounted at /store"
+  },
+  "summary": "Since the mobile app shipped, every video its users record is uploaded through the API process, and the box has been running out of memory most evenings. Storage will take the bytes directly if the client arrives holding a URL it is allowed to use. Hand out that URL, and record the upload as real only once something is actually there.",
+  "focus": ["signed urls", "object storage", "hmac", "uploads"],
+  "editable": ["src/server/uploads.ts"],
+  "checkpoints": [
+    {
+      "id": "sign-returns-a-usable-url",
+      "title": "The url you hand out is one the store accepts",
+      "testFile": "tests/checkpoints/01-sign-returns-a-usable-url.test.ts",
+      "hint": "The store wants `expires` and `signature` in the query string, and it recomputes the signature itself before it looks at anything else. Read `expectedSignature` in `object-store.ts`: it is an HMAC-SHA256 over three lines, the method, the key and the expiry, keyed with `STORE_SECRET`. Sign that exact string and put the hex digest in the url."
+    },
+    {
+      "id": "the-key-is-yours-not-theirs",
+      "title": "The key is one you generated",
+      "testFile": "tests/checkpoints/02-the-key-is-yours-not-theirs.test.ts",
+      "hint": "`filename` arrived from a phone and is a label, not a path: two people upload `report.pdf` and the second must not land on the first, and a name with `..` in it must not decide where anything goes. Generate the key, keep the filename on the row for display."
+    },
+    {
+      "id": "expired-urls-are-refused",
+      "title": "The url stops working",
+      "testFile": "tests/checkpoints/03-expired-urls-are-refused.test.ts",
+      "hint": "A signed url is a bearer token: whoever holds it can use it until it expires, so the expiry is the only thing bounding the damage of one leaking. Minutes, not days. Read the clock through `nowMs()` from `clock.ts` rather than `Date.now()`, because that is the clock the checkpoint moves."
+    },
+    {
+      "id": "confirm-only-after-the-object-lands",
+      "title": "Confirm checks that something arrived",
+      "testFile": "tests/checkpoints/04-confirm-only-after-the-object-lands.test.ts",
+      "hint": "The client telling you it uploaded is a claim like any other. `objectExists` and `objectSize` are exported from `object-store.ts`; ask the store before you flip the row, and answer a confirm with nothing behind it with a 4xx that leaves the upload pending."
+    }
+  ]
+}

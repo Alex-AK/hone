@@ -8,6 +8,7 @@ practise:
   - node-pipeline-over-pipe
   - http-body-once
   - http-upload-size-limit
+  - signed-upload-express
   - streaming-export-express
 sources:
   - author: MDN
