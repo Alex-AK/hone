@@ -29,7 +29,28 @@ the HTTP half is already next door to cite. The reps are `sql` reps, and the eas
 rather than a definition: read an update whose `WHERE` carries the version, and say what zero rows
 affected means.
 
-## 2. Operating a model dependency over time
+## 2. Which way the system leans
+
+Every mechanism is written down and the axis that chooses between them is not. `replication.md` is
+scaling reads, `sharding-and-partitioning.md` is scaling writes, `what-an-index-costs.md` is the tax
+reads charge writes, `caching-patterns.md` is who fills the cache, and `scaling-up-and-out.md` is
+what has to leave the process first. What no page says is that the ratio decides which of those is
+even relevant, and that the answer is usually one number nobody has measured.
+
+The inference is the content: a read replica does nothing for a write problem, and an index that
+fixed the page slowed the nightly import. It fills a traps section honestly, which is the test that
+decides whether this is a page at all: the replica bought for the wrong bottleneck, the index that
+moved the cost somewhere nobody was watching, and the ratio measured off page views when every view
+writes an analytics row.
+
+The risk is worth writing down too, because this is a connective page rather than new material, and
+that is the shape most likely to come out a survey. If it cannot be written without restating the
+five pages above, it is not a page, and the honest outcome is a paragraph added to
+`scaling-up-and-out.md` instead. It lives in `systems/`, and the reps exist already:
+`sys-cache-aside-vs-write-through` and `sql-index-unused-cost` are both this decision seen from one
+end.
+
+## 3. Operating a model dependency over time
 
 Two pages, both about the half of the AI section that is not one request. The section covers what a
 call costs, what comes back and what you do with it; nothing covers living with the dependency for a
@@ -56,7 +77,7 @@ read from the other end, and rollback is the part people discover late, because 
 back may no longer be served. This joins two sections that already exist rather than opening one, and
 `dependencies/updating-a-dependency.md` is the page it should argue with.
 
-## 3. The rest of the decks
+## 4. The rest of the decks
 
 Two decks suggest themselves and cannot be written, both for the same reason: `page` is mandatory and
 neither has one. No page owns the redirect codes, 301 against 302 against 307 against 308. Time
@@ -74,7 +95,7 @@ worth re-reading for the contrast set it just made checkable.
 `packages/decks/content/` is the inventory, and a deck named there and not on disk is a name that
 changed, not a deck that is missing.
 
-## 4. Sections with no practice behind them yet
+## 5. Sections with no practice behind them yet
 
 These are last because nothing in the problem set is waiting on them.
 
@@ -130,7 +151,7 @@ page, Will Larson's migrations essay, the listed books.
 
 ## The last pass, and what finishing means
 
-The four sections above are the whole content queue, and it is meant to run out. An empty roadmap is
+The five sections above are the whole content queue, and it is meant to run out. An empty roadmap is
 the intended end of this project rather than a failure to think of more work: the subject is
 practical knowledge for web engineering and AI engineering judged against a 15-minute morning, and
 that is a finite thing to cover. Everything past it is maintenance, which is a page going stale or a
