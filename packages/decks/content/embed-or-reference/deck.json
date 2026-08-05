@@ -1,0 +1,74 @@
+{
+  "slug": "embed-or-reference",
+  "title": "Embed or reference",
+  "summary": "Which side of a relationship goes inside the document and which one gets a link, and what each answer charges you on every read and every write.",
+  "order": 9,
+  "minutes": 5,
+  "page": "databases/rows-or-one-document",
+  "practise": ["sql-copied-column-drift", "sql-embedded-list-grows", "sql-order-totals"],
+  "sources": [
+    {
+      "author": "MongoDB",
+      "title": "Best Practices for Data Modeling in MongoDB",
+      "url": "https://www.mongodb.com/docs/manual/data-modeling/best-practices/"
+    },
+    {
+      "author": "MongoDB",
+      "title": "Avoid Unbounded Arrays",
+      "url": "https://www.mongodb.com/docs/manual/data-modeling/design-antipatterns/unbounded-arrays/"
+    },
+    {
+      "author": "MongoDB",
+      "title": "Transactions",
+      "url": "https://www.mongodb.com/docs/manual/core/transactions/"
+    },
+    {
+      "author": "Amazon Web Services",
+      "title": "NoSQL design for DynamoDB",
+      "url": "https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-general-nosql-design.html"
+    },
+    {
+      "author": "PostgreSQL",
+      "title": "JSON Types",
+      "url": "https://www.postgresql.org/docs/current/datatype-json.html"
+    }
+  ],
+  "verified": "2026-08-04",
+  "cards": [
+    {
+      "id": "order-items-against-product-reviews",
+      "front": "An order's line items, and a product's reviews. Same shape of relationship, opposite answers. Which is which, and why?",
+      "back": "Items embed, reviews reference. The items are written once with the order, read with it, and bounded by it. Reviews arrive from elsewhere at their own times and nothing stops them growing, which is high cardinality and unbounded growth, two of MongoDB's reasons to link rather than embed."
+    },
+    {
+      "id": "the-atomicity-test",
+      "front": "Two pieces of data have to commit or fail as one. What does that decide about the boundary between them?",
+      "back": "That they want to be one document. An operation on a single document is atomic, so capturing the relationship inside one is what removes the need for a transaction. MongoDB says the direction runs that way rather than the other: transactions are not a replacement for effective schema design."
+    },
+    {
+      "id": "the-array-with-no-ceiling",
+      "front": "An embedded array has reached 40,000 entries and the page shows ten of them. Name the two costs, and the ceiling you are heading for.",
+      "back": "Every read reads the whole document and every edit rewrites it, so ten reviews cost forty thousand. The ceiling is the 16MB BSON document size limit, and MongoDB names the drag before you reach it too: an unbounded array can strain resources and decrease index performance."
+    },
+    {
+      "id": "which-copy-is-the-name",
+      "front": "An order carries the customer's name, copied at checkout. The customer changes it. Which reading makes the old orders correct?",
+      "back": "That the field is the name as it was at the order, a snapshot, and the field name should say so. Read as a cache of the current name it is stale, and every rename owes a write to every order that copied it. Both are defensible; leaving it undecided is not."
+    },
+    {
+      "id": "what-you-must-know-first",
+      "front": "What do you have to know before designing a DynamoDB schema that you can postpone when designing for an RDBMS?",
+      "back": "The questions it will have to answer. AWS puts it plainly: for a relational database you can create a normalized model without thinking about access patterns and extend it later, while for DynamoDB you shouldn't start until you know the query patterns. MongoDB's version is that data accessed together is stored together."
+    },
+    {
+      "id": "what-jsonb-does-not-keep",
+      "front": "You reach for a Postgres `jsonb` column instead of columns. What does it not preserve?",
+      "back": "Key order, duplicate keys, and whitespace: it stores a decomposed binary format rather than your text, and where a key repeats only the last value is kept. What you get for that is processing without reparsing, and indexing, which the plain `json` type does not support."
+    },
+    {
+      "id": "the-child-with-its-own-life",
+      "front": "The child is queried on its own, by screens that never load the parent. Does that argue for embedding or referencing?",
+      "back": "Referencing. MongoDB lists it as its own reason: the child side can exist by itself without a parent. Embedding it means every one of those screens either loads a parent it does not want or reads through an index into somebody else's document."
+    }
+  ]
+}
