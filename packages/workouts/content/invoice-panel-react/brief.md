@@ -41,8 +41,3 @@ button, and the total by its `aria-label`.
 - In the real thing the invoice arrives from an API rather than a constant. Work out which of the
   values in this component survives that change unaltered, and which one turns into a cache with
   staleness of its own.
-
-## Read about it
-
-- [Where state lives](/handbook/react/where-state-lives)
-- [What a render actually is](/handbook/react/what-a-render-is)

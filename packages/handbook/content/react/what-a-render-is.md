@@ -7,6 +7,7 @@ practise:
   - react-batching-scope
   - react-functional-update
   - react-state-object-mutation
+  - invoice-panel-react
 sources:
   - author: React
     title: Render and Commit

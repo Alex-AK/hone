@@ -63,8 +63,3 @@ handler works with comes off it rather than sitting beside it.
   whose label it owns, and whether a machine-readable `code` belongs next to `message`.
 - The same schema would run in the browser before the request is sent. Work out what that saves, and
   what the server still has to do afterwards.
-
-## Read about it
-
-- [What the compiler erases](/handbook/typescript/what-the-compiler-erases)
-- [Pagination](/handbook/apis/pagination)

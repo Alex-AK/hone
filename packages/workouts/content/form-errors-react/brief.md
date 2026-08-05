@@ -53,9 +53,3 @@ and where `document.activeElement` ends up.
   other half of that pattern; work out what each link has to do to be worth having.
 - Disabling the button takes it out of the tab order while the request is running. Work out where
   that leaves the keyboard, and whether the answer changes once focus is somewhere else.
-
-## Read about it
-
-- [Announcing what changed](/handbook/browser/announcing-change)
-- [Focus, and the three things that break it](/handbook/browser/focus)
-- [Submitting a form](/handbook/browser/submitting-a-form)

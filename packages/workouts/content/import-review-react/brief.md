@@ -59,7 +59,3 @@ its `option` role and the reference it shows, and the count by its `aria-label`.
 - `Ctrl-F` finds only the rows on screen, and so does printing. Work out which of the three
   complaints above would still have happened if this list were paginated instead, and which would
   not.
-
-## Read about it
-
-- [Long lists](/handbook/react/long-lists)

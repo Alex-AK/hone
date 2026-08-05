@@ -53,7 +53,3 @@ each published value by its `aria-label`.
   send: what is in the box now, or what the failed save carried.
 - The panel bets on every save succeeding. Work out what changes if the server can also answer with a
   corrected value, a display name it trimmed or truncated, rather than a yes or a no.
-
-## Read about it
-
-- [Where state lives](/handbook/react/where-state-lives)

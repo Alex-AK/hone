@@ -8,6 +8,7 @@ practise:
   - a11y-focus-trap-modal
   - html-dialog-showmodal
   - autocomplete-react
+  - form-errors-react
 sources:
   - author: MDN
     title: tabindex

@@ -7,6 +7,7 @@ practise:
   - http-pagination-cursor
   - slow-list-endpoint-kysely
   - records-sorting-drizzle
+  - request-boundary-zod
 sources:
   - author: PostgreSQL
     title: 'Queries: LIMIT and OFFSET'

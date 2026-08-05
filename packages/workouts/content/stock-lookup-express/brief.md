@@ -59,8 +59,3 @@ balancer, and a delivery that lands on one of them has to be true on the other.
   handler, and what your key would do with it.
 - Nothing here stores a miss. Decide whether a lookup for a branch nobody has ever heard of should
   get an entry of its own, and what it costs you either way.
-
-## Read about it
-
-- [Cache keys and Vary](/handbook/caching/cache-keys-and-vary)
-- [The hard parts](/handbook/caching/the-hard-parts)

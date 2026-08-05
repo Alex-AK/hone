@@ -45,8 +45,3 @@ response is the one you set.
   answer, and what a `PUT` should answer to the same header.
 - Express generates an ETag for you, from a hash of the body it has already built. Work out which
   half of this workout that gives you and which half it leaves exactly where it was.
-
-## Read about it
-
-- [Revalidation](/handbook/caching/revalidation)
-- [no-store, no-cache and max-age=0](/handbook/caching/no-store-no-cache-max-age)

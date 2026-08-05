@@ -60,7 +60,3 @@ The handler can be `async`: Express 5 takes the promise you return, and turns a 
   rather be reading at 3am with the export broken.
 - This export gzips to a sixth of its size. Work out where `zlib.createGzip()` goes, and what the
   number this workout measures does once a second stream is in the chain.
-
-## Read about it
-
-- [Backpressure](/handbook/server-runtime/backpressure)

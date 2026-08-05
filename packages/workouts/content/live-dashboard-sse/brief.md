@@ -63,8 +63,3 @@ calling functions, which is why none of this waits on a clock.
   between a cookie and a token in the query string, and work out which one you can live with.
 - One held-open connection lives on exactly one server instance. Sketch what has to change the day
   there are two of them and the reading is published on the other one.
-
-## Read about it
-
-- [Server-Sent Events](/handbook/moving-data/server-sent-events)
-- [Choosing a transport](/handbook/moving-data/choosing-a-transport)

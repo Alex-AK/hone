@@ -7,6 +7,7 @@ practise:
   - http-cache-control
   - http-etag-conditional
   - security-token-storage
+  - conditional-requests-express
 sources:
   - author: MDN
     title: HTTP caching

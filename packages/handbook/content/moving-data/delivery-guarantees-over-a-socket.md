@@ -8,6 +8,7 @@ practise:
   - sys-ack-after-work
   - sys-idempotency
   - live-dashboard-sse
+  - shared-card-websocket
 sources:
   - author: IETF
     title: 'RFC 6455: The WebSocket Protocol'

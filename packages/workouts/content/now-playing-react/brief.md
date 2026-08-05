@@ -46,8 +46,3 @@ part of the panel. Nothing is timed, and nothing on screen may change.
   of this panel would look different with one of them, and which would look the same.
 - The clock moves several times a second and the play button moves twice an episode, and both of them
   are player state. Decide whether they would ever be worth sharing.
-
-## Read about it
-
-- [Context and re-render scope](/handbook/react/context-and-rerender-scope)
-- [Memo, and what it cannot fix](/handbook/react/memo-and-what-it-cannot-fix)

@@ -10,6 +10,7 @@ practise:
   - react-controlled-input
   - forms-controlled-value-null
   - forms-debounce-validation
+  - form-errors-react
 sources:
   - author: WHATWG
     title: HTML Standard, 4.10.22.2 Implicit submission

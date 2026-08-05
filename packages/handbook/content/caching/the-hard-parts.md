@@ -9,6 +9,7 @@ practise:
   - js-map-vs-object
   - dom-localstorage-json
   - rate-limit-express
+  - stock-lookup-express
 sources:
   - author: MDN
     title: HTTP caching

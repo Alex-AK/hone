@@ -7,6 +7,7 @@ practise:
   - react-memo-inline-prop
   - react-usecallback-cost
   - react-derive-write-time
+  - now-playing-react
 sources:
   - author: React
     title: memo

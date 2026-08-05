@@ -92,8 +92,3 @@ the title by its heading, the status by its label, and the refusal by `role="ale
   way through.
 - One room lives in one process. Sketch what has to change the day there are two of them and the two
   people are connected to different ones.
-
-## Read about it
-
-- [WebSockets](/handbook/moving-data/websockets)
-- [Delivery guarantees over a socket](/handbook/moving-data/delivery-guarantees-over-a-socket)
