@@ -1158,3 +1158,48 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   split: the read-only half has no code execution, no accounts and no user data, so publishing it is
   a static build and nothing more, while the full app stays local or behind a private network. What
   does not happen is the whole thing on a public interface because the handbook wanted a URL.
+
+- **ADR-0154 — A hosted, client-only build was designed in full and declined, and the reason is the
+  audience rather than the engineering.** The design: content baked into a static bundle at build
+  time, which it already is on disk; `apps/web/src/lib/api.ts` reimplemented against local storage,
+  which is the only module in the web app that calls `fetch`; the user tables onto SQLite compiled to
+  WebAssembly so the queue and review-ladder logic survives instead of being rewritten by hand;
+  `node:vm` onto a sandboxed frame; progress kept on device with export, import, and a user-picked
+  file handle for backup. No accounts, no server, no capacity question.
+
+  **It would have held ADR-0004 better than self-hosting does**, which is the opposite of how it
+  looks. A static build cached after first load makes no runtime network call at all, while a
+  self-hosted server puts an HTTP round trip on every grade. Local-first survives static hosting and
+  dies at self-hosting.
+
+  Two things were established on the way and are worth keeping whatever happens next. **Needing a
+  daemon is one workout rather than a property of workouts:** `orders-migration-postgres` is the only
+  manifest declaring `requires`, and most of the set is a library problem a browser can host. And
+  **the ceiling that would have been permanent is not arbitrary, it is that a browser can host
+  anything that is a library and nothing that is an operating-system fact.** PGlite serves one
+  connection, which is ADR-0146 restated: the `55P03` lesson needs a second session to be refused and
+  there is none. The same line cuts off the three sections the roadmap has not written yet, because
+  isolation, Unix and production are processes, signals, namespaces and file descriptors, and a tab
+  has none of those.
+
+  Declined because the goal is a practice tool for the author and for people in the same position,
+  and those people can clone a repo. The friction a hosted build removes is not friction for them; it
+  is friction for a drive-by visitor who never returns, and everything this app is good at is
+  longitudinal and therefore invisible in the ninety seconds such a visitor spends. What it would
+  have cost is a second workout runtime validated in CI against the same solutions and starters for
+  as long as both builds exist, or hosted grades quietly drift from local ones. That is a permanent
+  tax paid to reach an audience the project does not have.
+
+  **Self-hosting the server version is also worse than ADR-0145 says**, and the evidence belongs
+  here rather than as a quiet edit to that entry. `node:vm` is the argument recorded there, and three
+  more sit under it. `CurrentUserService` returns a hardcoded id, so every visitor is one account
+  with one streak and one queue. `activeAttempt` finds one attempt per slug, so two people on the
+  same workout share a workspace directory and overwrite each other's files with no locking. And the
+  runner has no admission control of any kind, so concurrent runs thrash a machine and checkpoints
+  exceed the scaffold's ten-second `testTimeout`. That last one is the sharp one: **overload here
+  does not look like slowness, it looks like the content being wrong**, because a timed-out
+  checkpoint reports as failed and tells somebody their correct answer is incorrect.
+
+  Per ADR-0146's own lesson, the reversal condition is named rather than left implicit: reopen if the
+  goal changes from a personal practice tool to reach, and re-derive rather than assume this entry
+  was right, because the engineering here was never what decided it.

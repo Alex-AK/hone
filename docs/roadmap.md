@@ -224,6 +224,10 @@ Listed so they are decisions rather than oversights. The arguments live in
   rebase, the knowledge is muscle memory rather than a model that people get wrong, and a page on it
   would restate documentation the reader can already reach. Recorded because its absence is
   conspicuous enough to look like an oversight.
+- **A hosted build with the data in the browser**, designed in full and declined in ADR-0154. Not on
+  capacity grounds: most workouts would port, and it would have held ADR-0004 better than a
+  self-hosted server does. It is declined because the audience is people who can clone a repo, so the
+  friction it removes is not friction for them. ADR-0154 also names what would reopen it.
 - **A FastAPI workout**, which would put a Python runtime in the workout runner.
 - **React Native and desktop**, until the web map is substantially built.
 - **Interactive diagrams**, which are application code per diagram.
