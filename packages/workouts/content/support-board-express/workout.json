@@ -1,0 +1,41 @@
+{
+  "slug": "support-board-express",
+  "title": "The board the client already knows how to draw",
+  "kind": "feature",
+  "minutes": 25,
+  "difficulty": "medium",
+  "relevance": "daily",
+  "stack": {
+    "server": "express",
+    "database": "sqlite"
+  },
+  "summary": "The support board went out on the client side first, against a stub. Now it points at the real endpoint and it draws four columns instead of five, the numbers under the headings are all 10, and it refuses about half the payload outright. The client shipped last week and is not changing.",
+  "focus": ["api design", "n+1", "sql", "payload shape"],
+  "editable": ["src/server/board.ts"],
+  "checkpoints": [
+    {
+      "id": "every-column-comes-back",
+      "title": "Every column comes back, including the one with nothing in it",
+      "testFile": "tests/checkpoints/01-every-column-comes-back.test.ts",
+      "hint": "Walking the rows can only produce the statuses somebody has a ticket in, so an empty column is missing rather than empty. `STATUSES` is what the response is built from, and each status looks its own tickets up."
+    },
+    {
+      "id": "a-count-counts-the-column",
+      "title": "The number under a heading counts the column, not the page",
+      "testFile": "tests/checkpoints/02-a-count-counts-the-column.test.ts",
+      "hint": "`total` is being read off the cards that were sent, which the page size has already capped at ten. The number the client wants is how many tickets are in that status altogether, and nothing in a query with a LIMIT on it knows that. Ask for it."
+    },
+    {
+      "id": "a-busy-board-costs-the-same",
+      "title": "A busy board costs the same as a quiet one",
+      "testFile": "tests/checkpoints/03-a-busy-board-costs-the-same.test.ts",
+      "hint": "The agent's name is fetched per card, so 37 cards is 37 round trips and a quiet board looks fine. Join the agents table into the query that reads the tickets. A query per column is constant work and passes; one statement for the whole board is `ROW_NUMBER() OVER (PARTITION BY status ...)` filtered to the page size."
+    },
+    {
+      "id": "the-payload-matches-the-contract",
+      "title": "The payload is the shape the client declared",
+      "testFile": "tests/checkpoints/04-the-payload-matches-the-contract.test.ts",
+      "hint": "Run the response through `parseBoard` and read the paths it complains about. Three of them are conversions the database will not do for you, and the fourth is a key that is absent when it should be present and null. The order needs a second key as well: five tickets share an `updated_at` to the millisecond."
+    }
+  ]
+}
