@@ -1,0 +1,41 @@
+{
+  "slug": "team-poll-react",
+  "title": "The poll board, from what the API actually sends",
+  "kind": "feature",
+  "minutes": 22,
+  "difficulty": "medium",
+  "relevance": "daily",
+  "stack": {
+    "client": "react",
+    "server": "local fixture API"
+  },
+  "summary": "Everyone picks one topic for the next lunch and learn. The endpoint takes a vote and hands back every vote anybody has cast, one row each, in the order they arrived. The board on the page has to be the ordered, per-topic version of that, and the backend team has nothing free this quarter.",
+  "focus": ["react state", "grouping", "sorting", "rounding"],
+  "editable": ["src/client/PollBoard.tsx", "src/client/tally.ts"],
+  "checkpoints": [
+    {
+      "id": "a-vote-is-cast",
+      "title": "A vote is cast, and the board is the answer that came back",
+      "testFile": "tests/checkpoints/01-a-vote-is-cast.test.tsx",
+      "hint": "The submit handler sends nothing. `castVote` takes the topic id as a number under `topicId`, and the votes it answers with are the whole poll including the one just cast, so they replace what the component is holding rather than adding to it. Nothing may be posted while no topic is chosen."
+    },
+    {
+      "id": "every-topic-is-on-the-board",
+      "title": "Every topic is on the board, including the ones nobody chose",
+      "testFile": "tests/checkpoints/02-every-topic-is-on-the-board.test.tsx",
+      "hint": "Walking the votes can only produce the topics somebody voted for, so a topic with none is missing rather than zero. The ballot is what the board is drawn from, and each row looks its own count up. Check what the ids either side of that lookup actually are."
+    },
+    {
+      "id": "most-votes-first",
+      "title": "Most votes first, and a tie is settled the same way every time",
+      "testFile": "tests/checkpoints/03-most-votes-first.test.tsx",
+      "hint": "Whatever order comes out of the grouping is not an order anybody asked for: keys that look like whole numbers come back in numeric order, whichever order they went in. Sort by count, fall back to the title, and sort a list of your own rather than the ballot you were handed."
+    },
+    {
+      "id": "the-shares-add-up",
+      "title": "The shares add up to 100",
+      "testFile": "tests/checkpoints/04-the-shares-add-up.test.tsx",
+      "hint": "Rounding each share on its own loses the total: three topics on five votes each is 33 three times over, and the board says 99. Floor every share, count how many points that left over, and give them to the topics whose exact share was cut by the most. Board order settles a tie for one of those points."
+    }
+  ]
+}
