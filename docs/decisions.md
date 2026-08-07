@@ -618,6 +618,21 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   deliberate red goes quiet: ADR-0059's failure that names the slug never appears if the machine
   cannot meet what the manifest just declared.
 
+- **ADR-0153 — The runner is the content safety net, so there is no version of this project without
+  it.** `workouts.spec.ts` imports `runCheckpoints` from `workout-runner.ts` and drives every workout
+  twice, once from `files/` and once from `solution/`, which is the whole of "winnable and not
+  already won". So the runner has two jobs and only one of them is serving a page.
+
+  Recorded because the second job is invisible from outside. "Could the workout endpoints go away"
+  reads like a question about delivery and is a question about whether workout content stays safe to
+  edit, and the two have opposite answers. Anything that deletes the Node runner also deletes the
+  only thing standing between a broken workout and somebody meeting it mid-practice, which is the
+  failure `workouts.spec.ts` exists to make impossible.
+
+  The general form: **a suite that drives the runtime rather than reimplementing it makes that
+  runtime load-bearing twice, and the second load is the one nobody remembers when scoping its
+  removal.**
+
 ## The handbook
 
 - **ADR-0067 — Pages are markdown that reads fine on GitHub.** The repo is public and that reach costs nothing.
