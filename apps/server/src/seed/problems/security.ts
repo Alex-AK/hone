@@ -1239,4 +1239,95 @@ export const securityProblems: ProblemDraft[] = [
     explanation:
       "Express middleware is a list walked in registration order, and the walk stops the moment something responds instead of calling `next()`. A limiter registered below the routes is therefore protecting only the paths that reached the end of the list without being answered, which is to say the 404s. Run this and the numbers are stark: six logins in a row leave the limiter at zero calls, the same limiter moved above `app.use('/api', apiRoutes)` runs on every one of them, and a request to a path with no route does reach it. Order is the whole configuration for anything mounted with `app.use`, which is why the security-relevant ones go at the top, and why a limiter aimed at a specific endpoint is better mounted on that path than left to the end of the file.",
   },
+
+  {
+    slug: 'security-unguessable-id-not-authorization',
+    title: 'The id nobody can guess',
+    category: 'security',
+    difficulty: 'medium',
+    relevance: 'daily',
+    type: 'explain',
+    prompt: md(
+      "A customer changed the number in the address bar and read somebody else's invoice:",
+      '',
+      code(
+        'text',
+        'GET /invoices/4471   -> 200, their own',
+        'GET /invoices/4472   -> 200, a different company'
+      ),
+      '',
+      'The proposal on the ticket is to move invoice ids to random UUIDs. Say what that fixes, and what still has to change.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'does not fix',
+            "doesn't fix",
+            'not a fix',
+            'not authorization',
+            'not authorisation',
+            'authorization check',
+            'authorisation check',
+            'authorize',
+            'authorise',
+            'belongs to',
+            'owns it',
+            'ownership',
+            'the owner',
+            'permission',
+            'allowed to',
+            'who is asking',
+            'the requester',
+            'scope the query',
+            'scoped to',
+          ],
+          missingFeedback:
+            'The handler answered both requests without objecting. Say what it never did, and has to.',
+        },
+        {
+          synonyms: [
+            'guess',
+            'enumerat',
+            'walk',
+            'harder to find',
+            'cannot be predicted',
+            'unpredictable',
+            'not sequential',
+            'how many',
+            'leaks',
+            'crawl',
+            'defence in depth',
+            'defense in depth',
+            'buys',
+          ],
+          missingFeedback:
+            'A random id does change something. Say what it costs an attacker, and what it stops leaking.',
+        },
+      ],
+      hints: [
+        'Ask what the handler checked before it answered the second request. Nothing about the id changes that answer.',
+        'A random id makes the next invoice hard to find. It does not make it refused.',
+        'The fix is to scope the read to the requester: the invoice has an owner, and the query has to say so.',
+      ],
+    },
+    canonicalAnswer:
+      'It does not fix it. The handler answered both requests without ever checking whether the invoice belongs to whoever asked, and that check is still missing whatever the id looks like: scope the query to the requester and answer 404 when it comes back empty. What a random id buys is that the ids stop being walkable, so nobody can crawl the whole table by counting, and sequential numbers stop leaking how many invoices exist and how fast they arrive. That is defence in depth, not access control.',
+    solution: md(
+      '- **What a UUID fixes**: guessing. The next invoice is no longer `id + 1`, so a walk of the whole table stops being free, and the number stops leaking how many invoices there are.',
+      '- **What still has to change**: the authorisation check. The handler has to establish that this invoice belongs to whoever is asking, and refuse otherwise.',
+      '',
+      code(
+        'js',
+        '// before: the id is the whole of the authorisation',
+        'const invoice = await db.invoice.findUnique({ where: { id } });',
+        '',
+        '// after: the requester is part of the question',
+        'const invoice = await db.invoice.findFirst({ where: { id, accountId: req.user.accountId } });',
+        'if (!invoice) return res.sendStatus(404);'
+      )
+    ),
+    explanation:
+      'This is a broken object level authorisation bug, which OWASP puts first on its API list, and it survives every id scheme because the id was never the access control. The rule is that a reference supplied by the caller is an input like any other: the handler decides what that caller may see, rather than trusting that they only asked for what they can reach. Scoping the query is stronger than fetching and then comparing, because there is no path where the row is loaded and the check is forgotten. Answer 404 rather than 403 where the existence of the record is itself worth hiding. Unguessable ids are still worth having, and they buy the second half of this: they make an automated sweep expensive and they stop a sequence leaking your volume to anyone who orders twice.',
+  },
 ];

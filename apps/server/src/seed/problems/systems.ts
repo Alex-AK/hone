@@ -1206,4 +1206,105 @@ export const systemsProblems: ProblemDraft[] = [
     explanation:
       "Half-open intervals are the answer anywhere a range is one of a sequence, which is every scheduled job that has a window. The tempting repair is to nudge the upper bound down by a second, and it trades double-counted rows for missing ones: anything landing inside that second now belongs to no window at all, and nothing will look at it again. The same inclusivity bites an ordinary date filter written as `BETWEEN '2024-01-01' AND '2024-01-31'`, which silently drops everything that happened during the 31st after midnight. The other property a windowed job needs is that rerunning it changes nothing, which means an upsert rather than an append, because the day it dies halfway through is not the day to find out.",
   },
+
+  {
+    slug: 'sys-id-scheme-tradeoff',
+    title: 'Which endpoint scales better',
+    category: 'systems',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'A design review is split between two shapes for the same resource:',
+      '',
+      code(
+        'text',
+        'A   GET /users/123456789                              sequential integer, assigned by the database',
+        'B   GET /users/0f9c2b4d-7a81-4e23-b5f2-9d7a6c3e8f11   random UUID (v4)'
+      ),
+      '',
+      'The slide asks which one scales better. Say what the question leaves out, and where the two choices actually differ.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'does not say',
+            "doesn't say",
+            'not specified',
+            'unspecified',
+            'no numbers',
+            'cannot answer',
+            'cannot be answered',
+            'underspecified',
+            'depends what',
+            'depends on what',
+            'scales at what',
+            'scale at what',
+            'what load',
+            'which load',
+            'how many',
+            'nothing about the system',
+            'no information about',
+          ],
+          missingFeedback:
+            '"Scales better" is not one question. Say what the slide would have to tell you before it had an answer.',
+        },
+        {
+          synonyms: [
+            'the url',
+            'the route',
+            'same endpoint',
+            'endpoint is the same',
+            'endpoints are the same',
+            'not the endpoint',
+            'nothing to do with the endpoint',
+            'costs the same to serve',
+            'same cost to serve',
+            'primary key lookup',
+            'by its primary key',
+            'by primary key',
+            'one row by its key',
+          ],
+          missingFeedback:
+            'Both routes do the same work when a request arrives. Say what that means for the question as asked.',
+        },
+        {
+          synonyms: [
+            'insert',
+            'b-tree',
+            'btree',
+            'page split',
+            'scatter',
+            'all over the index',
+            'locality',
+            'append',
+            'the end of the index',
+            'wider',
+            'bigger index',
+            'larger index',
+            '16 bytes',
+            'sixteen bytes',
+            'write path',
+          ],
+          missingFeedback:
+            'One of these keys arrives in order and the other does not. Say what that changes, and where.',
+        },
+      ],
+      hints: [
+        'Ask what a request for one user actually costs on each. Then ask what a thousand new users a minute costs.',
+        'One key always lands next to the last one written. The other lands anywhere.',
+        'The other half is the question itself: scales against what, at what volume, written by how many machines?',
+      ],
+    },
+    canonicalAnswer:
+      'The question cannot be answered as asked: it does not say whether it means reads or writes, at what volume, or how many machines are minting ids. Serving the request is identical either way, since both are a lookup of one row by its primary key, so the endpoint is not where the difference is. The difference is at the write. A sequential key appends to the end of the index, and a random UUID lands anywhere in it, so inserts scatter across pages that are no longer in cache and cause page splits. It is also wider, 16 bytes against 4 or 8, and every secondary index carries a copy of it.',
+    solution: md(
+      '- **What the slide leaves out**: what "scales" means here. Read volume, write volume, and how many machines are generating ids all point at different answers, and there are no numbers.',
+      '- **What is the same**: serving either request. Both are one row looked up by its primary key, so the URL is not where any cost lives.',
+      '- **Where they differ**: the write. Sequential ids append to the end of the index; random ones scatter across it, so inserts touch cold pages and split them. The random key is also wider, and every secondary index stores a copy.'
+    ),
+    explanation:
+      'The framing is the trap: identifiers are a write-path and a coordination decision, and the URL they end up in is the one place they make no difference. What sequential ids cost is a coordinator, which is why they are awkward the moment ids come from more than one writer, and what random ones cost is insert locality in a B-tree. Both costs have a well-known escape: UUIDv7 and ULID put a timestamp in the high bits, so ids stay globally unique and still arrive roughly in order, which is why "integer or UUID" is a false pair. Postgres and MySQL both feel the scatter, MySQL harder, because InnoDB clusters the whole row on the primary key. There is a real argument for a client-minted id that has nothing to do with any of this: the client knows the id before the round trip, so a retry is idempotent and a graph of related rows can be written in one batch.',
+  },
 ];
