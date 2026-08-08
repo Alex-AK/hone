@@ -1,7 +1,7 @@
 ---
 title: Query refactorings that matter
 question: I rewrote the query and got the same rows back. Did the database actually do less work?
-order: 9
+order: 10
 practise:
   - sql-not-exists
   - sql-anti-join

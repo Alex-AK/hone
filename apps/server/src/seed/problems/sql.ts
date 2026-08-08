@@ -1992,6 +1992,117 @@ export const sqlProblems: ProblemDraft[] = [
   },
 
   {
+    slug: 'sql-for-update-across-requests',
+    title: 'The row lock that stopped nothing',
+    category: 'sql',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'An edit page loads a document with `GET /documents/42` and saves the whole form back with `PUT /documents/42`. Two people had the page open and saved a minute apart. Both got a 200, and one of them has lost a paragraph.',
+      '',
+      'The `PUT` handler, wrapped in a transaction:',
+      '',
+      code(
+        'sql',
+        'SELECT * FROM documents WHERE id = 42 FOR UPDATE;',
+        'UPDATE documents SET title = $1, body = $2 WHERE id = 42;'
+      ),
+      '',
+      'Say why the lock did not stop it, and what would.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'earlier request',
+            'previous request',
+            'other request',
+            'the get',
+            'get request',
+            'when the page loaded',
+            'when the form',
+            'two requests',
+            'both requests',
+            'one request',
+            'across requests',
+            'between the requests',
+            'in the put',
+            'the gap',
+            'released',
+            'released at commit',
+            'does not span',
+            'cannot span',
+            'only lasts',
+            'only exists',
+            'only held',
+            'starts too late',
+            'too late',
+          ],
+          missingFeedback:
+            'The lock is taken when the PUT arrives. Say when the values being written were read.',
+        },
+        {
+          synonyms: [
+            'overwrite',
+            'overwrites',
+            'overwrote',
+            'overwritten',
+            'wrote over',
+            'over the top',
+            'whole row',
+            'every field',
+            'whole form',
+            'stale',
+            'lost update',
+            'threw away',
+            'thrown away',
+            'clobber',
+            'no error',
+            'reported success',
+          ],
+          missingFeedback:
+            'The UPDATE ran happily. Say what it wrote over, and what the second writer was told.',
+        },
+        {
+          synonyms: [
+            'version',
+            'etag',
+            'if-match',
+            'if match',
+            'optimistic',
+            'updated_at',
+            'in the where',
+            'zero rows',
+            '0 rows',
+            'no rows',
+            'conflict',
+            '409',
+            '412',
+          ],
+          missingFeedback:
+            'Nothing you hold survives between two requests. Say what can be carried instead.',
+        },
+      ],
+      hints: [
+        'Write down the two moments: when the text being saved was read, and when the lock was taken.',
+        'A row lock is released when its transaction ends, and the transaction is inside one request.',
+        'Something has to travel out with the GET and come back with the PUT.',
+      ],
+    },
+    canonicalAnswer:
+      'The lock is taken when the PUT arrives, and the values being written were read in the GET that rendered the form, one request and a minute earlier. A row lock is released at the end of its transaction, so nothing was holding the row across that gap, and the UPDATE then wrote the whole form over whatever the other person had committed in between. Both writers were told 200 because neither statement claimed anything about the row still being what they read. The fix is to carry a version or an ETag out with the GET and back with the PUT, put it in the WHERE, and treat 0 rows affected as a conflict rather than as success.',
+    solution: md(
+      'The lock covered the wrong gap.',
+      '',
+      '- **Why it did nothing**: it starts when the `PUT` arrives, and the text being saved was read in the earlier `GET`. Row locks end with their transaction, and a transaction cannot span two requests.',
+      '- **What would**: carry the version read by the `GET` back with the `PUT`, put it in the `WHERE`, and treat 0 rows affected as a conflict.'
+    ),
+    explanation:
+      'Pessimistic locking protects a gap that fits inside one transaction: read, decide, write, commit. This gap does not fit, because it started in a request that has already finished, and no lock outlives the transaction that took it. That is what optimistic locking is for, and the difference is what crosses the boundary: a lock cannot, a version can. The same check appears one layer up as `If-Match` on the `PUT`, where a mismatch is a 412 instead of a row count of 0. Adding `FOR UPDATE` here is not free either, since the lock is now held for the length of the transaction that does not need it.',
+  },
+
+  {
     slug: 'sql-serializable-needs-retry',
     title: 'The isolation level that started returning 500s',
     category: 'sql',

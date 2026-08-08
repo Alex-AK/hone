@@ -1,7 +1,7 @@
 ---
 title: Rows, or one document
 question: Does this thing want rows and joins, or one document I read whole?
-order: 11
+order: 12
 practise:
   - sql-copied-column-drift
   - sql-join-author-name
