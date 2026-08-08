@@ -1155,4 +1155,204 @@ export const aiEngineeringProblems: ProblemDraft[] = [
     explanation:
       'Every call the turn asked for is answered together in the next message, and that is a rule rather than a preference: a `tool_use` block left without a result is a malformed conversation, and the API says so. A call that failed is still a result, so it goes back marked as an error with a message worth reading, where the model can adapt to it. Letting it throw instead ends the conversation rather than the call, and a call you decided not to run needs a result too, saying that.',
   }),
+
+  {
+    slug: 'ai-cache-prefix-invalidated',
+    title: 'Three edits, one cache',
+    category: 'ai-engineering',
+    difficulty: 'easy',
+    relevance: 'daily',
+    type: 'short-text',
+    prompt: md(
+      'An assistant sends the same request shape every turn: a `tools` array, then a system prompt, then the conversation. One `cache_control` breakpoint sits on the last system block, and cache reads were working.',
+      '',
+      'Three changes shipped this week:',
+      '',
+      '1. A new tool was appended to the end of the `tools` array.',
+      '2. The system prompt gained a line reading `Today is 2026-08-07.`, rebuilt on every request.',
+      '3. The questions users type got longer.',
+      '',
+      'Which one of the three leaves the cache still able to hit?'
+    ),
+    graderConfig: {
+      accept: ['3', 'the third', 'the third one', 'change 3', 'the longer questions'],
+      acceptPatterns: ['^\\s*(the\\s+)?(third|3)\\b', 'longer\\s+question'],
+      nearMisses: {
+        '1': 'Tools render before the system prompt, so appending one changes bytes ahead of the breakpoint and everything behind it goes cold.',
+        '2': 'A line rebuilt per request sits inside the cached span, so every request writes a fresh entry and none reads one.',
+        '1 and 2': 'Both of those do invalidate it. The question is which of the three does not.',
+        '2 and 3': 'The date does invalidate it. The longer questions do not.',
+        'all three':
+          'One of them lands entirely behind the breakpoint. Which part of the request renders last?',
+        none: 'Two of them change bytes before the breakpoint, and that is enough.',
+      },
+      closeSubstrings: {
+        'new tool':
+          'Appending a tool still changes `tools`, and `tools` renders before both of the other two.',
+        date: 'A date rebuilt per request is inside the cached span, so it costs you the whole prefix.',
+      },
+      hints: [
+        'Everything before the breakpoint is the cache key. Ask which of the three edits lands there.',
+        '`tools` renders first, then `system`, then `messages`.',
+      ],
+    },
+    canonicalAnswer: '3',
+    solution: md(
+      '3. The questions live in `messages`, which renders after the breakpoint, so they are free to vary.',
+      '',
+      '- **1** changes `tools`, which renders first. A tool edit invalidates the tools cache and everything built on top of it.',
+      '- **2** changes the system prompt, which is inside the cached span. Rebuilt per request, it means every call writes a new entry and reads none.'
+    ),
+    explanation:
+      'Render order is `tools`, then `system`, then `messages`, and a change at one level invalidates that level and every level after it. That is what makes the two expensive edits here look free: appending a tool reads as additive, a date line reads as a one-line copy change, and both sit ahead of the breakpoint. Anything that varies per request belongs behind the last breakpoint, which is why a per-turn value goes in the messages rather than in the preamble. The evidence is in `usage` either way: a working prefix reads on every turn but the first, and a broken one writes on every single one.',
+  },
+
+  {
+    slug: 'ai-cache-breakpoint-placement',
+    title: 'Where the marker goes',
+    category: 'ai-engineering',
+    difficulty: 'easy',
+    relevance: 'daily',
+    type: 'explain',
+    prompt: md(
+      'An extraction endpoint sends the same 15,000-token instruction block and few-shot examples on every call, then the document to extract from, which is different every time. You have one `cache_control` breakpoint to place.',
+      '',
+      'Say which block it goes on, and what you get if you put it on the last block instead.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'shared',
+            'static',
+            'instruction',
+            'few-shot',
+            'few shot',
+            'example',
+            'before the document',
+            'end of the shared',
+            'fixed part',
+            'unchanging',
+            'identical on every',
+            'same on every',
+          ],
+          missingFeedback: 'Name the part of the prompt that is byte-identical on every call.',
+        },
+        {
+          synonyms: [
+            'writes a new',
+            'write a new',
+            'new entry every',
+            'its own entry',
+            'own document',
+            'never read',
+            'never reads',
+            'no read',
+            'never hit',
+            'nothing ever reads',
+            'always writes',
+            'writes every',
+            'miss',
+          ],
+          missingFeedback:
+            'The document is different every time. What does an entry keyed to it give you on the next call?',
+        },
+      ],
+      hints: [
+        'The key is everything from the start of the request up to and including the block you marked.',
+        'Anything after the breakpoint can change without costing you the entry. Anything before it cannot.',
+      ],
+    },
+    canonicalAnswer:
+      'It goes on the last block of the shared instruction and few-shot section, just before the document, because the key is everything up to and including the marked block and everything after it is free to vary. Put it on the last block instead and every request writes a new entry keyed to its own document, so no request ever reads one and you pay the write premium on 15,000 tokens every call.',
+    solution: md(
+      'On the last block of the instructions and examples, immediately before the document.',
+      '',
+      '- **Why there**: the key is everything up to and including the marked block, so the marker goes at the end of the part that never changes. Everything after it is then free to vary.',
+      '- **On the last block instead**: each request stores an entry keyed to its own document, nothing ever reads one, and you have bought the write premium on 15,000 tokens per call. The bill goes up, not down.'
+    ),
+    explanation:
+      'A breakpoint is not a request to cache what follows it. It marks where the cached prefix ends, so the useful placement is always the boundary between what repeats and what does not. Getting it backwards is worse than not caching at all: an entry nobody can read still costs 1.25 times base input to write, so the endpoint pays a premium on every call for a feature it is not using. Check it the same way you check anything else here, by reading `cache_read_input_tokens` on the second request rather than by reasoning about where the marker feels right.',
+  },
+
+  {
+    slug: 'ai-cache-never-reads',
+    title: 'Writing the cache, never reading it',
+    category: 'ai-engineering',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'A support assistant sends a 12,000-token system prompt with a `cache_control` breakpoint on it, and the endpoint is called several times a second. Every response comes back with `cache_creation_input_tokens: 12043` and `cache_read_input_tokens: 0`.',
+      '',
+      'Say what those two numbers together tell you, and name what to go looking for in the code that builds the prompt.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'writing',
+            'writes',
+            'wrote',
+            'never read',
+            'never reads',
+            'no read',
+            'not reading',
+            'never hit',
+            'no hit',
+            'miss',
+            'new entry',
+            'fresh entry',
+            'rewrit',
+            'paying the write',
+            'write premium',
+          ],
+          missingFeedback:
+            'One field is non-zero on every call and the other is never non-zero. Say what that means is happening to the entry.',
+        },
+        {
+          synonyms: [
+            'changes on every',
+            'changes every',
+            'differs',
+            'not identical',
+            'byte-identical',
+            'byte identical',
+            'varies',
+            'varying',
+            'interpolat',
+            'timestamp',
+            'date',
+            'uuid',
+            'session id',
+            'request id',
+            'user id',
+            'per request',
+            'per-request',
+            'rebuilt',
+            'not the same',
+          ],
+          missingFeedback:
+            'A read needs the bytes before the breakpoint to match exactly. What would have to be true of this prompt for every call to write a new entry?',
+        },
+      ],
+      hints: [
+        'One of the two numbers being zero on every call is the finding. Say which entry is being made and which is being used.',
+        'It is called several times a second, so the five-minute lifetime has not expired between calls.',
+        'A read needs the bytes before the breakpoint to be identical. Go and find the ones that are not.',
+      ],
+    },
+    canonicalAnswer:
+      'Every call is writing a new cache entry and none of them ever reads one, so the cache misses every time and you pay the write premium instead of a tenth. It is called several times a second, so the lifetime is not the cause: something inside the cached span changes on every request, a timestamp or a session id or a prompt rebuilt in a different order each time.',
+    solution: md(
+      'The entry is written on every call and read on none of them, so those 12,000 tokens cost 1.25 times base input every time instead of a tenth.',
+      '',
+      '- **Not the lifetime.** Several calls a second is well inside the five-minute default, and the lifetime is refreshed for free on every use.',
+      '- **So the prefix differs.** Something in the cached span is rebuilt per request: a timestamp, a session or user id, or a non-deterministic serialisation of the tool list or config.',
+      '',
+      'Diff the rendered prefix of two consecutive requests. It is usually one line nobody thought of as prompt content.'
+    ),
+    explanation:
+      'These two fields are the whole diagnostic, and they answer different questions: creation is what you paid a premium to store, read is what you got back for a tenth. Both non-zero across a run is normal, since a growing conversation writes a little and reads a lot. Creation non-zero on every single call is the signal that no entry is ever being matched, and at this call rate expiry cannot explain it. What is left is that the bytes differ, and a prefix match has no tolerance: one interpolated value near the front costs the whole span behind it.',
+  },
 ];
