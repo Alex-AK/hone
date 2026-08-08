@@ -1899,4 +1899,171 @@ export const sqlProblems: ProblemDraft[] = [
     explanation:
       'Embedding a list inside the thing it belongs to buys one read and charges for the whole list on every read and every write, which is a good trade exactly while the list is small and bounded. Nothing warns you when it stops being either, because the query still touches one row and the plan still looks perfect: the cost is in the size of that row rather than in the number of them. The question to ask when choosing the shape is not how big this list is today, it is whether anything stops it growing. Where the answer is nothing, it wants its own rows, and the parent keeps a summary that does have a ceiling.',
   },
+
+  // Two writers, one row. Both reps below are read at `databases/transactions-and-acid.md`:
+  // the first is what a write does about a concurrent one, the second is what the
+  // database does when you ask it to handle that for you.
+
+  {
+    slug: 'sql-optimistic-update-zero-rows',
+    title: 'The update that changed nothing',
+    category: 'sql',
+    difficulty: 'easy',
+    relevance: 'daily',
+    type: 'explain',
+    prompt: md(
+      'An edit form read a document, the user changed the title, and the save ran:',
+      '',
+      code(
+        'sql',
+        'UPDATE documents',
+        "SET title = 'Q3 plan', version = version + 1",
+        'WHERE id = 42 AND version = 7;'
+      ),
+      '',
+      'It reports 0 rows affected, and row 42 is still there.',
+      '',
+      'Say what happened, and what the handler should do with that 0.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'someone else',
+            'somebody else',
+            'another',
+            'concurrent',
+            'changed since',
+            'in between',
+            'between the read',
+            'no longer 7',
+            'not 7',
+            'stale',
+            'moved on',
+            'already updated',
+          ],
+          missingFeedback:
+            'The row exists, so `id = 42` matched. Say what the other half of the `WHERE` did not.',
+        },
+        {
+          synonyms: [
+            'conflict',
+            '409',
+            'lost update',
+            'not a success',
+            'not success',
+            'reject',
+            'refuse',
+            'stale write',
+          ],
+          missingFeedback: 'Zero rows is a verdict. Say which one.',
+        },
+        {
+          synonyms: [
+            're-read',
+            'reread',
+            're read',
+            'reload',
+            'the user',
+            'merge',
+            'do not retry',
+            "don't retry",
+            'not blindly',
+          ],
+          missingFeedback: 'The save cannot go through as written. Say what happens next.',
+        },
+      ],
+      hints: [
+        'The row is there, so `id = 42` matched. Look at the rest of the `WHERE`.',
+        'The form read version 7. Something has written to the row since.',
+        'Zero rows is the check firing rather than a bug. Decide what the person who pressed save sees.',
+      ],
+    },
+    canonicalAnswer:
+      'Somebody else wrote to the row between the read and the save, so its version is no longer 7 and the WHERE matched nothing. The 0 is not a missing row, it is a detected conflict: the write was built on a version that has moved on, and applying it would have thrown that other change away. So the handler treats it as a conflict rather than a success, re-reads the row and puts the choice to the user, instead of running the same update again with the current version, which is the lost update the check exists to catch.',
+    solution: md(
+      'The row moved on between the read and the save.',
+      '',
+      '- **What the 0 means**: `version` is no longer 7, so nothing matched. The write was built on a document that no longer exists in that form.',
+      '- **What to do**: treat it as a conflict. Re-read, show what changed, let the user decide. Re-running the update with the current version is the lost update you were preventing.'
+    ),
+    explanation:
+      'This is optimistic locking, and it works by carrying what you read back into the write. A read-then-write is not a write: the gap between the two can hold another transaction, and on a form somebody left open at lunch it can hold an afternoon, so a transaction around the `UPDATE` alone protects nothing. Putting the version in the `WHERE` turns a lost update into zero rows affected, which is the same event, reported. The pessimistic alternative, `SELECT ... FOR UPDATE`, holds the row instead, and can only work while the read and the write sit inside one transaction. Two things to know before leaning on this: the row count is the whole signal, so an ORM call that discards it takes the mechanism away, and zero rows does not distinguish a changed row from a deleted one, which is why the conflict handler re-reads.',
+  },
+
+  {
+    slug: 'sql-serializable-needs-retry',
+    title: 'The isolation level that started returning 500s',
+    category: 'sql',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'A report kept reading half-applied data, so its transaction was raised from Read Committed to Serializable. The report is right now, and the endpoint fails a few times a day with:',
+      '',
+      code(
+        'text',
+        'ERROR: could not serialize access due to read/write dependencies',
+        '  among transactions'
+      ),
+      '',
+      'Say why raising the level produced errors, and what the change was missing.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'abort',
+            'rolls back',
+            'roll back',
+            'rollback',
+            'refuse',
+            'reject',
+            'serialization failure',
+            'serialisation failure',
+            'detect',
+            'kills one',
+            'doing its job',
+            'working',
+          ],
+          missingFeedback: 'What does Serializable do when it cannot order two transactions?',
+        },
+        {
+          synonyms: ['retry', 'retries', 'rerun', 're-run', 'run it again', 'try again', 'repeat'],
+          missingFeedback:
+            'Postgres says applications at this level must be prepared to do one thing.',
+        },
+        {
+          synonyms: [
+            'whole transaction',
+            'entire transaction',
+            'from the start',
+            'from the beginning',
+            'not the statement',
+            'not just the statement',
+            'side effect',
+            'outside the database',
+            'external',
+            'idempotent',
+          ],
+          missingFeedback: 'Say what the unit of that is, and what it rules out doing inside one.',
+        },
+      ],
+      hints: [
+        'The error arrived because the database started noticing something it used to let through.',
+        'Postgres aborts one of two conflicting transactions rather than allowing the anomaly.',
+        'The missing half is a retry, and the unit is the transaction rather than the statement that failed.',
+      ],
+    },
+    canonicalAnswer:
+      'Serializable does not make the concurrency go away, it changes how the database reports it: where two transactions interleaved in a way no serial order could produce, Postgres aborts one instead of letting the wrong answer through, so the error is the guarantee working. Raising the level is therefore half the change. The other half is a retry the application has to write, rerunning the whole transaction from the start rather than the statement that failed, which is only safe once anything with an effect outside the database has been moved out of it.',
+    solution: md(
+      'Serializable trades a rare wrong answer for a rare abort, and the abort is yours to handle.',
+      '',
+      '- **Why the 500**: two transactions interleaved in a way no serial order could produce, so Postgres aborted one.',
+      '- **What is missing**: a retry that reruns the whole transaction, with any non-database effect moved outside it first.'
+    ),
+    explanation:
+      'Isolation levels are named after the anomalies they forbid, and the strong ones forbid them by refusing transactions rather than by making conflicts impossible. The Postgres documentation says the same thing about both levels above Read Committed: applications using them "must be prepared to retry transactions due to serialization failures". Shipping the level without that retry converts a rare wrong answer into a rare 500, which is exactly the trade made here and not usually the one intended. The unit of retry is the whole transaction, because a serialization failure invalidates everything the transaction read, not only the statement that reported it. That is also why an email or a charge inside the transaction has to come out first: the retry does it again.',
+  },
 ];

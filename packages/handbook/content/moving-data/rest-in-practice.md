@@ -4,6 +4,7 @@ question: Which REST conventions are worth defending in review, and which argume
 order: 4
 practise:
   - http-put-vs-patch
+  - http-merge-patch-null
   - http-status-created
   - http-status-choice-validation
   - http-401-vs-403

@@ -206,6 +206,83 @@ export const httpProblems: ProblemDraft[] = [
   },
 
   {
+    slug: 'http-merge-patch-null',
+    title: 'The field the patch could not clear',
+    category: 'http',
+    difficulty: 'medium',
+    relevance: 'daily',
+    type: 'explain',
+    prompt: md(
+      'A profile form sends `PATCH /users/:id` carrying only the fields that changed. The handler drops null values before writing, so that a partial body can never blank a column by accident.',
+      '',
+      'Clearing the nickname sends `{ "nickname": null }`, and the nickname is back after a refresh.',
+      '',
+      'Say what an absent key and a null key each ask for, and what that means for the handler.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'absent',
+            'omitted',
+            'omit',
+            'missing',
+            'not in the body',
+            'left out',
+            'leave alone',
+            'left alone',
+            'leaves it',
+            'leave it',
+            'unchanged',
+            'untouched',
+          ],
+          missingFeedback: 'A key that never arrives is a claim too. Say what it claims.',
+        },
+        {
+          synonyms: ['remove', 'clear', 'delete', 'unset', 'blank', 'erase', 'drop the field'],
+          missingFeedback: 'What is an explicit null in the body asking for?',
+        },
+        {
+          synonyms: [
+            'presence',
+            'in the body',
+            'in body',
+            'hasownproperty',
+            'object.keys',
+            'which keys',
+            'keys that arrived',
+            'stop dropping',
+            'keep the null',
+            'do not drop',
+            "don't drop",
+            'three',
+          ],
+          missingFeedback: 'The handler is reading values. Say what it has to read instead.',
+        },
+      ],
+      hints: [
+        'The body has three things it can say about the nickname, not two.',
+        'A key that is absent and a key set to null are different requests.',
+        'Null means remove, so the handler has to branch on which keys arrived rather than on their values.',
+      ],
+    },
+    canonicalAnswer:
+      'They are two different requests. A partial JSON body is a merge patch: an absent key asks for that field to be left alone, and a key present with null asks for it to be removed. Dropping nulls collapses the two into one, so the clear has no way to be expressed. The handler has to decide from which keys are in the body rather than from their values, and treat a null as the instruction to clear.',
+    solution: md(
+      'Three signals, and the null filter deletes the middle one.',
+      '',
+      code(
+        'text',
+        '{ }                        leave the nickname alone',
+        '{ "nickname": null }       remove it',
+        '{ "nickname": "ali" }      set it'
+      )
+    ),
+    explanation:
+      'A partial JSON body sent to PATCH is a merge patch, defined by RFC 7386 and carried properly as `application/merge-patch+json`. Members of the patch are applied to the target, and null is given the special meaning of removing a member, so a handler that filters nullish input throws one of the three signals away. Two consequences follow from that same rule. A merge patch cannot ask for a stored JSON null, which the RFC says outright, so a field whose null is real data needs a different format. And arrays are replaced whole rather than merged, so there is no way to append one tag: you send the array you want. RFC 6902 JSON Patch is the format for when you need either, sending an explicit list of operations against JSON Pointer paths, and it is what `kubectl patch --type=json` selects instead of `--type=merge`.',
+  },
+
+  {
     slug: 'http-401-vs-403',
     title: '401 versus 403',
     category: 'http',

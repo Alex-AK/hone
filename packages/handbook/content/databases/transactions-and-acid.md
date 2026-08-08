@@ -3,6 +3,8 @@ title: Transactions and ACID
 question: The whole handler is wrapped in a transaction. What can still go wrong?
 order: 8
 practise:
+  - sql-optimistic-update-zero-rows
+  - sql-serializable-needs-retry
   - approval-log-sqlite
   - class-places-sqlite
   - depot-scan-sqlite
