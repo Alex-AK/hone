@@ -1,7 +1,7 @@
 ---
 title: Sharding and partitioning
 question: The table no longer fits on one machine. How do I split it, and what breaks when I do?
-order: 9
+order: 10
 practise:
   - sys-sharding-partitioning
 sources:

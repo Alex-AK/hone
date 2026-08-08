@@ -1,7 +1,7 @@
 ---
 title: Queues and delivery semantics
 question: The queue says at-least-once. What does that make my problem?
-order: 12
+order: 13
 practise:
   - sys-ack-after-work
   - sys-message-delivery-semantics

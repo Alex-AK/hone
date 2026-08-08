@@ -1,7 +1,7 @@
 ---
 title: Replication
 question: There is a second copy of the database. What is now true that was not before?
-order: 7
+order: 8
 practise:
   - sys-leader-follower-replication
   - sys-replica-lag

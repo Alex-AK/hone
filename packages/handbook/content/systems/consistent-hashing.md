@@ -1,7 +1,7 @@
 ---
 title: Consistent hashing
 question: Why does adding one cache server empty almost the whole cache?
-order: 10
+order: 11
 practise:
   - sys-consistent-hashing
 sources:

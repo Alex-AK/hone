@@ -1,7 +1,7 @@
 ---
 title: CAP, and what consistency actually means
 question: The datacentres cannot talk to each other. What am I actually choosing between?
-order: 8
+order: 9
 practise:
   - sys-cap-theorem
   - sys-strong-vs-eventual-consistency

@@ -1,7 +1,7 @@
 ---
 title: Caching patterns
 question: Who fills the cache, and what happens the moment it empties?
-order: 11
+order: 12
 practise:
   - sys-cache-aside-vs-write-through
   - sys-cache-stampede
