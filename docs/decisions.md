@@ -648,6 +648,36 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   writer gets through while the broker is slow" cannot be shown on one better-sqlite3 connection, and
   the honest version is `db.inTransaction` observed at publish time.
 
+- **ADR-0165 — A checkpoint may generate its own documents, and `json-parser` is where that starts.**
+  Every checkpoint until now asserts on inputs an author chose, so what a green tick claims is
+  bounded by what the author thought to try. The fifth checkpoint on `json-parser` asserts a property
+  instead: for any text, the submission and `JSON.parse` either both refuse it or both return the
+  same value. Inputs come from a seeded generator, half of them valid documents and half one edit
+  away from valid, and a counterexample is shrunk by delta debugging before it is reported.
+
+  **It was measured rather than assumed, by planting five realistic bugs in the reference.** Four
+  of the five pass all four hand-written checkpoints and only this one catches them: an unknown
+  escape returned as its own letter, a raw control character accepted inside a string, `\u` read
+  with `parseInt` so `"\u00tf"` becomes `\u0000`, and a slash silently dropped from a string. The
+  reports name documents of two to eight characters, which is what the shrinker buys: `"\x"` for
+  the escape, a bare `02` for the number grammar.
+
+  Four things about the shape were decided rather than fallen into:
+
+  - **The oracle is a built-in, and that is why this workout went first.** Everywhere else the
+    oracle would be `solution/`, which `workspace.ts` deliberately does not materialise. Handing a
+    workspace its own reference implementation is the one thing a workout can never do, so the
+    second one of these needs an answer that question does not have yet.
+  - **Seeded, never sampled.** Nothing calls `Math.random`, so a failure reproduces on the next run
+    and on someone else's machine. A checkpoint that fails one run in five would be worse than no
+    checkpoint, and this is the same reasoning as ADR-0047 applied to inputs instead of to time.
+  - **The property covers refusals, not only values**, which is the half examples test worst. All
+    four bugs it uniquely catches are documents the submission accepts and JSON does not.
+  - **It adds no rules to the exercise.** Everything the checkpoint enforces was already written in
+    the brief, and the brief now says the checkpoint exists and what it prints. A generated
+    checkpoint that tested something the brief never stated would be a gotcha, which is the failure
+    mode this format has and the only one worth guarding.
+
 ## The handbook
 
 - **ADR-0067 — Pages are markdown that reads fine on GitHub.** The repo is public and that reach costs nothing.

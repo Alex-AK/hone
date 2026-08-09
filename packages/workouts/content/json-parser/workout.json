@@ -35,6 +35,12 @@
       "title": "Escapes, number edge cases, and refusing what is not JSON",
       "testFile": "tests/checkpoints/04-escapes-numbers-and-refusals.test.ts",
       "hint": "The tokeniser resolves escapes, so \\n arrives as one newline character and \\uXXXX as one character built from four hex digits. For the refusals, check that every token got consumed: 01 and {} junk both parse fine if you stop at the first value."
+    },
+    {
+      "id": "agrees-with-json-parse",
+      "title": "It agrees with JSON.parse on documents nobody wrote",
+      "testFile": "tests/checkpoints/05-agrees-with-json-parse.test.ts",
+      "hint": "The failure prints the shortest document that disagrees, which is a complete test case. If JSON.parse refused it and you came back with a value, something was left over after the value ended. If you both came back with values, the difference is in a string escape or in a number the tokeniser read too eagerly."
     }
   ]
 }

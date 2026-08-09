@@ -345,6 +345,15 @@ checkpoint has an `id`, a `title` phrased as the behaviour being checked, its `t
 
 Checkpoints are ordered but independent: checkpoint four can pass while one fails.
 
+**A checkpoint may generate its own inputs where an oracle exists**, which is worth reaching for
+when the contract is "for any input" rather than "for these inputs". `json-parser` is the worked
+example and ADR-0165 has the argument: a seeded generator, `JSON.parse` as the oracle, and a shrinker
+so the failure names a document of a few characters instead of the one that happened to find it.
+Three rules come with it. Seed everything, because a checkpoint that fails one run in five is worse
+than no checkpoint. Assert the refusals too, since accepting what the reference rejects is the half
+that hand-written examples cover worst. And check nothing the brief has not already stated, or the
+checkpoint is a gotcha rather than a stricter reading of the same task.
+
 **A suite that drives HTTP hands supertest a listening server, not an app.** `request(app)` binds a
 fresh ephemeral port on every call, so a suite that loops requests (ten revalidations, one per unit
 of rate-limit allowance) opens a socket per assertion. That passes alone and fails under the parallel

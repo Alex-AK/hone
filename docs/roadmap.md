@@ -58,6 +58,57 @@ enforces, which is practice volume with no page behind it. Section `order` deser
 attention this time, because four sections were slotted in at 8.5, 13.5, 17 and 18 without the whole
 sequence being read end to end. It is one sitting over finished content, not a rolling chore.
 
+## Depth per challenge
+
+**The content queue has run out and none of this is more content.** What is left is that a green tick
+is a weak claim. Every workout is entered cold, ends the moment its suites pass, and is never opened
+again, so what a run proves is "the examples somebody thought of came back right". These five rows
+are about making the same 38 workouts and 579 reps ask for more, and they are ordered by what they
+return against what they cost.
+
+- **A differential checkpoint on a workout whose oracle is not a built-in.** The format itself is
+  built and recorded as ADR-0165: `json-parser` generates its own documents, compares against
+  `JSON.parse`, and shrinks a disagreement down to two to eight characters before reporting it. That
+  workout went first because its oracle is a built-in. Everywhere else the oracle would be
+  `solution/`, which `workspace.ts` deliberately does not materialise, and handing a workspace its
+  own reference implementation is the one thing a workout can never do. Two ways out, neither tried.
+  Run the reference in the parent process and hand the suite a recorded table of input to expected
+  output, which is a fixture and has stopped being differential. Or generate against a **property**
+  rather than a reference, which is what `retry-with-backoff-node` and `circuit-breaker-node` would
+  want anyway: no attempt outlives the budget, an open breaker lets nothing through. The second is
+  the better question, and counting how many of the 38 have a contract statable that way is the step
+  before writing either.
+
+- **The second visit.** Nothing here practises changing code that already exists under a requirement
+  it was not built for, which is most of the work. A part-two workout whose `files/` is another
+  workout's `solution/`, and a ticket that breaks the assumption the first one was built on: the
+  limiter is now per-tenant, the outbox now has to preserve order. It costs no application code, and
+  it is the only shape that asks whether the first design was any good rather than whether it passed.
+
+- **The `refactor` kind, which is declared and unused.** `WORKOUT_KINDS` has held three members since
+  the type was written and all 38 workouts are `feature` or `bug-hunt`. Zero is a hard authoring
+  problem rather than an oversight: when the code already works, a checkpoint cannot be "make it
+  work", so it has to hold behaviour fixed and assert that something countable moved. Statement
+  counts and a module's export surface are the two candidates, and both are already asserted on
+  elsewhere for other reasons. This is where the judgement being practised is closest to the job and
+  furthest from anything currently checked.
+
+- **Read the attempt history back as content feedback.** 579 reps, a review ladder, and nothing ever
+  asks what the outcomes say about the content. Three things are already in `app.db` and unread: a
+  rep nobody misses twice is dead weight in a morning, a rep missed at every interval is an
+  `explanation` that is not carrying its lesson, and the wrong answers actually submitted are the raw
+  material for `nearMisses`, which is authored by guessing today. It is a local report over local
+  data, so ADR-0004 is untouched, and it is the only row here that makes the library improve with use
+  rather than with authoring.
+
+- **An AI-engineering workout track, over a recorded fixture server.** 24 reps and 10 pages, and none
+  of the 38 workouts touches a model, so half the stated subject has no execution-under-time half at
+  all. ADR-0005 already answers whether it is allowed: the network is refused, a loopback process is
+  not the network. ADR-0048 says what the fixture owes, which is the awkward semantics rather than
+  the happy path — a stream that stops mid-object, a 429 carrying `retry-after`, a tool call with an
+  argument that is not in the schema, a context window you can actually overflow. What it unlocks is
+  the tool-call loop, structured output and its repair path, and an eval harness.
+
 ## Platform
 
 Content is the product, so this stays short. All of it is workout depth.

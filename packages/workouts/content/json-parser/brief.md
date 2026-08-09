@@ -38,6 +38,14 @@ its own or a non-zero digit followed by any digits, which is why `0` and `0.5` a
 - an empty document
 - anything after the value the document ended on, `{} junk`
 
+## The last checkpoint
+
+The first four hand you documents somebody chose. The last one generates them, runs `JSON.parse`
+over the same text, and fails if either of you accepts something the other refuses or you disagree
+on the value. It adds no rules: everything it checks is on this page already. When it fails it
+prints the shortest document that disagrees, which is usually four or five characters and is a
+complete test case.
+
 ## Notes
 
 Nothing is imported here and nothing needs to be. The whole exercise is two pure functions over a
