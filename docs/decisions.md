@@ -829,6 +829,26 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   verbatim, and the page cites it instead — an uncited rep is not debt and a re-cited one is not
   either.
 
+- **ADR-0158 — Logs, event sourcing and durability are three pages in `systems/`, and none of them is
+  a module.** The request arrived as a list of six words, durability, event sourcing, SQS, queues,
+  event streaming and message bus, with a module suggested. **A module was impossible rather than
+  unwanted**, and the reason is worth keeping because the same request will come again: a module is
+  built from `js run` and `js assert` fences that execute offline in a bare realm, so it can only
+  teach something that runs on the reader's machine, and there is no broker there. ADR-0086 settles it
+  from the other side anyway, since all six are models. Two of the six got no page. **SQS**, because it
+  is already the worked example inside two pages and a product page is what ADR-0068 refuses. **Message
+  bus**, because it is not a concept: it names the fan-out question, which both a queue and a log
+  answer, and it is one paragraph inside `the-log-is-not-a-queue.md`. **Auditing folded into event
+  sourcing** rather than splitting, since an immutable event log is the audit trail and two pages would
+  have restated each other. Worked examples were measured against a real PostgreSQL 17.10 on the same
+  ground as ADR-0156, using a replication slot as a log with a cursor because `wal_level` was `replica`
+  and restarting somebody's server to get logical decoding is not a thing content authoring gets to do.
+  **One measurement changed a page**: snapshots were going to be written up as the answer to a slow
+  projection, and rebuilding 200,000 events measured *slower* through snapshots (23.4 ms) than without
+  them (15.3 ms), while one aggregate with a 100,000-event stream measured 18x faster. So the page says
+  the trigger is stream length rather than log size, which is the opposite of what it would have said
+  from the documentation.
+
 ## The essentials path
 
 - **ADR-0087 — It is a second entrance, not a setting on the daily session.** Everything else here is judged

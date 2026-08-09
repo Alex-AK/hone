@@ -1,4 +1,4 @@
-import { code, md, type ProblemDraft } from './types';
+import { code, codeProblem, md, type ProblemDraft } from './types';
 
 export const systemsProblems: ProblemDraft[] = [
   {
@@ -1398,5 +1398,392 @@ export const systemsProblems: ProblemDraft[] = [
     ),
     explanation:
       'This is the dual write, and the useful part is that it has no in-process solution: every arrangement of two statements has a window between them, and the process disappearing inside that window is the failure. Retrying does not help either, because the thing that would retry is the thing that died. So the fix has to change what is being written rather than when, which is what the outbox does: the message becomes a row, the row commits with the order, and the only atomicity anyone needs is the atomicity the database already had. What it buys is exact and worth stating, since the message is sent if and only if the transaction commits, and no more than that: the relay can publish and crash before recording it, so this converts a silent loss into a visible duplicate. That is the trade rather than a leftover flaw, because a duplicate arriving at an idempotent consumer is a solved problem and a record that quietly went missing is not.',
+  },
+
+  {
+    slug: 'sys-log-vs-queue-replay',
+    title: 'The report nobody asked for last year',
+    category: 'systems',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'Orders have been published to a work queue for two years, and every consumer acknowledges and deletes as it goes.',
+      '',
+      'Analytics now wants to compute a metric over the last two years of orders, and a new fraud service wants to see the same order events the fulfilment service sees.',
+      '',
+      'Explain why the queue cannot serve either request, and what structure does.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'deleted',
+            'consumed',
+            'gone',
+            'removed',
+            'acknowledg',
+            'acked',
+            'not retained',
+            'no history',
+            'once',
+          ],
+          missingFeedback: 'What happened to each message after it was handled?',
+        },
+        {
+          synonyms: [
+            'log',
+            'retention',
+            'retained',
+            'offset',
+            'cursor',
+            'position',
+            'append-only',
+            'kept',
+            'kafka',
+          ],
+          missingFeedback: 'Name the structure that keeps a message after it has been read.',
+        },
+        {
+          synonyms: [
+            'own cursor',
+            'own offset',
+            'own position',
+            'independent',
+            'consumer group',
+            'separately',
+            'each consumer',
+            'both read',
+            'replay',
+            'rewind',
+            'read again',
+          ],
+          missingFeedback:
+            'Say how that structure serves two consumers, and how it serves the historical question.',
+        },
+      ],
+      hints: [
+        'Ask what is physically still there from 2024.',
+        'A queue deletes on acknowledgement, so being read is what destroys the message.',
+        'A log retains by time or size instead, and each consumer holds its own offset into it.',
+      ],
+    },
+    canonicalAnswer:
+      'A queue deletes a message once it has been acknowledged, so being read is what destroys it and there is no history left to compute over: everything before today is gone, and a second consumer would take work away from the first rather than seeing the same messages. A log is the structure that answers both. It is append-only and retained by time or size rather than by being consumed, and each consumer keeps its own offset, so fraud reads the same events fulfilment reads without competing for them, and analytics rewinds its offset to the beginning and replays two years.',
+    solution: md(
+      '- **Why the queue cannot**: acknowledgement deletes. Reading is destructive, so no history exists and two consumers share the work rather than both seeing it.',
+      '- **What does**: an append-only log, retained by time or size, where a consumer holds its own offset.',
+      '- **Two consumers**: two consumer groups, two cursors over the same partitions, neither taking messages from the other.',
+      '- **Two years**: reset the analytics cursor to the earliest offset and replay, if retention actually kept that long.'
+    ),
+    explanation:
+      'The difference is entirely what a read does to the message: a queue is a work list, so consuming it is the point and deleting it is how "done" is recorded, while a log is history, so reading is just moving your own cursor and nothing is removed. Both requests here are really the same request, which is to read a message that somebody else has already read, and only one of the two structures allows it. What this does not give you for free is the two years, because retention is a deadline somebody configured rather than a promise of possession, and a log with a seven-day policy answers the fraud question and not the analytics one. Nor is replay free of side effects: rewinding a cursor re-runs the consumer, so anything that emails or charges on the way past does it again unless it was written to be idempotent.',
+  },
+
+  {
+    slug: 'sys-stuck-consumer-holds-the-log',
+    title: 'The disk filled and nobody was writing much',
+    category: 'systems',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'A service reads an event log. One of its four consumer groups has been crash-looping for a week and nobody noticed, because the other three are healthy and the dashboards show average lag.',
+      '',
+      'The alert that finally fired was disk space on the brokers.',
+      '',
+      'Explain the connection, and what should have been alerted on instead.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'until',
+            'retain',
+            'retention',
+            'cannot delete',
+            'not delete',
+            'held',
+            'holds',
+            'pinned',
+            'keeps',
+            'behind',
+          ],
+          missingFeedback: 'What decides when the broker may discard a record?',
+        },
+        {
+          synonyms: [
+            'oldest',
+            'slowest',
+            'furthest behind',
+            'worst',
+            'minimum',
+            'lagging',
+            'stuck',
+            'one consumer',
+            'that group',
+          ],
+          missingFeedback: 'Which consumer decides it, out of the four?',
+        },
+        {
+          synonyms: [
+            'average',
+            'hides',
+            'masks',
+            'max',
+            'maximum',
+            'per group',
+            'per consumer',
+            'each group',
+            'worst-case',
+            'oldest offset',
+          ],
+          missingFeedback: 'Say what is wrong with the dashboard and what the alert should watch.',
+        },
+      ],
+      hints: [
+        'The broker cannot throw away a record while somebody still needs it.',
+        'The one consumer that has not moved is holding everything from its position forward.',
+        'An average over four groups hides one stuck group. Alert on the maximum lag, per group.',
+      ],
+    },
+    canonicalAnswer:
+      'The broker retains a record until every consumer has moved past it, so the crash-looping group has pinned the log from its position a week ago all the way forward, and that retained backlog is the disk. The oldest cursor decides the storage cost, not the typical one. Averaging lag across the four groups is exactly the metric that hides this, because three healthy groups pull the average down while one group sits still. Alert on the maximum lag per consumer group, and on the age of the oldest committed offset, so a single stuck consumer is visible before it is a disk incident.',
+    solution: md(
+      '- **The connection**: a log is retained until every consumer has passed it, so the stuck group holds a week of records that would otherwise have aged out.',
+      '- **What decides the cost**: the oldest cursor, never the average one.',
+      '- **The alert**: maximum consumer-group lag and the age of the oldest committed offset, per group, not an average across groups.'
+    ),
+    explanation:
+      'Averages hide exactly the failure that matters here, because the cost is set by the worst member of the set rather than the typical one, and this is the general shape of it rather than a fact about brokers: any metric where one participant pins a shared resource wants a maximum. The Postgres version of the same mechanism is a replication slot, which the documentation describes as ensuring the primary "does not remove WAL segments until they have been received by all standbys", and a slot created for a standby that never connects will fill a disk on its own. Measured on PostgreSQL 17.10, one unread slot held 159 MB of WAL generated by a single table build. The second lesson is that the failure lands somewhere other than where it started: the consumer that broke is fine, and the thing that pages is storage on a component nobody changed.',
+  },
+
+  codeProblem({
+    slug: 'sys-event-fold',
+    title: 'The balance is a fold',
+    category: 'systems',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    prompt: md(
+      'In an event-sourced account there is no balance column. Write `balanceOf(events, key)`, which folds an account’s events into its balance in cents.',
+      '',
+      'Events arrive newest-last and cover every account, so filter to `key` first. Handle `deposited` and `withdrawn`.',
+      '',
+      'An event type this code has never heard of must be ignored rather than throw, because the log outlives the code that reads it. An account with no events has a balance of 0.'
+    ),
+    starter: 'function balanceOf(events, key) {\n  \n}',
+    setup: [
+      'const LOG = [',
+      "  { offset: 1, key: 'a', type: 'deposited', data: { cents: 500 } },",
+      "  { offset: 2, key: 'b', type: 'deposited', data: { cents: 100 } },",
+      "  { offset: 3, key: 'a', type: 'withdrawn', data: { cents: 200 } },",
+      "  { offset: 4, key: 'a', type: 'frozen', data: {} },",
+      "  { offset: 5, key: 'a', type: 'deposited', data: { cents: 50 } },",
+      '];',
+    ].join('\n'),
+    tests: [
+      { name: 'folds deposits and withdrawals', expression: "balanceOf(LOG, 'a')", expected: 350 },
+      { name: 'ignores other accounts', expression: "balanceOf(LOG, 'b')", expected: 100 },
+      {
+        name: 'an account with no events has a balance of 0',
+        expression: "balanceOf(LOG, 'nobody')",
+        expected: 0,
+      },
+      {
+        name: 'an unknown event type is skipped, not fatal',
+        expression: "balanceOf([{ offset: 1, key: 'a', type: 'invented-later', data: {} }], 'a')",
+        expected: 0,
+      },
+      {
+        name: 'does not mutate the log',
+        expression: "(() => { balanceOf(LOG, 'a'); return LOG.length; })()",
+        expected: 5,
+      },
+    ],
+    reference: [
+      'function balanceOf(events, key) {',
+      '  return events',
+      '    .filter((e) => e.key === key)',
+      '    .reduce((cents, e) => {',
+      "      if (e.type === 'deposited') return cents + e.data.cents;",
+      "      if (e.type === 'withdrawn') return cents - e.data.cents;",
+      '      return cents; // unknown to this version of the code, and that is allowed',
+      '    }, 0);',
+      '}',
+    ].join('\n'),
+    hints: [
+      'Filter to the account, then reduce. The seed value is the balance of an account with no events.',
+      'Deposits add, withdrawals subtract, and anything else returns the accumulator untouched.',
+      'The default branch is the point: returning the accumulator unchanged is what makes an old log readable by new code.',
+    ],
+    explanation:
+      'The default branch is the part worth keeping. A fold that throws on an unrecognised type turns every future event anybody adds into a production incident for every service that reads the log, and since the log is append-only those events cannot be taken back out. Ignoring what you do not understand is what lets one log serve readers on different deploys, which is the same rule as ignoring unknown fields in a JSON payload. Two things follow from the shape. The balance is derived rather than stored, so there is no row to get out of step with the events and an audit trail is not a second thing to maintain. And this gets slower as the stream grows, which is what snapshots fix: cache the fold at an offset and replay only what came after, a change worth making per aggregate with a long stream rather than across the whole log.',
+  }),
+
+  {
+    slug: 'sys-event-schema-change',
+    title: 'The event shape that changed two years ago',
+    category: 'systems',
+    difficulty: 'hard',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'An event-sourced system stored `money.deposited` with a single `amount` in cents. Last year it gained multi-currency, and new events carry `{ cents, currency }`.',
+      '',
+      'Somebody proposes an `UPDATE` over the old events to add `"currency": "EUR"` so the reader only handles one shape.',
+      '',
+      'Explain what is wrong with that, and what to do instead.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'immutable',
+            'append-only',
+            'never',
+            'rewrit',
+            'rewriting',
+            'history',
+            'audit',
+            'not true',
+            'falsif',
+            'destroy',
+            'lose',
+          ],
+          missingFeedback: 'What does editing past events cost you, given why the log exists?',
+        },
+        {
+          synonyms: [
+            'assum',
+            'guess',
+            'nobody recorded',
+            'never recorded',
+            'not recorded',
+            'nothing proves',
+            'no evidence',
+            'unknown',
+            'may not be',
+            'might not be',
+            'not all',
+            'invent',
+          ],
+          missingFeedback: 'Is EUR actually a fact about those old events?',
+        },
+        {
+          synonyms: [
+            'upcast',
+            'upgrade',
+            'on read',
+            'at read',
+            'version',
+            'translate',
+            'convert',
+            'reader',
+            'both shapes',
+            'handle both',
+          ],
+          missingFeedback: 'What handles the two shapes instead?',
+        },
+      ],
+      hints: [
+        'The log is the record of what happened. Ask what an UPDATE to it makes it a record of.',
+        'It also asserts something nobody stored: that every old deposit really was in euros.',
+        'Leave the events alone and convert old shapes to the current one as they are read.',
+      ],
+    },
+    canonicalAnswer:
+      'Rewriting past events destroys the property the whole design is for: the log stops being a record of what happened and becomes a record of what the current code expects, and an audit trail you edit is not an audit trail. It also asserts a fact nobody recorded, since those events were written before currency existed and nothing proves they were all euros. Leave them alone. Version the event shape, and upgrade old shapes to the current one on read, so the fold only ever sees the newest shape and the reader carries the translation instead of the log carrying a lie.',
+    solution: md(
+      '- **What is wrong**: it rewrites history, which is the one thing an append-only log exists to prevent, and it invents a fact (`EUR`) that was never recorded.',
+      '- **What to do**: keep a `version` on each event and upcast v1 to v2 at the edge of the reader.',
+      '',
+      code(
+        'js',
+        'const upcast = (e) =>',
+        '  e.version === 1',
+        "    ? { ...e, version: 2, data: { cents: e.data.amount, currency: 'EUR' } } // stated, and reviewable",
+        '    : e;',
+        '',
+        'const balance = events.map(upcast).reduce(apply, 0);'
+      )
+    ),
+    explanation:
+      'The rule is that events are facts and facts do not get edited, so a schema change is a reader problem rather than a data problem. Upcasting keeps the whole history readable while `apply` only ever sees the current shape, which matters because the alternative accumulates a branch per historical mistake in the middle of your domain logic. Note where the assumption ends up in the fixed version, which is the real argument for it: the upcast is a line of code somebody can read, review and change when it turns out three of those deposits were in sterling, where the `UPDATE` would have made the same guess permanently and invisibly. Two practical consequences. The version belongs in a column rather than being sniffed from the payload, because guessing the shape from its contents fails the moment two versions overlap. And an upcast is never deleted, since v1 events are in the log for as long as the log is, which is a real long-term cost worth knowing about before choosing this design.',
+  },
+
+  {
+    slug: 'sys-ack-durability-ladder',
+    title: 'Success against which failure?',
+    category: 'systems',
+    difficulty: 'hard',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'A team ships a Kafka producer with `acks=all` on a topic with two replicas, and calls the write durable.',
+      '',
+      'A broker goes down for maintenance, writes keep succeeding, and when the second broker later fails they find messages missing that had been acknowledged.',
+      '',
+      'Explain what `acks=all` actually waited for, and the setting that makes it mean what they thought.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'in-sync',
+            'in sync',
+            'isr',
+            'currently',
+            'caught up',
+            'keeping up',
+            'available replicas',
+            'remaining',
+            'shrink',
+            'shrank',
+            'one replica',
+          ],
+          missingFeedback: 'Which set of replicas does acks=all actually wait for?',
+        },
+        {
+          synonyms: [
+            'one',
+            'single',
+            'just the leader',
+            'only the leader',
+            'down to',
+            'still succeed',
+            'succeeded',
+            'no redundancy',
+            'alone',
+          ],
+          missingFeedback: 'How big was that set once a broker went down?',
+        },
+        {
+          synonyms: [
+            'min.insync',
+            'min insync',
+            'minimum in-sync',
+            'insync',
+            'minimum isr',
+            'min isr',
+          ],
+          missingFeedback: 'Name the setting that refuses the write instead of accepting it.',
+        },
+      ],
+      hints: [
+        'acks=all is about the replicas that are currently keeping up, not the replicas that exist.',
+        'With one broker down, that set has one member, and a write to one member is acknowledged happily.',
+        'The setting that refuses a write when the set is too small is `min.insync.replicas`.',
+      ],
+    },
+    canonicalAnswer:
+      'acks=all waits for the current in-sync replica set rather than for every replica that exists, and that set shrinks as brokers fall behind or go down. With one of the two brokers in maintenance the ISR had one member, so a write acknowledged by the leader alone satisfied acks=all and was reported as durable while having no second copy anywhere. Set min.insync.replicas to 2, which makes the partition refuse writes when the in-sync set is smaller than that, so the producer gets an error instead of a false promise. That is a deliberate trade of availability for durability.',
+    solution: md(
+      '- **What it waited for**: the current in-sync replica set, which had shrunk to one.',
+      '- **Why it succeeded**: a write acknowledged by the only in-sync replica satisfies `acks=all`.',
+      '- **The fix**: `min.insync.replicas=2`, so the partition rejects writes rather than accepting unreplicated ones.',
+      '- **The cost**: writes now fail during single-broker maintenance. That is the trade, and it is the correct one for payments.'
+    ),
+    explanation:
+      'Kafka documents this plainly, that "if a topic is configured with only two replicas and one fails (i.e., only one in sync replica remains), then writes that specify acks=all will succeed. However, these writes could be lost if the remaining replica also fails." The general lesson is bigger than Kafka: an acknowledgement is a claim about how far the bytes got, and "durable" is meaningless without naming the failure it survives. The same ladder shows up in Postgres as `synchronous_commit`, where every non-off setting waits for a local flush and `remote_write`, `on` and `remote_apply` buy successively more, at successively larger commit delays. Two rungs get conflated constantly and should not be: a replica having received a record is not the same as having flushed it, and neither is the same as having applied it so a query there can see it.',
   },
 ];

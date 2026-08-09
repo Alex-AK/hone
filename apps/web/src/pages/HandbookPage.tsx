@@ -33,8 +33,8 @@ export function HandbookPage(): React.ReactElement {
         </p>
       ) : (
         <>
-          {/* Fifteen sections is more than fits on a screen, so the index gets a
-              way in that is not scrolling. */}
+          {/* More sections than fit on a screen, so the index gets a way in that
+              is not scrolling. */}
           <nav
             aria-label="Sections"
             className="flex flex-wrap gap-x-4 gap-y-1.5 border-y py-3 text-xs text-muted-foreground"
@@ -74,7 +74,9 @@ function Section({ section }: { section: HandbookSectionSummary }): React.ReactE
             {section.pages.length} {section.pages.length === 1 ? 'page' : 'pages'}
           </span>
         </div>
-        <p className="measure line-clamp-2 text-sm text-muted-foreground">{section.summary}</p>
+        {/* Unclamped: a summary says what the section refuses to cover as well as
+            what it holds, and that half is always in the sentence that got cut. */}
+        <p className="measure text-sm text-muted-foreground">{section.summary}</p>
       </div>
 
       {section.pages.length === 0 ? (
