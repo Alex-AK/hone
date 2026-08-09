@@ -14,7 +14,7 @@ neither has one. No page owns the redirect codes, 301 against 302 against 307 ag
 formats are a module rather than a page, because there was no model there to write down. A deck is
 not on its own a reason to write a page, so both wait until something else asks for one.
 
-**That wait is how a deck is meant to arrive, and there are three worked examples now.**
+**That wait is how a deck is meant to arrive, and there are six worked examples now.**
 `four-ways-to-run-it-later` could not be written yesterday and needed no argument today, because a
 page about `nextTick` and `setImmediate` was written for reps that wanted it, and the contrast set
 was sitting inside the page once it existed. `three-promises-that-sound-alike` and
@@ -22,10 +22,11 @@ was sitting inside the page once it existed. `three-promises-that-sound-alike` a
 pages exist. So the rule holds in both directions: a deck does not justify a page, and a new page is
 worth re-reading for the contrast set it just made checkable.
 
-**Fifteen pages landed at once across four new sections, and by that rule they are owed a read.**
-Not for the two decks above, whose pages still do not exist, but because the trigger for a deck is a
-page arriving with a contrast set already inside it, and nobody has looked. Do it during the pass
-below rather than as its own errand.
+**Reading fifteen new pages for contrast sets produced three more, which is the second half of that
+rule paying out.** `the-signal-family`, `kill-switch-or-traffic-switch` and `three-features-one-kernel`
+cite pages written for reps, none of which was written with a deck in mind. A fourth candidate was
+refused rather than written, and the reason is recorded rather than left as a gap. That read is done
+and is not owed again until the next section ships.
 
 `packages/decks/content/` is the inventory, and a deck named there and not on disk is a name that
 changed, not a deck that is missing.

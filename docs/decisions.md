@@ -929,6 +929,22 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   debt as a company and its code grow. The roadmap's further-reading shelf was also not built, since
   it is the systems case-study shelf under a new name and ADR-0068 already refuses it.
 
+- **ADR-0164 — Three decks came out of reading the new sections, and logs against metrics against
+  traces was refused.** The roadmap's rule is that a deck does not justify a page while a new page is
+  worth re-reading for the contrast set it just made checkable, and the second half had never been
+  exercised deliberately. Fifteen pages arriving at once was the occasion to try it. Three cleared the
+  bar because getting them backwards is a bug you have shipped: the signal family, where a handler
+  that only logs removes the exit; liveness against readiness, where the kill switch pointed at a
+  shared dependency restarts a fleet; and namespaces against cgroups against seccomp, where a memory
+  limit gets mistaken for a boundary. **The fourth was refused for being a taxonomy**, which is
+  ADR-0163 one day later and the same test applied to a smaller unit. "Three signals, three
+  questions" is a definition, and `content.md` says in as many words that a card drills a distinction
+  rather than a definition. The genuinely checkable part of that page is narrower than a deck: where
+  a high-cardinality field is allowed to go, which is one card and has no set to sit in. Note what
+  this does not license. The two decks the roadmap has been holding, the redirect codes and the time
+  formats, are still blocked on a `page` that does not exist, and reading fifteen pages that had
+  nothing to do with either did not change that.
+
 ## The essentials path
 
 - **ADR-0087 — It is a second entrance, not a setting on the daily session.** Everything else here is judged
