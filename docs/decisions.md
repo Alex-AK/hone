@@ -718,6 +718,48 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   runs one call at a time, so "exactly one trial call" is checked by checkpoint four's example and
   not here.
 
+- **ADR-0167 — Seven more workouts have a contract worth generating against, and the other 26 are
+  refused with reasons.** ADR-0165 and ADR-0166 each shipped one and left the count open. Reading all
+  38 manifests, briefs and checkpoint titles answers it, with the suites themselves read for the
+  candidates that survived. The queue is in `roadmap.md`; this is the reasoning and the refusals, so
+  the same manifests do not get audited again to the same answer.
+
+  **The bar is not "has an invariant".** Almost anything has one if you squint. It is that the
+  contract holds for every input rather than for the ones an author picked, that it can be stated
+  without reimplementing the solution, and that the generated version reaches a case the examples
+  structurally cannot. Runtime is the fourth test and it is real: the breaker's checkpoint costs ten
+  times its other four together.
+
+  **Seven qualify:** `alert-feed-sqlite` (walking every page of a feed that is being written to hands
+  over each row exactly once, for any page size and any placement of tied timestamps),
+  `one-recompute-not-fifty` (one computation per key per expiry, for any arrival schedule),
+  `retry-with-backoff-node` (attempt-trace invariants, the direct sibling of the breaker),
+  `queue-consumer-node` (a job that acks never returns, one that does not always does, and neither
+  happens twice at once), `class-places-sqlite` (places left equals capacity minus live bookings under
+  any interleaving, and never goes negative), `product-search-drizzle` (the only other workout with a
+  real oracle, since the match set can be computed in JavaScript), and `records-sorting-drizzle`
+  (concatenating the pages gives a total order containing every row once).
+
+  **`alert-feed-sqlite` goes first, and it is a stronger candidate than either workout that already
+  has one**, because its property is already written and only its inputs are fixed. `tests/support/walk.ts`
+  walks the feed and `repeats` names anything handed over twice; the four checkpoints run exactly that
+  on one dataset, at `limit: 20`, with one mutation at page index 0. The bug a fixed page size cannot
+  reach is a cursor carrying no id tiebreak, which needs a tie cluster straddling a boundary.
+
+  **Three have the contract and an argument about cost instead**, and they wait behind the seven:
+  `outbox-relay-node`, `idempotent-payments-express` and `rate-limit-express` are all real invariants
+  driven over HTTP, where the harness rather than the property decides the runtime.
+
+  **The 26 refused, in five groups.** Seven React workouts state their contracts as DOM after an
+  interaction sequence, where jsdom and `userEvent` cost per step and a shrunk counterexample reads as
+  a list of clicks rather than as a lead. Four are about query count against dataset size, and their
+  suites already assert exactly that invariant at two sizes, so more sizes buy nothing. Two are the
+  easy twelve-minute workouts, where a fifth checkpoint breaks the shape ADR-0061 defines rather than
+  strengthening it. Five are bug-hunts whose contract really is "this symptom is gone", which is a
+  narrow solution space that generation does not widen. The last eight have a fixed, small input
+  surface — a route table, a token lifecycle, a set of query parameters — where enumerating it is both
+  cheaper and more honest than generating over it.
+
 ## The handbook
 
 - **ADR-0067 — Pages are markdown that reads fine on GitHub.** The repo is public and that reach costs nothing.
@@ -1367,6 +1409,35 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   which a fixed ladder ignores. This one is worth guarding, because the temptation to reassert it
   recurs: conceding the numbers while borrowing authority for the shape is the subtler version of
   the thing the about page exists to avoid.
+
+- **ADR-0168 — A study-skills course was read for ideas and gave back one.** iCanStudy teaches
+  learning technique rather than a subject, and reading it was worth an hour: the output of that hour
+  is mostly a list of decisions this project had already made, which is the normal and useful result.
+
+  **What it confirmed rather than added.** Spacing, interleaving, retrieval practice and
+  predict-before-reveal are all here already, from the same literature: the review ladder, the
+  category round robin baked into `position` at seed time, the queue itself, and a module step.
+  Arriving at the same four from a different direction is evidence the structure is right, and no
+  reason to change anything.
+
+  **The one idea taken is the diagnostic.** The course opens by assessing habits before teaching
+  anything, and this app has never asked what you are bad at while holding the data to answer. It
+  does not become a row of its own: it is a second question asked of the attempt history that
+  `roadmap.md` already queues reading, and the difference is that the existing row asks which reps are
+  weak content where this one asks which postures are weak in the reader.
+
+  **What is refused, and mostly was already.** The effect sizes are the sharpest case and ADR-0140
+  is the precedent: "half the time" and "80% less procrastination" are exactly the borrowed authority
+  that entry exists to keep out, and conceding a number in passing is how it gets back in. The
+  branded frameworks are mnemonics for a curriculum rather than models, and `WRITING.md` would refuse
+  the prose before the content bar refused the idea. Method of Loci and mind mapping are encoding
+  techniques aimed at bulk declarative recall, which is anatomy and pharmacology rather than why a
+  cache did not invalidate. And the shape — thirteen stages, fifty hours of video, a percentage
+  complete — is refused entry by entry already in ADR-0105 and the module non-goals.
+
+  **The citation stance follows ADR-0135 without amendment.** It is a paid course, so it may shape a
+  page and may never carry a claim on one. If any of this reaches the handbook the citation is the
+  primary work, which for these four is Karpicke and Roediger, Cepeda, Bjork and Rohrer.
 
 ## Open-sourcing
 

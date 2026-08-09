@@ -66,15 +66,18 @@ again, so what a run proves is "the examples somebody thought of came back right
 are about making the same 38 workouts and 579 reps ask for more, and they are ordered by what they
 return against what they cost.
 
-- **Which workouts have a contract worth generating against.** Generated checkpoints exist in both
-  forms they can take: against an oracle in `json-parser` (ADR-0165) and against invariants over a
-  trace in `circuit-breaker-node` (ADR-0166). Both workouts were picked by hand because their
-  contracts were obviously statable, and nobody has read the other 36 to find out how many are. It
-  is one sitting, and the answer might well be four. **A workout does not owe one**, the same way a
-  problem does not owe a page: what earns it is a contract that holds for every input rather than
-  for the ones an author thought of, and most briefs are not that. The cost is the reason to check
-  rather than to add on principle, since the breaker's checkpoint is ten times the runtime of its
-  other four put together.
+- **Seven more generated checkpoints, and `alert-feed-sqlite` is the one to write first.** The audit
+  the previous version of this row asked for has been done, and ADR-0167 records it along with what
+  it refused. The queue, in order: `alert-feed-sqlite`, `one-recompute-not-fifty`,
+  `retry-with-backoff-node`, `queue-consumer-node`, `class-places-sqlite`, `product-search-drizzle`,
+  `records-sorting-drizzle`. **The first one is a better candidate than either workout that already
+  has one**, because its property is already written down: `tests/support/walk.ts` walks the feed and
+  `repeats` names anything handed over twice, and all four checkpoints run that on one dataset, one
+  page size and one mutation at one fixed point. Varying the page size, where the tied timestamps
+  sit and when the feed moves reaches the case a fixed `limit: 20` structurally cannot, which is a
+  cursor carrying no id tiebreak. Three more have the contract and an argument about cost rather than
+  about the contract, and they wait behind the seven: `outbox-relay-node`,
+  `idempotent-payments-express`, `rate-limit-express`.
 
 - **The second visit.** Nothing here practises changing code that already exists under a requirement
   it was not built for, which is most of the work. A part-two workout whose `files/` is another
@@ -90,13 +93,30 @@ return against what they cost.
   elsewhere for other reasons. This is where the judgement being practised is closest to the job and
   furthest from anything currently checked.
 
-- **Read the attempt history back as content feedback.** 579 reps, a review ladder, and nothing ever
-  asks what the outcomes say about the content. Three things are already in `app.db` and unread: a
-  rep nobody misses twice is dead weight in a morning, a rep missed at every interval is an
-  `explanation` that is not carrying its lesson, and the wrong answers actually submitted are the raw
-  material for `nearMisses`, which is authored by guessing today. It is a local report over local
-  data, so ADR-0004 is untouched, and it is the only row here that makes the library improve with use
-  rather than with authoring.
+- **Read the attempt history back, which answers two questions rather than one.** 579 reps, a review
+  ladder, and nothing ever asks what the outcomes say. It is a local report over local data, so
+  ADR-0004 is untouched, and it is the only row here that makes the library improve with use rather
+  than with authoring.
+
+  **About the content**, three things are already in `app.db` and unread: a rep nobody misses twice is
+  dead weight in a morning, a rep missed at every interval is an `explanation` that is not carrying
+  its lesson, and the wrong answers actually submitted are the raw material for `nearMisses`, which is
+  authored by guessing today.
+
+  **About the reader**, which is the half that was missing until a study-skills course was read for
+  ideas and gave back exactly one. It opens by assessing habits before it teaches anything, and this
+  app has never asked what you are bad at despite holding the data to answer. Same query, second
+  question: not which reps are weak, but which postures are — reading unfamiliar code, types, the
+  debugging reps, whichever category the ladder keeps resetting. The tags line already exists to
+  enter a posture on purpose, and nothing points you at one.
+
+  **What that would change in the UI is one thing and it is small.** The two-way link is already
+  built: a page names what practises it and `HandbookLinks` reads that backwards, so every problem
+  already carries "Read about it". What it cannot do is weight itself. A rep you have missed at three
+  intervals wants its page escalated rather than listed beside the answer at the same size as
+  everything else, and that is the encoding half of this app finally being aimed by the retrieval
+  half. It waits on the same data, which is why it is here and not a row of its own. See ADR-0168 for
+  what else that course was read for and why almost none of it applies.
 
 - **An AI-engineering workout track, over a recorded fixture server.** 24 reps and 10 pages, and none
   of the 38 workouts touches a model, so half the stated subject has no execution-under-time half at
