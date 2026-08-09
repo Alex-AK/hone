@@ -4,6 +4,7 @@ question: The row committed and the search index never heard about it. Where doe
 order: 15
 practise:
   - sys-dual-write-two-orderings
+  - outbox-relay-node
   - sys-idempotency
   - sys-ack-after-work
   - sys-message-delivery-semantics

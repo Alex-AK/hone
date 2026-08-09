@@ -1,0 +1,40 @@
+{
+  "slug": "outbox-relay-node",
+  "title": "The orders fulfilment never heard about",
+  "kind": "feature",
+  "minutes": 22,
+  "difficulty": "medium",
+  "relevance": "occasional",
+  "stack": {
+    "server": "node, better-sqlite3"
+  },
+  "summary": "Roughly one order a day is paid for and never fulfilled, and the outbox row for it says it was sent. Separately, the API's writes crawl whenever the broker is slow. Make the relay tell the truth about what it sent.",
+  "focus": ["outbox", "dual writes", "delivery semantics", "transactions"],
+  "editable": ["src/lib/relay.ts"],
+  "checkpoints": [
+    {
+      "id": "every-unpublished-row-reaches-the-broker",
+      "title": "Every unpublished row reaches the broker",
+      "testFile": "tests/checkpoints/01-every-unpublished-row-reaches-the-broker.test.ts",
+      "hint": "The happy path already works and this checkpoint should be passing. If it broke while you were fixing the others, the likely cause is the batch: the query is still `LIMIT ?` on `batchSize` and the pass still stops when the rows run out."
+    },
+    {
+      "id": "a-relay-that-dies-mid-publish-loses-nothing",
+      "title": "A relay that dies mid publish loses nothing",
+      "testFile": "tests/checkpoints/02-a-relay-that-dies-mid-publish-loses-nothing.test.ts",
+      "hint": "`published_at` is a claim that the broker has the message, and right now it is written before the broker has been asked. Swap the two: publish, and only mark the row once the publish has resolved. It leaves a window where the mark is what fails, and the duplicate that follows is the trade rather than a bug you should also fix."
+    },
+    {
+      "id": "a-stuck-message-blocks-the-ones-behind-it",
+      "title": "A stuck message blocks the ones behind it",
+      "testFile": "tests/checkpoints/03-a-stuck-message-blocks-the-ones-behind-it.test.ts",
+      "hint": "A publish that throws has to end the pass and return, rather than propagate. Catch it around the publish alone, return `{ published, failed: 1 }` with the count of what did get through, and leave the row unmarked so the next pass starts on it again."
+    },
+    {
+      "id": "the-database-is-free-while-the-broker-is-slow",
+      "title": "The database is free while the broker is slow",
+      "testFile": "tests/checkpoints/04-the-database-is-free-while-the-broker-is-slow.test.ts",
+      "hint": "`BEGIN` before the loop means the transaction stays open across every `await` in it, and a transaction is held until it is committed whatever the connection is waiting on. The relay does not need one at all: each `UPDATE` is its own transaction, and there is nothing here that has to be undone as a group."
+    }
+  ]
+}

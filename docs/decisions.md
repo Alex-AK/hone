@@ -633,6 +633,21 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   runtime load-bearing twice, and the second load is the one nobody remembers when scoping its
   removal.**
 
+- **ADR-0159 — `outbox-relay-node` is the relay, because the consumer and the writer were already
+  built.** A workout was proposed for "a resilient consumer": redelivery, a visibility heartbeat, a
+  dead-letter queue after N attempts. That is `queue-consumer-node`, checkpoint for checkpoint, and
+  the proposal was made from the subject matter rather than from the inventory, which is the exact
+  failure `CLAUDE.md` warns about under completionism. **The check to run first is the workout list,
+  not the page.** What survived the check is the producer half: nothing moves a committed outbox row
+  to a broker. It deliberately overlaps `approval-log-sqlite`, which owns the writer and proves an
+  order and its log row commit together, and the overlap is handled by *giving* the learner that
+  half in `db.ts` with a comment saying it is already correct, so the twenty minutes go on the part
+  that is new. The starter passes checkpoint one and fails the other three, which is the shape the
+  brief describes: the happy path works, which is why this ships and why the symptom is four orders a
+  month rather than an outage. One checkpoint was cut during authoring rather than faked — "another
+  writer gets through while the broker is slow" cannot be shown on one better-sqlite3 connection, and
+  the honest version is `db.inTransaction` observed at publish time.
+
 ## The handbook
 
 - **ADR-0067 — Pages are markdown that reads fine on GitHub.** The repo is public and that reach costs nothing.
