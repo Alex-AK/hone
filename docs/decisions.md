@@ -864,6 +864,71 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   the trigger is stream length rather than log size, which is the opposite of what it would have said
   from the documentation.
 
+- **ADR-0159 — Upgrading the model is one page and it lives in `ai-engineering/`, not
+  `dependencies/`.** The roadmap framed it as joining two sections, and only one of them could host
+  it. The `dependencies` section is a worked example of this repo's own pnpm tree, with ranges, a
+  lockfile and command output from a named pnpm version; a page with no lockfile, no range and no
+  tree would have been the one page there with none of the section's furniture. It argues with
+  `dependencies/updating-a-dependency.md` by cross-link instead, which is what the roadmap actually
+  wanted. **One premise in that framing was wrong and the page says so**: the alias that silently
+  moves under you is real but historical, since ids from the 4.6 generation are dateless *and*
+  pinned, and the vendor documents the evergreen-pointer reading as a common misconception. The
+  sharper version, which the page teaches, is that weights are pinned per id and the serving
+  infrastructure around them is not. **It was not split in two.** The "how you gate the change" half
+  is `evals-as-tests.md` read from the other end rather than new material, and splitting would have
+  produced a page that mostly cites another page.
+
+- **ADR-0160 — Isolation is four pages, and microVMs are not the fifth.** The roadmap sketched five.
+  MicroVMs merged into the virtual-machine page because they *are* the answer to what that boundary
+  costs, and a separate page would have restated the same kernel boundary with faster numbers. The
+  section owns isolation as a security property and `production/` owns the image as packaging, which
+  is the line that let both ship the same day without either restating the other. **The `node:vm`
+  escape on the first page is measured on this repo's own sandbox shape, not recalled**: `typeof
+  process` is `undefined` while `structuredClone.constructor('return process')()` reaches the host
+  process and shells out as the user, and a `runInContext` with a 50 ms timeout returned in 1 ms
+  while a callback the sandbox had scheduled ran 301 ms later. That makes ADR-0145 and the standing
+  `node:vm` warning demonstrable rather than asserted, which is the reason the section was worth
+  writing here rather than reading elsewhere.
+
+- **ADR-0161 — Running it in production is four pages, and the image page is refused.** Isolation
+  took the model half, which is namespaces and cgroups over one shared kernel. What was left on the
+  production side was layer-cache ordering, `.dockerignore` and platform mismatch, which are facts
+  you look up once and fix in a Dockerfile, plus artefact identity, where tag-versus-digest is
+  already both the model and the practice on `what-a-deploy-is.md`. It would have been a Dockerfile
+  tour with one borrowed idea. **The version worth writing if this is ever reopened is named so the
+  refusal can be tested rather than re-argued**: "an image is a filesystem and a default command",
+  whose traps are a laptop `node_modules` with the wrong native ABI, `COPY .` before the install so
+  the cache never hits, and build args baked into an artefact that then cannot serve two
+  environments. Two boundaries were held rather than crossed: deploy ordering stayed in
+  `orms/migrations.md` and percentiles stayed in `systems/latency-and-throughput.md`.
+
+- **ADR-0162 — Unix is four pages, and two sketched pages were dissolved rather than written.**
+  **Exit codes**: both halves that matter found homes, since `128 + signal` and `process.exitCode`
+  against `process.exit()` belong on the signals page where you meet them, and stdout truncation on
+  exit is a trap on the stdout page. The remainder is `set -o pipefail` and `&&` chains, which is a
+  shell fact you look up once rather than a model several reps share. **PATH, environment and
+  quoting in CI**: three subjects wearing one title, and the only part with a model behind it, that
+  your parent is not your shell and so never read your profile, is a trap on the process page. The
+  rest is shell mechanics, which the section excludes by its own definition, or already covered in
+  `dependencies`. Every number on these pages was measured on this machine rather than recalled,
+  including the three shutdown timings, `EMFILE` under `ulimit -n 64`, `chmod 077` denying its own
+  owner, and a forking shell swallowing `SIGTERM`. Container-side claims are citation-backed only and
+  say so, because no daemon runs here.
+
+- **ADR-0163 — Trade-offs and architecture is three pages, and prudent-against-reckless technical
+  debt is refused.** The roadmap predicted the section would resist the page shape because trade-off
+  thinking is learned in retrospectives, and it was right about exactly one of the four. What the
+  debt topic contains is Fowler's four-way taxonomy over deliberate/inadvertent and prudent/reckless
+  plus refactoring.guru's interest metaphor and its ten causes, and both are lists you read once.
+  Applying the page test directly: name the several reps that share this model and fail together when
+  it is wrong. There are none, and any rep written for it would be "which quadrant is this", which
+  `content.md` rules out in as many words, since writing it teaches that the definition was the
+  point. **The operative half of the subject is not lost, because it is a mechanism rather than a
+  taxonomy**: debt is repaid by a migration, so `architecture/migrating-without-stopping.md` carries
+  the interest metaphor and Larson's claim that migrations are the only mechanism to manage technical
+  debt as a company and its code grow. The roadmap's further-reading shelf was also not built, since
+  it is the systems case-study shelf under a new name and ADR-0068 already refuses it.
+
 ## The essentials path
 
 - **ADR-0087 — It is a second entrance, not a setting on the daily session.** Everything else here is judged
