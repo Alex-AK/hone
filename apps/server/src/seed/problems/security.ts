@@ -1330,4 +1330,655 @@ export const securityProblems: ProblemDraft[] = [
     explanation:
       'This is a broken object level authorisation bug, which OWASP puts first on its API list, and it survives every id scheme because the id was never the access control. The rule is that a reference supplied by the caller is an input like any other: the handler decides what that caller may see, rather than trusting that they only asked for what they can reach. Scoping the query is stronger than fetching and then comparing, because there is no path where the row is loaded and the check is forgotten. Answer 404 rather than 403 where the existence of the record is itself worth hiding. Unguessable ids are still worth having, and they buy the second half of this: they make an automated sweep expensive and they stop a sequence leaking your volume to anyone who orders twice.',
   },
+
+  {
+    slug: 'security-child-process-same-user',
+    title: 'It runs in its own process now',
+    category: 'security',
+    difficulty: 'easy',
+    relevance: 'occasional',
+    type: 'short-text',
+    prompt: md(
+      'A handler used to run a generated script with `eval`. It now runs it like this:',
+      '',
+      code('js', "spawn('node', ['job.js'], { cwd: '/tmp/job-4471' });"),
+      '',
+      "The ticket says the script can no longer reach the application's own files. Name what the",
+      'child inherited that makes that wrong.'
+    ),
+    graderConfig: {
+      accept: [
+        'the same user id',
+        'the same user',
+        'same user',
+        'the user id',
+        'user id',
+        'uid',
+        'the parent user id',
+        'its parent user id',
+        'the same credentials',
+        'the parent credentials',
+      ],
+      acceptPatterns: [
+        '\\buids?\\b',
+        "(same|parent|your|its|the)\\s+(process(?:['’]s)?\\s+)?(user|credential)",
+        'user\\s+(and\\s+group\\s+)?ids?',
+      ],
+      nearMisses: {
+        'the working directory':
+          '`cwd` was set, and it is not a jail. A relative path starts there; an absolute one never consulted it.',
+        'the environment variables':
+          'Those come across too, and `env` is one option away from replacing them. Who the child runs as is not.',
+        'the open file descriptors':
+          'Real, and narrower than the answer. Even with nothing inherited on stdio, the child can still open the same files.',
+      },
+      hints: [
+        '`cwd` decides where a relative path starts. It decides nothing about what the process may open.',
+        'The kernel answers "may this process read that file" from the process credentials, and a child gets a copy of its parent\'s.',
+        'The same user id.',
+      ],
+    },
+    canonicalAnswer: 'the same user id',
+    solution: md(
+      'The child runs as the same user, so every file the server can read, it can read.',
+      '',
+      code(
+        'js',
+        '// A separate process is a fault boundary: a crash or a hang stays in the child.',
+        '// It is not a privilege boundary until you take something away.',
+        "spawn('node', ['job.js'], {",
+        "  cwd: '/tmp/job-4471',",
+        '  env: {}, // the parent environment is the default, secrets included',
+        '  uid: NOBODY_UID, // only a privileged parent may set this',
+        '});'
+      )
+    ),
+    explanation:
+      "A process boundary is a fault boundary rather than a trust boundary. What it buys is real and worth having: a separate address space, so a bug in the child cannot read the parent's memory, and a crash or an endless loop that stays in the child. What it does not buy is a different identity. `credentials(7)` is explicit that a child created by `fork(2)` inherits copies of its parent's user and group IDs, and file permission checks are answered from those, so the child opens exactly the files the parent could. Node's `spawn` hands the environment down too: `env` defaults to `process.env`, so the provider key and the database URL are in the child unless you pass something else. The `uid` option exists and is not a general escape hatch, because `setuid(2)` only lets a privileged process change to another user; an app server running as `app` spawns children running as `app`. Everything that makes a process contain untrusted code is subtraction from this starting point.",
+  },
+
+  {
+    slug: 'security-model-wrote-the-query',
+    title: 'Nothing left to bind',
+    category: 'security',
+    difficulty: 'easy',
+    relevance: 'daily',
+    type: 'short-text',
+    prompt: md(
+      'A reporting assistant lets the model write the SQL, and the handler runs it:',
+      '',
+      code('js', 'const rows = await db.raw(await model.sqlFor(question));'),
+      '',
+      'Review says to parameterise it, and there is nothing to parameterise: the model wrote the',
+      'whole statement, literals included. Name the control that does apply.'
+    ),
+    graderConfig: {
+      accept: [
+        'a read-only role',
+        'a read only role',
+        'a read-only database role',
+        'a read-only user',
+        'a read-only connection',
+        'least privilege',
+        'run it as a read-only role',
+        'a restricted database role',
+      ],
+      acceptPatterns: [
+        'read[\\s-]?only',
+        'least[\\s-]privilege',
+        'restricted\\s+(database\\s+)?(role|user|connection)',
+        'grant\\s+(only\\s+)?select',
+        '\\brevoke\\b',
+      ],
+      nearMisses: {
+        'validate the sql':
+          'Deciding whether an arbitrary statement is safe means parsing a whole language to build a denylist, and denylists lose. Constrain the connection instead of the string.',
+        'an allowlist of tables':
+          'Closer, and it is still enforced by reading the statement. The engine already knows how to refuse a table: do not grant it.',
+        'sanitise the query':
+          'There is no sanitiser for a language. What you can bound is what the session is permitted to do once the statement is parsed.',
+      },
+      hints: [
+        'Parameter binding works because the value travels beside the statement. Here there is no separate value.',
+        'You cannot make an arbitrary statement safe by inspecting it. You can decide what the session is permitted to do.',
+        'A read-only role, granted only the reporting views, with a statement timeout on it.',
+      ],
+    },
+    canonicalAnswer: 'a read-only database role',
+    solution: md(
+      'Run it on a connection that cannot do the thing you are afraid of:',
+      '',
+      code(
+        'sql',
+        'CREATE ROLE reporting_ro LOGIN;',
+        'REVOKE ALL ON ALL TABLES IN SCHEMA public FROM reporting_ro;',
+        'GRANT SELECT ON reporting_orders, reporting_customers TO reporting_ro;',
+        "ALTER ROLE reporting_ro SET statement_timeout = '5s';",
+        'ALTER ROLE reporting_ro SET default_transaction_read_only = on;'
+      )
+    ),
+    explanation:
+      'Parameter binding separates the statement from the values, which is exactly the split a generated query does not have: the model produced the syntax and the literals together, so there is no channel left to move anything onto. Inspecting the statement instead is a denylist over a full language, and every denylist over a rich grammar loses eventually. What survives is the shape the rest of this section takes: stop trying to make the input safe and bound what running it can reach. A separate login with `SELECT` on the reporting views and nothing else means `DROP TABLE` and a read of the users table both fail in the engine, whatever the model wrote and whatever the question was. Add a statement timeout, because a correct query over the wrong join is a denial of service you will meet long before you meet a malicious one.',
+  },
+
+  {
+    slug: 'security-vm-not-a-boundary',
+    title: 'There is no process in the realm',
+    category: 'security',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'A service grades submitted JavaScript by running it in a `node:vm` context:',
+      '',
+      code(
+        'js',
+        'const context = createContext({ console, setTimeout, structuredClone, URL });',
+        'runInContext(submission, context, { timeout: 1000 });'
+      ),
+      '',
+      'The review approves it, because `typeof process` really is `undefined` in there and the',
+      'timeout stops an endless loop.',
+      '',
+      'Say why that reasoning does not hold, and what the timeout does and does not bound.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'constructor',
+            'reaches',
+            'reach',
+            'escape',
+            'escapes',
+            'break out',
+            'breaks out',
+            'gets out',
+            'get out',
+            'not a security boundary',
+            'not a boundary',
+            'not a sandbox',
+            'not a security mechanism',
+          ],
+          missingFeedback:
+            'Every value handed into that context is an object from the host realm. Say what the submission can do with one.',
+        },
+        {
+          synonyms: [
+            'same process',
+            'your process',
+            'the server process',
+            'same user',
+            'privileges',
+            'credentials',
+            'environment',
+            'env',
+            'filesystem',
+            'file system',
+            'network',
+          ],
+          missingFeedback: 'If it does get out, say what it gets out into.',
+        },
+        {
+          synonyms: [
+            'synchronous',
+            'sync run',
+            'does not stop',
+            'cannot stop',
+            'scheduled',
+            'schedules',
+            'callback',
+            'timer',
+            'after it returns',
+            'keeps running',
+            'still runs',
+          ],
+          missingFeedback: 'The timeout bounded one thing. Say what it does not bound.',
+        },
+      ],
+      hints: [
+        'The absent global is not the question. Look at what you handed in: every one of those is a host object.',
+        '`structuredClone.constructor` is the host `Function`, and `Function("return process")()` evaluates in the host.',
+        'The timeout bounds one synchronous run. A callback the submission scheduled keeps running after `runInContext` has returned.',
+      ],
+    },
+    canonicalAnswer:
+      'A fresh realm is not a boundary. Every value passed into the context is a host object, so the submission walks a constructor chain out of it: `structuredClone.constructor` is the host `Function`, and `Function("return process")()` reaches the real `process` with `require` behind it. Once out it is in the same process as the server, with that process\'s user, its environment variables, its filesystem and its network. Node says so itself: the module is not a security mechanism. The timeout is narrower than it looks too, because it bounds one synchronous run and nothing else: a callback the submission scheduled keeps running after `runInContext` has returned, and it cannot undo a write that already happened.',
+    solution: md(
+      'Measured against exactly that context, on Node 24:',
+      '',
+      code(
+        'js',
+        "runInContext('typeof process', ctx); // 'undefined'",
+        '',
+        'runInContext("structuredClone.constructor(\'return process\')().env.HOME", ctx);',
+        "// '/Users/alex'",
+        '',
+        'runInContext(',
+        '  "structuredClone.constructor(\'return process\')()" +',
+        "    \".mainModule.require('node:child_process').execSync('id -un').toString()\",",
+        '  ctx',
+        ');',
+        "// 'alex'"
+      ),
+      '',
+      'And the timeout, measured the same way:',
+      '',
+      code(
+        'js',
+        'runInContext("setTimeout(() => log(\'still here\'), 300)", ctx, { timeout: 50 });',
+        '// returns in 1ms; the callback runs 301ms later'
+      )
+    ),
+    explanation:
+      "Node's own documentation is one sentence: the `node:vm` module is not a security mechanism, and it is not for running untrusted code. What it gives you is a separate realm, which is a namespace rather than a wall, and the wall is missing because objects cross it. Any function you hand in carries `.constructor`, which is the host `Function`, and a host `Function` compiles code that evaluates in the host. `timeout` is documented as the number of milliseconds to execute code before terminating execution, and that is one synchronous evaluation: it does not follow a scheduled callback, and it obviously cannot undo a file the code has already written. Hone runs this exact code path in `grading/code-runner.ts` and treats it as a convenience rather than a boundary, which is why the file says not to reuse it for anybody else's code, and why self-hosting the app was declined rather than solved with a stricter realm.",
+  },
+
+  {
+    slug: 'security-container-root-on-the-host',
+    title: 'Root wrote the file',
+    category: 'security',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'short-text',
+    prompt: md(
+      'A build container runs as root and writes its output into a bind-mounted host directory:',
+      '',
+      code(
+        'text',
+        '$ docker run -v /var/builds/4471:/out builder',
+        '$ ls -l /var/builds/4471',
+        '-rw-r--r--  1 root  root  1240  bundle.js'
+      ),
+      '',
+      'The unprivileged CI user that started the container cannot then delete its own build output.',
+      '',
+      "Name the namespace whose absence makes the container's root the host's root."
+    ),
+    graderConfig: {
+      accept: [
+        'user namespace',
+        'the user namespace',
+        'user namespaces',
+        'userns',
+        'clone_newuser',
+        'a user namespace',
+      ],
+      acceptPatterns: ['user[\\s_-]?namespace', 'CLONE_NEWUSER', '\\buserns\\b'],
+      nearMisses: {
+        'mount namespace':
+          'That is what gives the container its own view of the filesystem, and the file landed exactly where the mount said. It has no say over which uid wrote it.',
+        'pid namespace':
+          'That renumbers processes, so the build is pid 1 inside. The uid that opened the file is untouched.',
+        'network namespace':
+          'Wrong resource. A uid wrote this file; nothing was sent over a socket.',
+      },
+      hints: [
+        'Nothing here is a filesystem problem: the bytes went exactly where the mount said they would. Read the owner column.',
+        'Root inside the container was uid 0 to the kernel, because uid 0 was never mapped to anything else.',
+        'The user namespace, which is what `--userns-remap` turns on.',
+      ],
+    },
+    canonicalAnswer: 'the user namespace',
+    solution: md(
+      'Two fixes, and they are not the same fix.',
+      '',
+      '- **Do not be root**: `docker run --user 1000:1000` writes as that uid, and the image needs to',
+      '  cope with not owning its own directories.',
+      '- **Remap root**: a user namespace maps container uid 0 to an unprivileged host uid, so a',
+      '  process that believes it is root is nobody in particular outside.',
+      '',
+      code(
+        'text',
+        '$ docker run --user 1000:1000 -v /var/builds/4471:/out builder',
+        '$ ls -l /var/builds/4471',
+        '-rw-r--r--  1 ci  ci  1240  bundle.js'
+      )
+    ),
+    explanation:
+      'Of the namespaces Linux has, the user namespace is the only one that touches identity, and it is the one Docker leaves off by default. `user_namespaces(7)` describes exactly the property that is missing here: a process can have a normal unprivileged user ID outside a user namespace while at the same time having a user ID of 0 inside it, so it has full privileges for operations inside the namespace and is unprivileged for operations outside it. Without that mapping there is no translation to do, and uid 0 in the container is uid 0 to the kernel, which is the same uid 0 that owns the host. Root-owned files in a bind mount are the visible symptom and the cheap one. The expensive version is that anything the container is allowed to reach, it reaches with the capabilities of real root, which is why `--privileged` and a bind-mounted Docker socket are both effectively a root shell on the host.',
+  },
+
+  {
+    slug: 'security-container-shared-kernel',
+    title: 'A container per tenant',
+    category: 'security',
+    difficulty: 'medium',
+    relevance: 'foundational',
+    type: 'explain',
+    prompt: md(
+      "A build platform runs every customer's build in its own container on a shared host. The",
+      'design doc says: "each build is isolated in a container, so a compromised build cannot affect',
+      'another customer\'s".',
+      '',
+      'Say what a container is actually made of, and what that sentence is missing.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: ['namespace', 'cgroup', 'control group', 'capabilit', 'seccomp'],
+          missingFeedback:
+            'A container is not a kernel object. Name the kernel features applied to an ordinary process to make one.',
+        },
+        {
+          synonyms: [
+            'same kernel',
+            'one kernel',
+            'shared kernel',
+            'share the kernel',
+            'shares the kernel',
+            'sharing the kernel',
+            'sharing a kernel',
+            'host kernel',
+            'kernel is shared',
+          ],
+          missingFeedback:
+            'Every container on that host talks to the same one of something. Name it.',
+        },
+        {
+          synonyms: [
+            'syscall',
+            'system call',
+            'kernel bug',
+            'kernel vulnerability',
+            'kernel flaw',
+            'escape',
+            'escapes',
+            'break out',
+            'breaks out',
+            'privilege escalation',
+            'escalat',
+          ],
+          missingFeedback:
+            'Say where the attack surface is, and what a bug in the shared thing gets somebody.',
+        },
+      ],
+      hints: [
+        'There is no container object in Linux. Ask what the kernel actually does to a process to turn it into one.',
+        'Namespaces decide what it can see, cgroups cap what it can use, and a reduced capability set plus a seccomp filter decide what it can ask the kernel for.',
+        'All of that runs on one kernel, so the boundary is the system call interface and a kernel bug reached through it lands on the host.',
+      ],
+    },
+    canonicalAnswer:
+      "A container is an ordinary process with three things done to it: namespaces deciding what it can see, cgroups capping what it can use, and a reduced capability set plus a seccomp filter narrowing what it can ask for. What the sentence misses is that every one of those containers talks to the same kernel. The boundary is the system call interface, which is hundreds of calls wide, so a kernel bug reachable through a call the seccomp filter still permits is a break out of one container and onto the host, and the host is every other customer's build.",
+    solution: md(
+      'The three parts, and what each one is actually for:',
+      '',
+      '| Part                     | What it decides            | What it is not          |',
+      '| ------------------------ | -------------------------- | ----------------------- |',
+      '| Namespaces               | what the process can see   | who it runs as          |',
+      '| cgroups                  | what it can use            | what it can reach       |',
+      '| Capabilities and seccomp | what it can ask the kernel | a different kernel      |',
+      '',
+      'Docker states the limit itself: "One primary risk with running Docker containers is that the',
+      'default set of capabilities and mounts given to a container may provide incomplete isolation."'
+    ),
+    explanation:
+      'Namespaces are the load-bearing piece and `namespaces(7)` says what they do: a namespace wraps a global system resource in an abstraction that makes it appear to the processes within it that they have their own isolated instance of that resource. Eight of them exist, covering mounts, pids, network, IPC, hostname, cgroup root, clocks and user IDs, and a container is a process placed in a set of them. cgroups are accounting rather than access: a Linux kernel feature that lets processes be organised into groups whose resource usage can be limited and monitored, which stops one build eating the host and stops nothing else. The syscall surface is what remains, and Docker narrows it by default with a seccomp profile that denies by default and allows specific calls, disabling around 44 of 300-plus. Two hundred and fifty system calls is a large interface to a single shared kernel, and that is the honest summary: a container is a very good boundary against a mistake and a much weaker one against somebody trying.',
+  },
+
+  {
+    slug: 'security-sandbox-with-network',
+    title: 'No credentials in the sandbox',
+    category: 'security',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'short-text',
+    prompt: md(
+      'A code-runner service starts a container per submitted job. The container has no credentials',
+      'in its environment, no volumes mounted and a read-only root filesystem. It runs on an EC2',
+      "instance whose instance profile can write the service's S3 bucket.",
+      '',
+      'An audit finds that submitted jobs have been writing to that bucket. Name what the sandbox is',
+      'still missing.'
+    ),
+    graderConfig: {
+      accept: [
+        'the network',
+        'network access',
+        'network isolation',
+        'egress',
+        'egress control',
+        'outbound network access',
+        'no outbound network',
+        'its own network namespace',
+      ],
+      acceptPatterns: ['\\bnetwork\\b', '\\begress\\b', '\\boutbound\\b', '169\\.254\\.169\\.254'],
+      nearMisses: {
+        'the iam role':
+          'The role is why this is worth anything to an attacker, and it is on the instance rather than in the sandbox. Say how the job reached the thing that hands it out.',
+        imdsv2:
+          'IMDSv2 raises the price rather than removing the endpoint: a PUT for a token is one extra line from inside the sandbox. What let the job talk to it at all?',
+        'a read-only filesystem':
+          'Already set, and it is the wrong axis. Nothing was written locally.',
+      },
+      hints: [
+        'Nothing was mounted and nothing was in the environment, and the credentials arrived anyway. They came over something.',
+        "An instance's metadata service answers on a link-local address from inside the instance, and AWS documents it as not protected by authentication.",
+        'The sandbox still has the network. `--network=none`, or an egress policy that drops link-local.',
+      ],
+    },
+    canonicalAnswer: 'outbound network access',
+    solution: md(
+      'The job never needed a credential of its own:',
+      '',
+      code(
+        'text',
+        '$ curl http://169.254.169.254/latest/meta-data/iam/security-credentials/',
+        'code-runner-instance-role',
+        '$ curl http://169.254.169.254/latest/meta-data/iam/security-credentials/code-runner-instance-role',
+        '{"AccessKeyId":"ASIA…","SecretAccessKey":"…","Token":"…"}'
+      ),
+      '',
+      'Take the network away, and add the two things that survive a mistake in the first:',
+      '',
+      code(
+        'text',
+        'docker run --network=none --read-only --user 65534:65534 \\',
+        '  --memory=512m --pids-limit=128 runner'
+      )
+    ),
+    explanation:
+      'Emptying the environment answers "what secrets are in the sandbox" and not "what can the sandbox reach", and on a cloud instance the second question has an answer sitting on a fixed link-local address. AWS documents the metadata service at `http://169.254.169.254/latest/meta-data/`, says plainly that the data is not protected by authentication or cryptographic methods and that potentially any software running on the instance can view it, and lists `iam/security-credentials/{role-name}` as returning the temporary credentials for the instance role. So a sandbox with no credentials and a default network is a sandbox with the host\'s credentials one HTTP request away, and the same shape is what makes server-side request forgery worth exploiting. IMDSv2 helps by requiring a `PUT` for a token first, and AWS notes that with a response hop limit of 1 a container counts as an extra hop and often cannot reach the service at all, which makes it a mitigation rather than a boundary. Egress is the boundary: no network by default, and an allowlist where the job genuinely needs one.',
+  },
+
+  {
+    slug: 'security-generated-code-runs-as-you',
+    title: 'The tool that runs what the model wrote',
+    category: 'security',
+    difficulty: 'medium',
+    relevance: 'daily',
+    type: 'explain',
+    prompt: md(
+      'An agent has a `run_python` tool, and the handler runs inside the API process, which holds',
+      '`DATABASE_URL` and the provider key in its environment:',
+      '',
+      code(
+        'js',
+        'async function runPython({ source }) {',
+        '  return execSync(`python3 -c ${JSON.stringify(source)}`).toString();',
+        '}'
+      ),
+      '',
+      'The mitigation on the ticket is a line in the system prompt telling the model not to touch the',
+      'filesystem or the network.',
+      '',
+      'Say what is wrong with both halves.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'not a control',
+            'is not a control',
+            'not enforced',
+            'nothing enforces',
+            'cannot enforce',
+            'does not enforce',
+            'not enforcement',
+            'a request',
+            'a suggestion',
+            'an instruction',
+            'no guarantee',
+          ],
+          missingFeedback:
+            'Say who the line in the system prompt is addressed to, and what it can do about what runs.',
+        },
+        {
+          synonyms: [
+            'untrusted',
+            'zero trust',
+            'zero-trust',
+            'tool result',
+            'tool results',
+            'injection',
+            'attacker',
+            'a page it read',
+            'what it read',
+            'not yours',
+            'did not write it',
+          ],
+          missingFeedback:
+            'Say where the code came from, and why having written the prompt yourself does not make the output yours.',
+        },
+        {
+          synonyms: [
+            'same process',
+            'api process',
+            'your process',
+            'environment',
+            'env',
+            'database_url',
+            'credentials',
+            'privileges',
+            'secrets',
+            'as the server',
+          ],
+          missingFeedback: 'The string executes somewhere. Say what that somewhere already holds.',
+        },
+      ],
+      hints: [
+        'Two separate mistakes. One is about who the instruction is addressed to; the other is about where the string ends up running.',
+        'A system prompt shapes what gets generated and has no say over what happens once `execSync` has the string.',
+        "The code runs in the API process, so it inherits that process's environment, credentials, filesystem and network. Move it somewhere holding none of them.",
+      ],
+    },
+    canonicalAnswer:
+      'The prompt half is not a control. It is an instruction to the thing writing the code, and nothing enforces it once `execSync` has the string; a model that never intended to disobey still produces code that does. The code half is worse, because that source is untrusted input rather than yours: whatever shaped it, a fetched page or a tool result, is content you do not control, so writing the prompt yourself buys nothing. Then `execSync` runs it inside the API process, which means the process environment, `DATABASE_URL` and the provider key, the filesystem and the network. The control is where it runs: a separate process holding no credentials, with no egress and a time and memory budget, while the API process keeps the secrets.',
+    solution: md(
+      'Nothing about the string changes. What changes is where it runs and what is reachable from',
+      'there:',
+      '',
+      code(
+        'js',
+        'async function runPython({ source }, session) {',
+        '  // A different process, a different user, and an environment built rather than inherited.',
+        '  return runner.exec(source, {',
+        '    env: {}, // not process.env',
+        '    network: false, // link-local included, so no metadata service',
+        '    timeoutMs: 10_000,',
+        '    memoryMb: 512,',
+        "    scope: session.workspaceId, // the only data it can see is this session's",
+        '  });',
+        '}'
+      )
+    ),
+    explanation:
+      'OWASP files this as improper output handling: insufficient validation and handling of model output before it is passed downstream, with output entered directly into a shell or `exec` or `eval` named as the path to remote code execution, and the guidance is to treat the model as any other user and adopt a zero-trust approach to what comes back. Zero trust is the useful part, because it settles the objection that you wrote the prompt: the answer was shaped by tool results and fetched pages that you did not, which is the same surface the tool-call loop already has to survive. From there this is not an AI problem at all. Generated code executes with the privileges of whatever executes it, and `execSync` in the API process means the API process, environment variables included, which is why no amount of prompt engineering is a mitigation and why a `node:vm` context is not either. The three subtractions worth making are credentials, egress and time, and they have to be made by whatever starts the runner, because code cannot be asked to decline privileges it already has.',
+  },
+
+  {
+    slug: 'security-vm-boundary-and-its-cost',
+    title: 'A container per job, or a VM per job',
+    category: 'security',
+    difficulty: 'hard',
+    relevance: 'foundational',
+    type: 'explain',
+    prompt: md(
+      "Two designs for running other people's code on shared hosts:",
+      '',
+      '- a container per job, with no capabilities and a seccomp filter',
+      '- a virtual machine per job',
+      '',
+      'Say what the virtual machine moves the boundary to, what that costs, and what both designs',
+      'still have in common underneath.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'own kernel',
+            'its own kernel',
+            'separate kernel',
+            'second kernel',
+            'guest kernel',
+            'hypervisor',
+            'kvm',
+            'virtualisation boundary',
+            'virtualization boundary',
+          ],
+          missingFeedback:
+            'The container was talking to your kernel. Say what the guest talks to instead.',
+        },
+        {
+          synonyms: [
+            'boot',
+            'start-up',
+            'startup',
+            'start up',
+            'slower to start',
+            'memory',
+            'ram',
+            'overhead',
+            'density',
+            'per instance',
+            'per job',
+          ],
+          missingFeedback: 'A second kernel is not free. Say what it costs per instance.',
+        },
+        {
+          synonyms: [
+            'hardware',
+            'cpu',
+            'processor',
+            'physical',
+            'side channel',
+            'side-channel',
+            'silicon',
+            'same machine',
+            'same host',
+            'same box',
+          ],
+          missingFeedback: 'Say what both designs still put in common, below whichever boundary.',
+        },
+      ],
+      hints: [
+        'Ask what the untrusted code is actually talking to in each design, and how wide that interface is.',
+        'A guest has its own kernel, so the boundary drops to the hypervisor: a vCPU, some memory and a handful of emulated devices instead of hundreds of system calls.',
+        "It costs a boot and a kernel's worth of memory per job, and both designs still share the hardware.",
+      ],
+    },
+    canonicalAnswer:
+      'The virtual machine gives the job its own kernel, so what the untrusted code talks to is the hypervisor rather than yours: a vCPU, some memory and a handful of emulated devices, against a system call interface hundreds of calls wide. What it costs is a second kernel per job, a boot to sit through and memory spent whether the job uses it or not, which is why nobody put a VM on a request path until the device model was cut down to make it cheap. What both still share is the hardware, so a CPU side channel does not care which side of the boundary you are on, and the hypervisor is software with bugs of its own, which is why the people who build them put a second barrier behind the first.',
+    solution: md(
+      'Where the untrusted code stops, in each design:',
+      '',
+      code(
+        'text',
+        'container per job                    VM per job',
+        '',
+        '  job A      job B                     job A         job B',
+        '    |          |                         |             |',
+        '  glibc      glibc                    guest kernel  guest kernel',
+        '    |          |                         |             |',
+        '  ====== syscalls ======             ===== hypervisor =====   <- boundary',
+        '    |          |                         |             |',
+        '     host kernel      <- boundary          host kernel',
+        '    |          |                         |             |',
+        '      hardware                             hardware    <- shared either way'
+      )
+    ),
+    explanation:
+      "The two designs differ in one thing, which is what the untrusted code is allowed to talk to. A container talks to your kernel through system calls, and Docker's default seccomp profile disables around 44 of 300-plus, so the interface is still a few hundred entry points into code that also runs everything else on the box. A guest kernel absorbs those calls itself, and what reaches your side is the hypervisor: Firecracker exposes five emulated devices, virtio-net, virtio-block, virtio-vsock, a serial console and a minimal keyboard controller, which is a far smaller thing to get right. The cost used to settle the argument on its own, and microVMs are why it no longer does: Firecracker reports under 5 MiB of memory overhead per microVM, user space in as little as 125ms, and up to 150 microVMs per second per host, which is what let AWS put a VM boundary between Lambda tenants. The last part is the one worth carrying: Firecracker's own design treats every vCPU thread as running malicious code from the moment it starts, runs unprivileged in a chroot with seccomp filters, and describes the jailer as a second line of defence in case the virtualization barrier is ever compromised. Nobody who builds these treats one boundary as sufficient.",
+  },
 ];
