@@ -678,6 +678,46 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
     checkpoint that tested something the brief never stated would be a gotcha, which is the failure
     mode this format has and the only one worth guarding.
 
+- **ADR-0166 — A checkpoint with no oracle asserts invariants over a trace, and `circuit-breaker-node`
+  is the pattern.** ADR-0165 shipped with one question open: `json-parser` got its generated
+  checkpoint from a built-in, and no other workout has one. The answer is that a breaker does not
+  need something to be compared against, because its contract is a set of rules that hold whatever
+  the schedule was. The checkpoint generates the options and a schedule of calls and clock movements,
+  records what happened, and reads the rules off that trace. There is no second breaker anywhere in
+  it.
+
+  **A model would have been the easy version and is the wrong one.** Reimplementing the state machine
+  in the suite and comparing states is a reference implementation under another name: it has to be
+  kept in step with the brief, it can be wrong in the same way a submission is wrong, and when it
+  disagrees the message says "expected open, got closed" rather than naming the rule that broke.
+
+  **The first draft only caught a breaker acting early, and that is the general lesson.** Every rule
+  in it was a safety rule, which is to say nothing may happen before it is allowed. Two planted bugs
+  walked straight through: a threshold compared with `>`, so the circuit opens one failure late, and
+  a failed trial that does not restart the wait. Both are a machine acting *late*, and no safety rule
+  can see late. The fix is the dual, that once the failure streak reaches the threshold and the wait
+  is still running the next call has to be refused. **A generated checkpoint over a state machine
+  needs both halves, and the safety half is the one you think of.**
+
+  **What it catches that the four hand-written checkpoints do not**, out of nine bugs planted in the
+  reference: a trial flag cleared only when the trial fails, and a refusal that restarts the wait.
+  Both leave a breaker that never closes again, which is what turns a recovered dependency into a
+  continuing outage, and neither shows up on a schedule short enough to write out by hand. The other
+  seven are caught by both.
+
+  **The generator is biased, and that is not the same as being a model.** Half the scenarios open
+  with enough failures to trip the circuit, because a uniform script spends most of its length
+  getting there and every rule is about what happens afterwards. Unbiased, the refusal-restarts-the-wait
+  bug took 2000 scenarios to surface; biased, it takes 80.
+
+  **It runs in about 600ms against about 70ms for the other four**, which is the whole reason the
+  count is 80 scenarios rather than 500. The cost is the workout's own `Clock`, which spends a
+  macrotask on every `advance`, and the fix deliberately not taken is editing `clock.ts`: that file
+  is handed to the reader as part of the exercise, and making it cheaper for a suite's benefit
+  changes what they are given. Concurrency stays out for a smaller reason, which is that the driver
+  runs one call at a time, so "exactly one trial call" is checked by checkpoint four's example and
+  not here.
+
 ## The handbook
 
 - **ADR-0067 — Pages are markdown that reads fine on GitHub.** The repo is public and that reach costs nothing.

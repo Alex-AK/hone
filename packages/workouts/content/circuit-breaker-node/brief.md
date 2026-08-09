@@ -33,6 +33,14 @@ Use it for both the wait and the timeout. Real timers will hang the suite instea
 **`src/lib/errors.ts`** holds `CircuitOpenError` and `CallTimeoutError`. The checkpoints assert on
 these classes, so throw these rather than plain errors.
 
+## The last checkpoint
+
+The first four drive schedules somebody chose. The last one generates them, along with the
+threshold, the wait and the timeout, and checks that the rules above held whatever the schedule
+turned out to be. It adds no rules: everything it asserts is on this page already. When it fails it
+prints the shortest schedule that breaks one, which is usually two or three steps and is a complete
+reproduction.
+
 ## Notes
 
 `state` is read by the checkpoints between calls, and it is derived rather than stored: whether the

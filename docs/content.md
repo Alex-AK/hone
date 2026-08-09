@@ -345,14 +345,30 @@ checkpoint has an `id`, a `title` phrased as the behaviour being checked, its `t
 
 Checkpoints are ordered but independent: checkpoint four can pass while one fails.
 
-**A checkpoint may generate its own inputs where an oracle exists**, which is worth reaching for
-when the contract is "for any input" rather than "for these inputs". `json-parser` is the worked
-example and ADR-0165 has the argument: a seeded generator, `JSON.parse` as the oracle, and a shrinker
-so the failure names a document of a few characters instead of the one that happened to find it.
-Three rules come with it. Seed everything, because a checkpoint that fails one run in five is worse
-than no checkpoint. Assert the refusals too, since accepting what the reference rejects is the half
-that hand-written examples cover worst. And check nothing the brief has not already stated, or the
-checkpoint is a gotcha rather than a stricter reading of the same task.
+**A checkpoint may generate its own inputs**, which is worth reaching for when the contract is "for
+any input" rather than "for these inputs". Two workouts do it and they take the two available shapes.
+`json-parser` has an oracle, so the check is agreement: generate a document, run `JSON.parse` over
+the same text, and fail where one of them accepts what the other refuses (ADR-0165). Nothing else has
+an oracle, so `circuit-breaker-node` checks invariants instead: generate a schedule of calls and clock
+movements, record what happened, and read the rules off that trace (ADR-0166). **Reimplementing the
+thing in the suite is neither of these and is not the third option**, since a model has to be kept in
+step with the brief and can be wrong in the same way a submission is.
+
+Five rules come with either shape.
+
+- **Seed everything.** A checkpoint that fails one run in five is worse than no checkpoint.
+- **Assert the refusals**, not only the answers. Accepting what should be rejected is the half
+  hand-written examples cover worst, and on both workouts it is where the unique catches came from.
+- **Write the liveness rules as well as the safety ones.** "Nothing may happen before it is allowed"
+  cannot see a state machine that acts too late, and half the planted bugs in the breaker were late
+  rather than early.
+- **Shrink before reporting.** The counterexample that is found is long; the one worth printing is
+  the shortest that still fails, and it doubles as a test case to paste somewhere.
+- **Check nothing the brief has not already stated.** Otherwise it is a gotcha rather than a stricter
+  reading of the same task, and say in the brief that the checkpoint exists and what it prints.
+
+Budget the runtime deliberately. The breaker's generated checkpoint costs ten times its other four
+together, so scenario counts get tuned down until they fit rather than set to whatever felt thorough.
 
 **A suite that drives HTTP hands supertest a listening server, not an app.** `request(app)` binds a
 fresh ephemeral port on every call, so a suite that loops requests (ten revalidations, one per unit

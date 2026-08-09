@@ -66,18 +66,15 @@ again, so what a run proves is "the examples somebody thought of came back right
 are about making the same 38 workouts and 579 reps ask for more, and they are ordered by what they
 return against what they cost.
 
-- **A differential checkpoint on a workout whose oracle is not a built-in.** The format itself is
-  built and recorded as ADR-0165: `json-parser` generates its own documents, compares against
-  `JSON.parse`, and shrinks a disagreement down to two to eight characters before reporting it. That
-  workout went first because its oracle is a built-in. Everywhere else the oracle would be
-  `solution/`, which `workspace.ts` deliberately does not materialise, and handing a workspace its
-  own reference implementation is the one thing a workout can never do. Two ways out, neither tried.
-  Run the reference in the parent process and hand the suite a recorded table of input to expected
-  output, which is a fixture and has stopped being differential. Or generate against a **property**
-  rather than a reference, which is what `retry-with-backoff-node` and `circuit-breaker-node` would
-  want anyway: no attempt outlives the budget, an open breaker lets nothing through. The second is
-  the better question, and counting how many of the 38 have a contract statable that way is the step
-  before writing either.
+- **Which workouts have a contract worth generating against.** Generated checkpoints exist in both
+  forms they can take: against an oracle in `json-parser` (ADR-0165) and against invariants over a
+  trace in `circuit-breaker-node` (ADR-0166). Both workouts were picked by hand because their
+  contracts were obviously statable, and nobody has read the other 36 to find out how many are. It
+  is one sitting, and the answer might well be four. **A workout does not owe one**, the same way a
+  problem does not owe a page: what earns it is a contract that holds for every input rather than
+  for the ones an author thought of, and most briefs are not that. The cost is the reason to check
+  rather than to add on principle, since the breaker's checkpoint is ten times the runtime of its
+  other four put together.
 
 - **The second visit.** Nothing here practises changing code that already exists under a requirement
   it was not built for, which is most of the work. A part-two workout whose `files/` is another

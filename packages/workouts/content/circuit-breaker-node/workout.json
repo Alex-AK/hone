@@ -35,6 +35,12 @@
       "title": "One trial call decides",
       "testFile": "tests/checkpoints/04-one-trial-call-decides.test.ts",
       "hint": "Half-open is not a fourth thing to store: it is what open means once `openMs` has passed. One trial at a time needs a flag of its own, cleared in a `finally` so a rejected trial does not wedge it, and a failed trial re-opens by moving `openedAt` to now."
+    },
+    {
+      "id": "rules-hold-anywhere",
+      "title": "The rules hold on schedules nobody wrote",
+      "testFile": "tests/checkpoints/05-the-rules-hold-on-any-schedule.test.ts",
+      "hint": "The report prints the schedule that broke a rule, shrunk to the fewest steps that still break it, and it is a complete reproduction: those options, those calls, in that order. `call(hang)` is a dependency that never answers, and the clock moves by `timeoutMs` while it is in flight. Read the last line first, because it names which rule went."
     }
   ]
 }
