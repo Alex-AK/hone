@@ -930,4 +930,765 @@ export const nodeProblems: ProblemDraft[] = [
     explanation:
       "A loop that writes without checking is a producer with no brake: every write succeeds, the data queues in memory, and the only symptom is the resident size of the process. Awaiting `drain` couples the loop to the consumer, so what bounds the amount in flight is the sink's buffer rather than the heap. Wait only when `write` returned `false`, because a stream emits `drain` only after such a write: awaiting it after every chunk hangs on the first one that had room. Real code reaches for `pipeline`, which does all of this; writing it by hand is for a source that is not already a stream.",
   }),
+
+  {
+    slug: 'node-env-values-are-strings',
+    title: 'The flag that is off and still on',
+    category: 'node',
+    difficulty: 'easy',
+    relevance: 'daily',
+    type: 'short-text',
+    prompt: md(
+      'Staging sets the flag off:',
+      '',
+      code('bash', 'DEBUG_SQL=false'),
+      '',
+      'Query logging is on in staging anyway:',
+      '',
+      code('js', 'if (process.env.DEBUG_SQL) enableQueryLogging();'),
+      '',
+      'Rewrite the condition so it does what the config says.'
+    ),
+    graderConfig: {
+      accept: [
+        "process.env.DEBUG_SQL === 'true'",
+        "process.env.DEBUG_SQL == 'true'",
+        "DEBUG_SQL === 'true'",
+      ],
+      acceptPatterns: [
+        'DEBUG_SQL\\s*===?\\s*[\'"`]true[\'"`]',
+        '[\'"`]true[\'"`]\\s*===?\\s*process\\.env\\.DEBUG_SQL',
+      ],
+      nearMisses: {
+        'Boolean(process.env.DEBUG_SQL)':
+          "`Boolean('false')` is `true`. Everything that arrives in the environment is a string, and every non-empty string is truthy.",
+        '!!process.env.DEBUG_SQL':
+          "`Boolean('false')` is `true`. Everything that arrives in the environment is a string, and every non-empty string is truthy.",
+        'JSON.parse(process.env.DEBUG_SQL)':
+          'That reads `false` correctly and throws everywhere the variable is unset, because `JSON.parse(undefined)` is a syntax error.',
+      },
+      hints: [
+        'The variable is set. Ask what it is set to, and what type that value has.',
+        'A process is handed its environment as `name=value` strings, so this one is the five-character string `false`.',
+        'Compare against the string you expect rather than testing the value for truthiness.',
+      ],
+    },
+    canonicalAnswer: "process.env.DEBUG_SQL === 'true'",
+    solution: md(
+      code('js', "if (process.env.DEBUG_SQL === 'true') enableQueryLogging();"),
+      '',
+      'Or parse the whole environment once at boot, so every flag is read in one place and a typo in a name fails at startup rather than in a branch nobody took.'
+    ),
+    explanation:
+      "The environment is an array of `name=value` strings handed to the process when it starts, so there is no type in it to lose: `false`, `0` and `null` all arrive as text, and every one of them is truthy. Reading a flag is therefore always a comparison, never a truthiness test, and the same goes for `PORT`, which is a string until something coerces it. The reason this survives review is that it works on a laptop, where the variable is usually unset and `undefined` is falsy, and only breaks in the one environment that bothered to say no. Assigning back into `process.env` has the mirror problem, since Node coerces the value: `process.env.X = null` stores the string `'null'`.",
+  },
+
+  {
+    slug: 'node-cwd-is-not-the-module-directory',
+    title: 'It found the file until the process manager started it',
+    category: 'node',
+    difficulty: 'easy',
+    relevance: 'daily',
+    type: 'short-text',
+    prompt: md(
+      'A module loads a file that sits next to it on disk:',
+      '',
+      code('js', "const rules = JSON.parse(readFileSync('./rules.json', 'utf8'));"),
+      '',
+      '`pnpm start` from the repo root works. The same build under the process manager, which starts it from `/`, dies at boot:',
+      '',
+      code('text', "Error: ENOENT: no such file or directory, open './rules.json'"),
+      '',
+      'Name what the path has to be resolved against instead.'
+    ),
+    graderConfig: {
+      accept: [
+        'import.meta.dirname',
+        '__dirname',
+        'the directory of the module',
+        'the module directory',
+        'import.meta.url',
+      ],
+      acceptPatterns: [
+        'import\\s*\\.\\s*meta\\s*\\.\\s*(dirname|url)',
+        '__dirname',
+        'fileURLToPath',
+        "\\bthe (module|file)'?s? own\\b",
+      ],
+      nearMisses: {
+        'process.cwd()':
+          "That is what a relative path already resolves against, and the process manager's working directory is `/`.",
+        'an absolute path':
+          'Right shape, and it has to be built from something. The module knows where it is; the working directory does not.',
+        'the repo root':
+          "Nothing tells a running process where the repo root was. The file's own directory is the one thing it can still find.",
+      },
+      hints: [
+        'The file never moved and the path never changed. Something else did.',
+        'A relative path is resolved against the working directory, which is a property of the process and is set by whoever started it.',
+        'Build the path from the location of the module itself, which does not depend on where the process was launched.',
+      ],
+    },
+    canonicalAnswer: 'import.meta.dirname',
+    solution: md(
+      code(
+        'js',
+        "import { join } from 'node:path';",
+        '',
+        "const rules = JSON.parse(readFileSync(join(import.meta.dirname, 'rules.json'), 'utf8'));"
+      ),
+      '',
+      '`__dirname` is the CommonJS spelling of the same thing.'
+    ),
+    explanation:
+      'The working directory belongs to the process, not to the file, and whoever starts the process picks it: a shell uses wherever you were standing, a process manager usually uses `/`, and a container uses whatever `WORKDIR` said. So a relative path in source code is a question about the launcher, which is why it passes every test and fails once on the machine that matters. Resolving against `import.meta.dirname` asks a question about the file instead, and that answer travels. The rule to carry: `process.cwd()` is right for paths the user typed, such as a CLI argument, and wrong for everything that ships alongside your code.',
+  },
+
+  {
+    slug: 'node-progress-on-the-wrong-stream',
+    title: 'The report that would not parse',
+    category: 'node',
+    difficulty: 'easy',
+    relevance: 'daily',
+    type: 'short-text',
+    prompt: md(
+      'A build script prints a line per file while it works, and a JSON report at the end. Both go through `console.log`:',
+      '',
+      code(
+        'js',
+        'console.log(`bundling ${file}`);',
+        '// ...',
+        'console.log(JSON.stringify(report));'
+      ),
+      '',
+      'Run by a human it looks fine. Redirected, the report is unusable:',
+      '',
+      code(
+        'text',
+        'node build.mjs > report.json',
+        'SyntaxError: Unexpected token \'b\', "bundling s"... is not valid JSON'
+      ),
+      '',
+      'Name the change to the progress lines.'
+    ),
+    graderConfig: {
+      accept: [
+        'console.error',
+        'process.stderr.write',
+        'write them to stderr',
+        'stderr',
+        'send them to stderr',
+      ],
+      acceptPatterns: [
+        'console\\s*\\.\\s*(error|warn)',
+        'process\\s*\\.\\s*stderr',
+        '\\bstderr\\b',
+        '\\bstandard error\\b',
+      ],
+      nearMisses: {
+        'remove them':
+          'Then nobody watching a long build can see it working. Two streams exist so that you do not have to choose.',
+        'add a --quiet flag':
+          'That is a flag somebody has to remember to pass. The separation is already there for free.',
+        'console.debug':
+          '`console.debug` is `console.log` under another name and writes to stdout as well. Only `console.error` and `console.warn` go to the other stream.',
+      },
+      hints: [
+        'The redirect captured one thing. Ask what else the script has that it did not capture.',
+        'A process is given two output streams, and `>` redirects only the first of them.',
+        'The report is the output; the progress is diagnostics. Diagnostics go to the second stream.',
+      ],
+    },
+    canonicalAnswer: 'console.error',
+    solution: md(
+      code(
+        'js',
+        'console.error(`bundling ${file}`); // fd 2: for the human',
+        'console.log(JSON.stringify(report)); // fd 1: for whatever consumes this'
+      ),
+      '',
+      'The progress still shows in a terminal, because both streams point there, and it stays out of the file.'
+    ),
+    explanation:
+      'File descriptors 1 and 2 are two separate things that happen to point at the same terminal on your machine, which is the only reason they look like one. Redirect, pipe or collect either one and the split becomes load-bearing: stdout carries what the program produced, stderr carries what a person needs to read while it runs. That is the rule that decides where a line goes, and it is not about severity, which is why a progress bar and a spinner belong on stderr even though nothing is wrong. `console.error` and `console.warn` write to stderr; `console.log`, `console.info` and `console.debug` all write to stdout.',
+  },
+
+  {
+    slug: 'node-eacces-on-the-mounted-volume',
+    title: 'One line in the Dockerfile and it stopped booting',
+    category: 'node',
+    difficulty: 'medium',
+    relevance: 'daily',
+    type: 'short-text',
+    prompt: md(
+      'The Dockerfile gained the line the reviewer asked for:',
+      '',
+      code('dockerfile', 'USER node'),
+      '',
+      'The base image is `node:24-slim`, where `node` is uid 1000. The service now dies at boot:',
+      '',
+      code('text', "Error: EACCES: permission denied, mkdir '/data/uploads'"),
+      '',
+      '`/data` is a bind mount of a host directory the deploy user created. Name the one thing about that directory that has to change.'
+    ),
+    graderConfig: {
+      accept: [
+        'its owner',
+        'the owner',
+        'ownership',
+        'who owns it',
+        'chown it to 1000',
+        'the uid that owns it',
+      ],
+      acceptPatterns: ['\\bchown\\b', '\\bown(er|ers|ership|ed|ing)\\b', '\\buid\\b'],
+      nearMisses: {
+        'chmod 777':
+          'That opens it to every account on the host and leaves it owned by the wrong one, so the next volume repeats it. What is mismatched is two numbers.',
+        'the permissions':
+          'The mode says what the owner and the group may do, and this process is neither of them, so it is checked against the last three bits whatever you set.',
+        'remove USER node':
+          'That is the line the reviewer asked for, and root in the container writes root-owned files onto the host. Change the directory, not the user.',
+      },
+      hints: [
+        'Nothing about the code changed, and the same code could write there yesterday.',
+        'The process now runs as uid 1000, and the kernel checks that number against the numbers on the directory.',
+        'The directory belongs to somebody else. Make it belong to the account the container runs as.',
+      ],
+    },
+    canonicalAnswer: 'Its owner: chown the directory to uid 1000.',
+    solution: md(
+      code('bash', 'chown -R 1000:1000 /srv/app-data   # on the host, before the mount'),
+      '',
+      'Or have the image create a user whose uid already matches the directory, which is the same fix from the other end.'
+    ),
+    explanation:
+      "A bind mount is the host's own file system, so the numbers on it are the host's numbers and nothing translates them at the boundary. The container process is uid 1000 because `USER node` said so, the directory is owned by whichever uid created it, and the kernel compares the two: owner first, then group, then everybody else, and the first class that matches is the only one consulted. `chmod` cannot fix a mismatch between two owners, which is why the reflex of making it world-writable both works and teaches nothing. The same arithmetic explains the reverse case, where a container running as root leaves root-owned files you cannot delete on your laptop.",
+  },
+
+  {
+    slug: 'node-privileged-port-in-the-container',
+    title: 'Permission denied on a port nothing else is using',
+    category: 'node',
+    difficulty: 'easy',
+    relevance: 'occasional',
+    type: 'short-text',
+    prompt: md(
+      "The Dockerfile gained `USER node`. On Linux the service dies at boot, and the same code still starts on the developer's Mac:",
+      '',
+      code('text', 'Error: listen EACCES: permission denied 0.0.0.0:80'),
+      '',
+      'Say what is special about port 80 here.'
+    ),
+    graderConfig: {
+      accept: [
+        'it is below 1024',
+        'below 1024',
+        'under 1024',
+        'it is a privileged port',
+        'privileged port',
+        'a reserved port',
+      ],
+      acceptPatterns: ['\\b1024\\b', '\\bprivileged\\b', '\\breserved\\b', 'CAP_NET_BIND_SERVICE'],
+      nearMisses: {
+        'something else is using it':
+          'That is `EADDRINUSE`. This is a permission the process does not have, on a port nothing is listening on.',
+        'it is the http port':
+          'True, and not the reason. The number matters to the kernel for a different reason than it matters to a browser.',
+      },
+      hints: [
+        'Nothing is listening on 80, and the error is about permission rather than about the address.',
+        'Linux reserves a range of low port numbers, and binding inside it needs a privilege the process gave up with `USER node`.',
+        'The range is everything below 1024.',
+      ],
+    },
+    canonicalAnswer:
+      'It is a privileged port: on Linux only a process with CAP_NET_BIND_SERVICE may bind below 1024.',
+    solution: md(
+      'Listen on a high port and let something else own 80.',
+      '',
+      code('js', 'server.listen(Number(process.env.PORT ?? 3000));'),
+      '',
+      'The load balancer, the ingress or the `-p 80:3000` in the run command maps it.'
+    ),
+    explanation:
+      'Ports below 1024 are privileged on Linux: `ip(7)` says only a process with `CAP_NET_BIND_SERVICE` in the governing user namespace may bind one, which is why the container worked as root and stopped working as `node`. The right answer is almost never to hand the capability back, because the whole point of the non-root user is that a compromised process cannot do much, and a web app has no reason to hold a network capability. Bind a high port and let the layer above map it. macOS does not enforce the restriction at all, which is exactly why this is discovered in CI rather than on a laptop.',
+  },
+
+  {
+    slug: 'node-sigterm-listener-removes-the-exit',
+    title: 'One log line and every deploy takes thirty seconds',
+    category: 'node',
+    difficulty: 'medium',
+    relevance: 'daily',
+    type: 'explain',
+    prompt: md(
+      'A service adds one line so that shutdowns show up in the logs:',
+      '',
+      code('js', "process.on('SIGTERM', () => logger.info('shutting down'));"),
+      '',
+      'The line appears in the logs. Then nothing happens: every deploy now takes the full 30-second grace period, and the platform reports the container as killed rather than stopped.',
+      '',
+      'Say why adding that listener stopped the process exiting.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'default',
+            'replaces',
+            'replaced',
+            'removes',
+            'removed',
+            'overrides',
+            'overrode',
+            'no longer exits',
+            'stops exiting',
+            'took over',
+            'takes over',
+            'instead of terminating',
+            'disposition',
+          ],
+          missingFeedback:
+            'The process exited on `SIGTERM` before this line was added. Say what the line did to that behaviour.',
+        },
+        {
+          synonyms: [
+            'server.close',
+            'close the server',
+            'stop accepting',
+            'stop listening',
+            'drain',
+            'process.exit',
+            'exitcode',
+            'exit code',
+            'close the connection',
+            'close everything',
+            'finish',
+            'empty the loop',
+          ],
+          missingFeedback:
+            'Nothing else is going to end the process now. Say what the handler has to do before it can.',
+        },
+      ],
+      hints: [
+        'The signal arrived and the handler ran. Ask what used to happen after that.',
+        'Node ships a default handler for SIGTERM, and installing one of your own removes it.',
+        'The handler now owns the shutdown, so it has to close the server and let the loop empty.',
+      ],
+    },
+    canonicalAnswer:
+      "Node's own default handler for SIGTERM is what exited the process, and installing a listener removes it, so from that line onwards the signal runs the callback and nothing else: the server is still listening and the loop still has work in it. The handler now owns the shutdown, so it has to stop accepting, close the server, finish what is in flight and let the loop empty, or the platform waits out the grace period and sends SIGKILL.",
+    solution: md(
+      '- **What changed**: `SIGTERM` has a default handler on non-Windows platforms that exits with `128 + signal number`. A listener replaces it, and Node no longer exits on the signal at all.',
+      '- **What the handler owes you now**: stop accepting connections, let the in-flight work finish, close what is open, and let the loop run dry.',
+      '',
+      code(
+        'js',
+        "process.on('SIGTERM', () => {",
+        "  logger.info('shutting down');",
+        '  server.close(() => pool.end());',
+        '});'
+      )
+    ),
+    explanation:
+      'A signal has a disposition: ignore it, run a handler, or take the default action, which for SIGTERM is to terminate. Node installs its own handler for SIGTERM and SIGINT that exits with `128 + signal number`, and its documentation is explicit that installing a listener removes that default behaviour, so a one-line log statement silently converts a process that stopped on request into one that has to be killed. Nothing warns you, because the log line is the only observable part and it looks like it worked. The deploy still completes, which is why this survives for months: the cost is paid in a grace period nobody watches and in whatever was in memory when SIGKILL landed.',
+  },
+
+  {
+    slug: 'node-exit-in-the-sigterm-handler',
+    title: 'The shutdown that hung up on a live request',
+    category: 'node',
+    difficulty: 'medium',
+    relevance: 'daily',
+    type: 'explain',
+    prompt: md(
+      'A shutdown handler stops the server and exits:',
+      '',
+      code('js', "process.on('SIGTERM', () => {", '  server.close();', '  process.exit(0);', '});'),
+      '',
+      'Measured on Node 24.16.0 against a request that was 250ms from finishing: the client got `ECONNRESET`, "socket hang up", 3ms after the signal was sent.',
+      '',
+      'Say what `process.exit(0)` did to that response, and what the handler should do instead.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'immediately',
+            'straight away',
+            'at once',
+            'on the spot',
+            'does not wait',
+            "doesn't wait",
+            'without waiting',
+            'still pending',
+            'in flight',
+            'in-flight',
+            'unfinished',
+            'half-written',
+            'drops',
+            'dropped',
+            'discards',
+            'never finished',
+            'cut off',
+            'killed the',
+          ],
+          missingFeedback:
+            '`server.close()` had only just been called. Say what `process.exit()` did to the response that was still being written.',
+        },
+        {
+          synonyms: [
+            'callback',
+            'exit naturally',
+            'exits on its own',
+            'exit on its own',
+            'exitcode',
+            'exit code',
+            'do not call',
+            "don't call",
+            'remove the exit',
+            'drop the exit',
+            'wait for',
+            'let the loop',
+            'loop empty',
+            'empties',
+          ],
+          missingFeedback:
+            'Node ends the process on its own once nothing is left in the loop. Say what the handler should do rather than forcing it.',
+        },
+      ],
+      hints: [
+        '`server.close()` returned straight away. Ask whether it had finished doing what it was asked.',
+        '`process.exit()` ends the process as fast as it can, with pending work pending.',
+        'Give `close` a callback, or set `process.exitCode`, and let the loop empty on its own.',
+      ],
+    },
+    canonicalAnswer:
+      '`process.exit(0)` ends the process on the spot, so the socket went away under a response that had not finished writing and the client saw the connection drop rather than a reply. `server.close()` is asynchronous and had only stopped the listener. Give it a callback, or set `process.exitCode` and let the loop empty on its own, so the in-flight request finishes before the process goes.',
+    solution: md(
+      code(
+        'js',
+        "process.on('SIGTERM', () => {",
+        '  server.close(() => {',
+        '    pool.end();',
+        '    // no process.exit: the loop is empty, so Node leaves on its own',
+        '  });',
+        '});'
+      ),
+      '',
+      'Keep a timer as the backstop if you want a hard ceiling, and `unref()` it so it cannot be the thing holding the process open.'
+    ),
+    explanation:
+      "Node exits on its own the moment the event loop has nothing left in it, which means a correct shutdown is a matter of removing work rather than of calling something. `process.exit()` skips that: its own documentation says it forces the process to exit even where asynchronous operations are still pending, and lists writes to stdout among the things that get truncated. In a shutdown handler the pending operation is somebody's response, so the failure is invisible on your machine and shows up as a small, permanent rate of 502s during every deploy. Set `process.exitCode` when you need a non-zero status and let the process leave when it is actually done.",
+  },
+
+  {
+    slug: 'node-log-per-row-costs-the-loop',
+    title: 'Twenty thousand log lines, fifty milliseconds',
+    category: 'node',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'An export handler logs a line per row so an operator can follow it:',
+      '',
+      code(
+        'js',
+        'for (const row of rows) {',
+        '  console.log(`exporting ${row.id}`);',
+        '  out.write(toCsv(row));',
+        '}'
+      ),
+      '',
+      'Measured on Node 24.16.0 with stdout redirected to a file: pushing the same 20,000 lines into an array took 0.5ms, and writing them to stdout took about 50ms. Every other request in the process waits out those 50ms.',
+      '',
+      'Say what the 50ms is spent on, and what the log should be instead.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'syscall',
+            'sys call',
+            'system call',
+            'write call',
+            'a write per',
+            'one write per',
+            'write per line',
+            'kernel',
+            'file descriptor',
+            'not buffered',
+            'no buffering',
+            'goes out immediately',
+            'each line is written',
+            'per line',
+          ],
+          missingFeedback:
+            'The array version did the same string work in 0.5ms. Say what the stdout version does that the array does not.',
+        },
+        {
+          synonyms: [
+            'once per request',
+            'one line per request',
+            'a line per request',
+            'per request',
+            'fewer lines',
+            'log less',
+            'a count',
+            'the count',
+            'summary',
+            'summarise',
+            'summarize',
+            'aggregate',
+            'sample',
+            'batch',
+            'debug level',
+            'log level',
+          ],
+          missingFeedback:
+            'The fix is about how many lines there are, not how they are written. Say what should be logged instead.',
+        },
+      ],
+      hints: [
+        'Building the strings is not the cost: the array version did that in half a millisecond.',
+        'Each `console.log` is a write to file descriptor 1, and it happens on the one thread that also serves requests.',
+        'Log once for the export with a row count, and keep the per-row detail behind a level nobody turns on in production.',
+      ],
+    },
+    canonicalAnswer:
+      'Each `console.log` is a write to file descriptor 1, so the loop pays a system call per line on the same thread that answers every other request; the string work was the 0.5ms and the writing was the other 50. Log once per request with a count instead of once per row, and keep the per-row detail behind a level nobody enables in production.',
+    solution: md(
+      code(
+        'js',
+        'for (const row of rows) out.write(toCsv(row));',
+        '',
+        'console.log(`exported ${rows.length} rows in ${Date.now() - started}ms`);'
+      ),
+      '',
+      'One line carrying the numbers beats twenty thousand carrying an id each, and it is the one a dashboard can read.'
+    ),
+    explanation:
+      'A log line is not an append to a buffer somewhere, it is a write to a file descriptor, and the cost of that shows up as time on the one thread you have. Fifty milliseconds for an export is survivable; the same reflex on a hot path, a line per iteration in a request that runs a thousand times a minute, is a latency budget spent on text nobody reads. What makes it hard to see is that the profile blames the handler rather than the logging, and that on a laptop the numbers are small enough to disappear. A structured logger with a level does not change the arithmetic, it just gives you a switch, which is the point: the per-row line should exist and should be off.',
+  },
+
+  {
+    slug: 'node-root-owns-the-files-it-wrote',
+    title: 'The upload you need sudo to delete',
+    category: 'node',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'A container runs as root, which is the default, and writes uploads into a bind-mounted `./data`. On the host afterwards:',
+      '',
+      code('text', '$ ls -l data', '-rw-r--r--  1 root  root  81232  invoice-4471.pdf'),
+      '',
+      'The developer cannot delete it without `sudo`, and the cleanup step in CI fails.',
+      '',
+      'Say why a process inside the container produced a file owned by root outside it, and what stops it.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'same kernel',
+            'one kernel',
+            'shares the',
+            'sharing the',
+            'no translation',
+            'not translated',
+            'no mapping',
+            'not mapped',
+            'not remapped',
+            'uid 0',
+            'the same uid',
+            'same number',
+            'the number',
+            'numeric',
+            'just a number',
+            'same file system',
+            'host file system',
+          ],
+          missingFeedback:
+            'A container is not a machine of its own. Say what the host file system was given when the file was created.',
+        },
+        {
+          synonyms: [
+            'non-root',
+            'not as root',
+            'not root',
+            'user directive',
+            'user node',
+            'unprivileged',
+            'user namespace',
+            'userns',
+            'remap',
+            'run as a user',
+            'run it as',
+            'run the container as',
+            'match the uid',
+            'matching uid',
+          ],
+          missingFeedback:
+            'Say what stops it happening again: the process wrote as root because nothing told it to be anybody else.',
+        },
+      ],
+      hints: [
+        'The file is on the host file system. The container only supplied the writer.',
+        'A bind mount stores the numeric uid of whatever process wrote, and root inside the container is uid 0 outside it too.',
+        'Run the container as a non-root uid that owns the directory, or map the ids with a user namespace.',
+      ],
+    },
+    canonicalAnswer:
+      "The container shares the host's kernel and a bind mount is the host file system, with no id translation at the boundary: the file records the numeric uid of the writing process, and root inside the container is uid 0 outside it. Run the container as a non-root user whose uid owns the mounted directory, or map the ids with a user namespace.",
+    solution: md(
+      '- **Why**: a bind mount is not a copy and not a translation. The numeric uid of the writer is what gets stored, and uid 0 means the same thing on both sides.',
+      '- **What stops it**: `USER node` in the image, and a host directory owned by that uid, so the files it writes are files you own.',
+      '',
+      code('dockerfile', 'USER node', '# and on the host: chown -R 1000:1000 ./data')
+    ),
+    explanation:
+      'The lesson is that a uid is a number and only a number: names live in `/etc/passwd`, which the container has its own copy of, and the kernel never consults it. So "root in the container" is not a sandboxed sort of root, it is uid 0 on the machine, and the file system records that on every file it writes through a bind mount. This is the practical half of why the container does not run as root, and it bites long before anything security-shaped does: a `node_modules` you cannot remove, a CI job whose cleanup fails, a coverage report owned by somebody who does not exist. The isolation question is separate and larger; this one is arithmetic.',
+  },
+
+  {
+    slug: 'node-too-many-open-files',
+    title: 'Everything failed, including the calls that touch no files',
+    category: 'node',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'A service opens a per-request log file and never closes it. After a few hours in production every request fails, and so does every outgoing HTTP call:',
+      '',
+      code('text', "Error: EMFILE: too many open files, open '/var/log/app/req-8912.log'"),
+      '',
+      'Memory and CPU are both unremarkable. Say what ran out, and why an unrelated `fetch` fails too.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'file descriptor',
+            'descriptors',
+            'descriptor',
+            'ulimit',
+            'rlimit',
+            'nofile',
+            'open files',
+            'open file limit',
+            'file handle',
+            'file handles',
+          ],
+          missingFeedback:
+            '`EMFILE` is a limit being reached. Name the thing the process has a limited number of.',
+        },
+        {
+          synonyms: [
+            'socket',
+            'sockets',
+            'same table',
+            'one table',
+            'same limit',
+            'same budget',
+            'the same count',
+            'also a descriptor',
+            'also descriptors',
+            'connections count',
+            'network too',
+            'everything is a',
+            'shares the',
+          ],
+          missingFeedback:
+            'The `fetch` never opened a file. Say what a socket is, as far as this limit is concerned.',
+        },
+      ],
+      hints: [
+        'Nothing is leaking memory, so the thing being exhausted is counted rather than measured.',
+        'A process has a maximum number of open file descriptors, `RLIMIT_NOFILE`, and every unclosed log file holds one.',
+        'A socket is a file descriptor from the same table, so a connection cannot be opened either once it is full.',
+      ],
+    },
+    canonicalAnswer:
+      'The process ran out of file descriptors. `RLIMIT_NOFILE` caps how many a single process may have open, the leaked log files filled it, and `EMFILE` is what `open` returns once it is full. A socket is a descriptor from the same table, so `fetch` cannot get one either, and the failure spreads to code that never touched a file.',
+    solution: md(
+      '- **What ran out**: file descriptors, capped per process by `RLIMIT_NOFILE`. Every log file that was opened and not closed holds one for the life of the process.',
+      '- **Why `fetch` fails**: a socket is a descriptor. One table, one limit, so exhausting it with files takes the network with it.',
+      '',
+      'Raising the limit buys time and nothing else. The handle has to be closed, which is what `using` and `try/finally` are for.'
+    ),
+    explanation:
+      "The descriptor table is the process's handle on everything outside itself: open files, sockets, pipes, the three it was started with. One limit covers all of them, which is why a leak in one part of the code appears as a failure in an unrelated part, and why the first symptom is usually an outgoing call rather than the thing doing the leaking. `EMFILE` names the per-process limit and `ENFILE` the system-wide one, and telling them apart is the difference between fixing your service and looking at the host. The reason this reaches production is that it is invisible until it is total: nothing degrades, the count just climbs until it hits the ceiling.",
+  },
+
+  {
+    slug: 'node-close-keeps-a-busy-connection',
+    title: 'The response went out and the process stayed up',
+    category: 'node',
+    difficulty: 'hard',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'A shutdown handler calls `server.close()` and nothing else, on Node 24.16.0 with the default `keepAliveTimeout` of 5000ms. One client is holding a keep-alive connection with a request in flight when SIGTERM arrives.',
+      '',
+      'Measured: the response was delivered 255ms after the signal, and the process did not exit for another 6.0 seconds. Calling `server.closeIdleConnections()` on a 20ms interval after `close()` brought that second number down to 3ms.',
+      '',
+      'Say which connections `server.close()` closes, and what held the process open for the extra six seconds.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'idle',
+            'not sending',
+            'no request in',
+            'between requests',
+            'at that moment',
+            'when it is called',
+            'when you call it',
+            'at the time',
+            'already free',
+          ],
+          missingFeedback: 'It closed some connections and kept one. Say which ones it closes.',
+        },
+        {
+          synonyms: [
+            'keep-alive',
+            'keepalive',
+            'keep alive',
+            'stayed open',
+            'still open',
+            'held open',
+            'left open',
+            'timeout',
+            'reused',
+            'the socket',
+          ],
+          missingFeedback:
+            'The response was delivered and the process stayed up anyway. Say what was still there.',
+        },
+      ],
+      hints: [
+        'The listener stopped accepting straight away. The delay is about something already connected.',
+        'Since Node 19, `server.close()` closes the connections that are idle at the moment you call it, and keeps the ones mid-request.',
+        'That connection was busy, so it survived the call, went idle when the response was sent, and nothing reaped it until the keep-alive timeout.',
+      ],
+    },
+    canonicalAnswer:
+      '`server.close()` stops the listener and closes the connections that are idle at that moment, and keeps any connection in the middle of a request. This one was busy when the signal arrived, so it survived the call, went idle once the response was sent, and nothing closed it until the keep-alive timeout expired six seconds later. Calling `closeIdleConnections()` again after `close()` reaps it as soon as it goes idle.',
+    solution: md(
+      code(
+        'js',
+        "process.on('SIGTERM', () => {",
+        '  server.close(() => pool.end());',
+        '  // reap connections as they go idle, not just the ones idle right now',
+        '  setInterval(() => server.closeIdleConnections(), 20).unref();',
+        '});'
+      ),
+      '',
+      'Whether that matters depends on your grace period. Six seconds of a thirty-second window is slack; six seconds of a five-second window is a SIGKILL.'
+    ),
+    explanation:
+      '`server.close()` is two things at once: it stops the listener, which is instant, and it waits for existing connections to end, which is not. Since Node 19 it also closes whatever is idle when you call it, which is why a shutdown looks correct under a client that is not using keep-alive and only misbehaves under one that is. The connection that was mid-request is the interesting case, because it is not idle at the moment of the call and nothing revisits the question afterwards: it just sits there until `keepAliveTimeout` fires. Measure your own grace period against that timeout before deciding this is fine, because the failure mode is a SIGKILL that discards whatever the process had not written down.',
+  },
 ];
