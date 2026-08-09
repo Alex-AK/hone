@@ -1355,4 +1355,206 @@ export const aiEngineeringProblems: ProblemDraft[] = [
     explanation:
       'These two fields are the whole diagnostic, and they answer different questions: creation is what you paid a premium to store, read is what you got back for a tenth. Both non-zero across a run is normal, since a growing conversation writes a little and reads a lot. Creation non-zero on every single call is the signal that no entry is ever being matched, and at this call rate expiry cannot explain it. What is left is that the bytes differ, and a prefix match has no tolerance: one interpolated value near the front costs the whole span behind it.',
   },
+
+  {
+    slug: 'ai-model-pinned-the-alias',
+    title: 'No deploy, different answers',
+    category: 'ai-engineering',
+    difficulty: 'easy',
+    relevance: 'occasional',
+    type: 'short-text',
+    prompt: md(
+      'Answers from your extraction endpoint changed this week. Nothing in the repo changed, and there was no deploy.',
+      '',
+      'Your config names the model as `claude-sonnet-4-5`. The provider documents that as a convenience pointer that resolves to the most recent dated snapshot for that minor version, and lists the full id as `claude-sonnet-4-5-20250929`.',
+      '',
+      'What is the one-line fix?'
+    ),
+    graderConfig: {
+      accept: [
+        'claude-sonnet-4-5-20250929',
+        'pin the dated snapshot',
+        'pin the dated id',
+        'pin the full id',
+        'pin the snapshot',
+        'use the dated id',
+        'use the full id',
+      ],
+      acceptPatterns: [
+        'claude-sonnet-4-5-20250929',
+        '(pin|use|name|specify|replace|swap|switch|point)\\w*\\b.{0,40}\\b(dated|full|snapshot|20250929)',
+      ],
+      nearMisses: {
+        'pin the model':
+          'Right verb, wrong string. The one you have already looks like a pin and is not one.',
+        'roll back the deploy':
+          'There was no deploy. The string in the config still reads the same.',
+        'set the temperature to 0':
+          'Sampling settings do not decide which weights answer the request.',
+        'clear the prompt cache': 'A stale cache costs money and latency, not different answers.',
+        nothing: 'Something moved without you, and the config line is where it got in.',
+      },
+      closeSubstrings: {
+        alias:
+          'Naming it as an alias is the diagnosis. The fix is what you replace the alias with.',
+        'pin the model':
+          'Right verb, wrong string. The one you have already looks like a pin and is not one.',
+      },
+      hints: [
+        'One of those two strings can change what it points at. The other cannot.',
+        'Write down the version you are actually running, the way a lockfile would.',
+      ],
+    },
+    canonicalAnswer: 'Pin the dated snapshot, `claude-sonnet-4-5-20250929`.',
+    solution: md(
+      'Name the dated snapshot, `claude-sonnet-4-5-20250929`, instead of the alias.',
+      '',
+      'The alias resolves to whatever the most recent snapshot is on the day the request goes out, so the same config line can call two different sets of weights a month apart.'
+    ),
+    explanation:
+      'A model id is the closest thing you get to a pinned version, and whether the string in your config is pinned at all depends on which string it is: some are snapshots and some are pointers to the newest snapshot, and they look alike. Pinning does not make the dependency stable, it makes the change deliberate, which is the same argument as a lockfile. What pinning cannot buy you is permanence: a pinned id still has a retirement date somebody else set, so the point of pinning is to choose when you move rather than to avoid moving.',
+  },
+
+  {
+    slug: 'ai-model-rollback-expires',
+    title: 'Rolling back to a model nobody serves',
+    category: 'ai-engineering',
+    difficulty: 'easy',
+    relevance: 'occasional',
+    type: 'short-text',
+    prompt: md(
+      'Rolling back a bad deploy means shipping the previous build, and the previous build is still sitting in your registry.',
+      '',
+      'Rolling back a bad model upgrade means sending the previous model id.',
+      '',
+      'Name the thing that can make the second one impossible, given enough time.'
+    ),
+    graderConfig: {
+      accept: [
+        'the old model is retired',
+        'the old model was retired',
+        'retirement',
+        'the model was retired',
+        'the old id was retired',
+      ],
+      acceptPatterns: [
+        'retire',
+        'sunset',
+        'shut ?down',
+        'withdrawn',
+        'taken down',
+        'no longer (served|available|offered|accessible|exists)',
+        'stops? being served',
+      ],
+      nearMisses: {
+        deprecation: 'Deprecated still answers. Retired is the state where the request fails.',
+        'it was deprecated':
+          'Deprecated still answers. Retired is the state where the request fails.',
+        'rate limits':
+          'A new model draws on its own limit pool, which is a real cost of the move. It is not what makes the old id unreachable.',
+        'the prompt no longer works':
+          'The prompt is yours and does not expire. What expires is on the provider side.',
+        nothing:
+          'Given enough time something does. The provider publishes a date, and after it the id stops answering.',
+      },
+      closeSubstrings: {
+        deprecat: 'Deprecated still answers. Name the state where the request fails.',
+      },
+      hints: [
+        'The previous build is yours. The previous model is not.',
+        'Providers publish two states for an old model, and only one of them still answers.',
+      ],
+    },
+    canonicalAnswer: 'The old model gets retired, and requests naming a retired model fail.',
+    solution: md(
+      'It gets retired, and after that requests naming it fail.',
+      '',
+      'Deprecated and retired are separate states: a deprecated model is still functional and no longer recommended, a retired one is gone. Notice periods are published and they vary widely, from around two months to six.'
+    ),
+    explanation:
+      'The rollback target is a dependency somebody else stops serving, which has no equivalent in a deploy or a lockfile revert. That makes the retirement date of the model you would roll back *to* a thing worth reading before you migrate, not after, because once it passes the fallback is some other model and that is a second upgrade nobody has tested. It is the part people meet late, since it costs nothing at all until the day it costs everything.',
+  },
+
+  {
+    slug: 'ai-model-swap-green-suite',
+    title: 'Green suite, shorter answers',
+    category: 'ai-engineering',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'Your eval suite asserts structure: the answer parsed as JSON, the required fields are filled, and every citation was in the context. You move to a new model id and the whole suite stays green.',
+      '',
+      'A week later, support reports that answers have got noticeably shorter.',
+      '',
+      'Say why the suite could not catch that, and what has to change about it.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'still parses',
+            'still valid',
+            'still passes',
+            'still satisfies',
+            'still correct',
+            'not a failure',
+            'is not a failure',
+            "isn't a failure",
+            'nothing broke',
+            'nothing is broken',
+            'not wrong',
+            'structural',
+            'structure',
+            'shape',
+            'invariant',
+            'never asserted',
+            'not asserted',
+            'nothing asserts',
+          ],
+          missingFeedback:
+            'Every assertion in that suite still holds on a shorter answer. Say why it does.',
+        },
+        {
+          synonyms: [
+            'length',
+            'how long',
+            'word count',
+            'character count',
+            'token count',
+            'verbosity',
+            'baseline',
+            'compare',
+            'comparison',
+            'diff',
+            'against the old',
+            'previous model',
+            'old model',
+            'record',
+            'measure',
+            'track',
+          ],
+          missingFeedback:
+            'Nothing in the suite ever looked at how long an answer was. What does it have to start doing?',
+        },
+      ],
+      hints: [
+        'The answers coming back are still correct, so the suite is measuring something other than what moved.',
+        'Ask what a shorter answer fails. Then ask what would have shown you it got shorter.',
+        'Not everything worth watching is a pass or a fail.',
+      ],
+    },
+    canonicalAnswer:
+      'A shorter answer still parses, still fills the required fields and still cites only supplied documents, so every structural assertion is satisfied and nothing in the suite is broken. The suite has to record the length of each answer and compare it against the same cases on the previous model, because length is a distribution to diff rather than a pass or a fail.',
+    solution: md(
+      'Nothing failed because nothing could: a shorter answer still parses, still fills the fields and still cites only what it was given.',
+      '',
+      '- **Stop expecting an assertion to catch it.** A hard limit on length fails on a legitimately short answer and teaches the team to ignore the suite.',
+      '- **Start recording it.** Length, tool-call rate and refusal rate per run, compared against the same cases on the id you came from.',
+      '',
+      'A model swap moves several properties at once, so the useful output is a diff rather than a verdict.'
+    ),
+    explanation:
+      'A structural suite is the right floor and it is deliberately blind to everything that is allowed to vary, which is exactly where a model change shows up: shorter answers, a tool called less often, a refusal boundary that moved. None of those is a failing assertion, and turning them into one produces a suite that fails while the system is right. Record them per run instead and compare against the previous model, because the thing you want out of a model swap is a diff of what moved, not a green tick. It is also the one change where every property moves at once, which is why the comparison has to be against the same cases rather than against a remembered impression.',
+  },
 ];
