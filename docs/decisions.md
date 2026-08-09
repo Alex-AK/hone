@@ -929,8 +929,10 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   debt as a company and its code grow. The roadmap's further-reading shelf was also not built, since
   it is the systems case-study shelf under a new name and ADR-0068 already refuses it.
 
-- **ADR-0164 — Three decks came out of reading the new sections, and logs against metrics against
-  traces was refused.** The roadmap's rule is that a deck does not justify a page while a new page is
+- **ADR-0164 — Three decks came out of reading the new sections, and a fourth deck over
+  `production/logs-metrics-and-traces.md` was refused.** The refusal is about the deck only: that page
+  ships, carries the cardinality rule, and has four reps behind it. The roadmap's rule is that a deck
+  does not justify a page while a new page is
   worth re-reading for the contrast set it just made checkable, and the second half had never been
   exercised deliberately. Fifteen pages arriving at once was the occasion to try it. Three cleared the
   bar because getting them backwards is a bug you have shipped: the signal family, where a handler
