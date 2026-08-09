@@ -1,0 +1,83 @@
+{
+  "slug": "three-features-one-kernel",
+  "title": "Three features, one kernel",
+  "summary": "Which kernel feature bounds what a container can reach, which one only bounds what it consumes, and what is left over for the system call interface. Almost every wrong expectation about containers is one of the three being credited with another's job.",
+  "order": 12,
+  "minutes": 5,
+  "page": "isolation/what-a-container-is-made-of",
+  "practise": [
+    "security-child-process-same-user",
+    "security-container-root-on-the-host",
+    "security-container-shared-kernel"
+  ],
+  "sources": [
+    {
+      "author": "Linux man-pages",
+      "title": "namespaces(7)",
+      "url": "https://man7.org/linux/man-pages/man7/namespaces.7.html"
+    },
+    {
+      "author": "Linux man-pages",
+      "title": "user_namespaces(7)",
+      "url": "https://man7.org/linux/man-pages/man7/user_namespaces.7.html"
+    },
+    {
+      "author": "Linux man-pages",
+      "title": "cgroups(7)",
+      "url": "https://man7.org/linux/man-pages/man7/cgroups.7.html"
+    },
+    {
+      "author": "Docker",
+      "title": "Docker Engine security",
+      "url": "https://docs.docker.com/engine/security/"
+    },
+    {
+      "author": "Docker",
+      "title": "Seccomp security profiles for Docker",
+      "url": "https://docs.docker.com/engine/security/seccomp/"
+    },
+    {
+      "author": "Docker",
+      "title": "docker container run",
+      "url": "https://docs.docker.com/reference/cli/docker/container/run/"
+    }
+  ],
+  "verified": "2026-08-09",
+  "cards": [
+    {
+      "id": "namespaces-against-cgroups",
+      "front": "Namespaces and cgroups both sound like isolation. Which one bounds what a container can reach?",
+      "back": "Namespaces. One \"wraps a global system resource in an abstraction that makes it appear to the processes within the namespace that they have their own isolated instance\", so it decides what is visible. cgroups organise processes into groups \"whose usage of various types of resources can then be limited and monitored\", which is accounting rather than access."
+    },
+    {
+      "id": "the-memory-limit-is-not-a-boundary",
+      "front": "A container is capped at 512MB of memory. Which of its powers did that limit take away?",
+      "back": "None of them. cgroups bound consumption, not reach, so the capped container reads the same files and opens the same sockets as an uncapped one. The converse holds too, since namespaces bound reach and not consumption: a fork bomb in the most thoroughly namespaced container on the host still takes the host down."
+    },
+    {
+      "id": "what-is-left-for-seccomp",
+      "front": "Namespaces decide what a container sees and cgroups what it uses. What is left for capabilities and seccomp?",
+      "back": "What it may ask the kernel for. Docker \"starts containers with a restricted set of capabilities\", and its default seccomp profile is an allowlist that \"denies access to system calls by default and then allows specific system calls\", disabling around 44 out of 300 plus. The few hundred still permitted are the boundary."
+    },
+    {
+      "id": "root-in-the-container-is-root",
+      "front": "The CI job's build output is owned by a user it cannot delete. Which namespace was not in play?",
+      "back": "The user namespace, which is the one you have to ask for. Without it there is no mapping to apply, so uid 0 in the container is the uid 0 that owns the host, and a bind-mounted write lands as host root. `--user` changes who the process is, `--userns-remap` changes what root means, and they are different fixes."
+    },
+    {
+      "id": "containers-are-peers",
+      "front": "\"Each tenant gets a container, so a compromised build cannot reach another.\" What does that sentence quietly assume?",
+      "back": "A second kernel, and no flag adds one. Containers are peers over one kernel and the boundary is the system call interface, so a kernel bug reachable through a call the seccomp filter still permits is an escape from any container to the host, and the host is every other tenant. The sentence is true of virtual machines."
+    },
+    {
+      "id": "privileged-for-one-device",
+      "front": "A tool needed one device, so the container runs with `--privileged`. What else did that turn on?",
+      "back": "Every Linux capability, with the default seccomp and AppArmor profiles disabled, all host devices granted and `/sys` made read-write. Docker's own conclusion is that such a container \"is not a securely sandboxed process\" and can \"get a root shell on the host\". `--device` for the device, or `--cap-add` for the capability."
+    },
+    {
+      "id": "the-docker-socket",
+      "front": "The Docker socket is bind-mounted in so the container can start containers. How sandboxed is that container?",
+      "back": "Not at all, whatever else is set on it. Anyone who can reach that socket can ask the daemon to start a privileged container mounting the host's filesystem, which is why Docker's guidance is that \"only trusted users should be allowed to control your Docker daemon\"."
+    }
+  ]
+}

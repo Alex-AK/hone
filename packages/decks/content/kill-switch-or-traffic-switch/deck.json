@@ -1,0 +1,74 @@
+{
+  "slug": "kill-switch-or-traffic-switch",
+  "title": "Kill switch or traffic switch",
+  "summary": "Which probe restarts the container, which one only stops the traffic, and what each is safe to depend on. Pointing the kill switch at a shared dependency is how one database blip becomes a fleet-wide restart.",
+  "order": 11,
+  "minutes": 5,
+  "page": "production/health-and-readiness",
+  "practise": [
+    "sys-liveness-vs-readiness",
+    "sys-drain-before-close",
+    "sys-readiness-too-early",
+    "sys-load-balancer-basics"
+  ],
+  "sources": [
+    {
+      "author": "Kubernetes",
+      "title": "Liveness, Readiness, and Startup Probes",
+      "url": "https://kubernetes.io/docs/concepts/configuration/liveness-readiness-startup-probes/"
+    },
+    {
+      "author": "Kubernetes",
+      "title": "Explore Termination Behavior for Pods And Their Endpoints",
+      "url": "https://kubernetes.io/docs/tutorials/services/pods-and-endpoint-termination-flow/"
+    },
+    {
+      "author": "nginx",
+      "title": "Module ngx_http_upstream_module",
+      "url": "https://nginx.org/en/docs/http/ngx_http_upstream_module.html"
+    },
+    {
+      "author": "Node.js",
+      "title": "HTTP: server.close",
+      "url": "https://nodejs.org/api/http.html#serverclosecallback"
+    }
+  ],
+  "verified": "2026-08-09",
+  "cards": [
+    {
+      "id": "liveness-against-readiness",
+      "front": "Liveness and readiness both fail. One restarts the container and one does not. Which is which?",
+      "back": "Liveness restarts: \"Liveness probes determine when to restart a container\", and a container failing more times than the configured tolerance is restarted by the kubelet. Readiness failing removes the Pod's IP address from the EndpointSlices instead, so the traffic stops and the process keeps running. One is a kill switch, the other a traffic switch."
+    },
+    {
+      "id": "dependency-in-the-wrong-probe",
+      "front": "Your liveness probe queries the database. One blip later, why is every instance in the fleet restarting?",
+      "back": "Because liveness failing means kill. They all failed the same check in the same second, so the kubelet restarted all of them, nothing was left to serve the requests that never needed the database, and cold processes hit it harder on recovery. Dependencies belong in readiness, where failing means \"not me\" rather than \"kill me\"."
+    },
+    {
+      "id": "shared-dependency-in-readiness",
+      "front": "Readiness checks a dependency every instance shares, and it blips. What does the balancer have left to send to?",
+      "back": "Nothing. Every endpoint is removed at once, and requests that could have been served from cache get a 503 from the balancer instead. Readiness is per instance, so check what this instance uniquely needs: its own pool, its own warm-up. Where the dependency is shared, degrade inside the handler, because a stale 200 beats a 503 from an empty pool."
+    },
+    {
+      "id": "why-fail-readiness-before-closing",
+      "front": "On SIGTERM, why does failing readiness come before `server.close()` rather than after?",
+      "back": "Because nothing finds out instantly. Whatever is in front of you learns by asking on an interval, and nginx's passive check defaults to one failure inside a `fail_timeout` \"set to 10 seconds\". Closing first spends the next several seconds refusing connections that are still being sent. Fail readiness, wait past the interval, then stop accepting."
+    },
+    {
+      "id": "readiness-true-too-early",
+      "front": "Readiness answered 200 and the first few hundred requests still failed. What was it actually reporting?",
+      "back": "That the framework could answer, not that the process was ready. An endpoint registered before the connection pool, the cache warm-up or the migration check says yes the instant it can say anything. Start the flag at false and set it after boot, or configure a startup probe, since Kubernetes \"does not execute liveness or readiness probes until the startup probe succeeds\"."
+    },
+    {
+      "id": "close-against-close-all-connections",
+      "front": "`server.close()` against `server.closeAllConnections()` in a shutdown. Which one belongs behind a deadline?",
+      "back": "`closeAllConnections()`. `close()` stops new connections and closes only those not sending a request or waiting for a response, so it never interrupts a request being served and its callback runs when the last handler finishes. The forceful one closes active connections too, which answers one stuck handler rather than being the normal path."
+    },
+    {
+      "id": "probes-are-traffic",
+      "front": "The only thing hitting `/ready` is the platform. Why is it showing up in the database's load?",
+      "back": "Because probes are requests. One per instance per interval across a fleet is a visible fraction of your request count, it lands in the access log, and it is cheap only if the check is. A readiness check that runs a real query on every probe turns a fleet-wide probe interval into standing load on the database you were trying to protect."
+    }
+  ]
+}

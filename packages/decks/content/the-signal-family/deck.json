@@ -1,0 +1,74 @@
+{
+  "slug": "the-signal-family",
+  "title": "The signal family",
+  "summary": "Which signal you can answer, what installing a handler takes away, and which connection the close you called did not touch. Getting these backwards is a deploy that takes the full grace period every time, or one that resets live requests.",
+  "order": 10,
+  "minutes": 5,
+  "page": "unix/signals",
+  "practise": [
+    "node-sigterm-listener-removes-the-exit",
+    "node-exit-in-the-sigterm-handler",
+    "node-close-keeps-a-busy-connection",
+    "debug-fire-and-forget-work"
+  ],
+  "sources": [
+    {
+      "author": "Linux man-pages",
+      "title": "signal(7)",
+      "url": "https://man7.org/linux/man-pages/man7/signal.7.html"
+    },
+    {
+      "author": "Linux man-pages",
+      "title": "kill(2)",
+      "url": "https://man7.org/linux/man-pages/man2/kill.2.html"
+    },
+    {
+      "author": "Node.js",
+      "title": "Process: signal events",
+      "url": "https://nodejs.org/api/process.html#signal-events"
+    },
+    {
+      "author": "Node.js",
+      "title": "HTTP: server.close, server.closeIdleConnections, server.keepAliveTimeout",
+      "url": "https://nodejs.org/api/http.html"
+    }
+  ],
+  "verified": "2026-08-09",
+  "cards": [
+    {
+      "id": "sigterm-against-sigkill",
+      "front": "SIGTERM and SIGKILL both end the process. Which one can your code do anything about?",
+      "back": "SIGTERM. Every signal has a disposition, meaning a default action, ignore, or a handler, but `signal(7)` says SIGKILL and SIGSTOP \"cannot be caught, blocked, or ignored\". SIGTERM is a request that starts a clock. SIGKILL is what arrives when the clock runs out, and then nothing runs, nothing is flushed, and whatever was in memory is gone."
+    },
+    {
+      "id": "listener-removes-the-default",
+      "front": "You add a `process.on('SIGTERM')` handler that only logs. What did that one line change about how the process ends?",
+      "back": "It removed the exit. Node's SIGTERM and SIGINT defaults exit with `128 + signal number`, and \"if one of these signals has a listener installed, its default behavior will be removed (Node.js will no longer exit)\". The handler now owns ending the process, so one that only logs is a process which has to be killed, and every deploy takes the full grace period."
+    },
+    {
+      "id": "exit-against-an-empty-loop",
+      "front": "`process.exit()` in the handler, against letting the event loop empty on its own. What does the client see?",
+      "back": "A reset. Measured on Node 24.16.0 with one request in flight when SIGTERM arrived, `process.exit(0)` delivered the response never, as `ECONNRESET`, and exited 3ms later; `server.close()` delivered it in 255ms. Node ends when the loop has nothing left in it, so a shutdown removes work rather than issuing a command."
+    },
+    {
+      "id": "close-against-close-idle-connections",
+      "front": "The last response went out in 255ms and the process then sat there for six more seconds. What did `server.close()` not do?",
+      "back": "Revisit a connection that was busy when it was called. `close()` stops the listener and closes what is idle at that moment, so a keep-alive socket mid-request survives and then waits out `keepAliveTimeout`, five seconds by default. Measured: 6.0s with `close()` alone, 3ms once `closeIdleConnections()` reaps them as they free up."
+    },
+    {
+      "id": "pid-one-has-no-defaults",
+      "front": "The same image stops on your laptop and ignores SIGTERM as PID 1 in the container. What is different about PID 1?",
+      "back": "It gets no default dispositions. `kill(2)`: \"the only signals that can be sent to process ID 1, the init process, are those for which init has explicitly installed signal handlers\". With no listener the signal does nothing at all, so the process ignores SIGTERM and waits to be killed."
+    },
+    {
+      "id": "the-shell-that-forks",
+      "front": "`node app.js; echo done` as the container command, against `node app.js` alone. Which leaves node running after SIGTERM?",
+      "back": "The first. With more to do afterwards the shell forks node as a child, receives the signal itself and never passes it on; measured here, the shell died and left node behind as an orphan. Given a single command the shell execs node instead, so node is the process the signal reaches."
+    },
+    {
+      "id": "whose-clock-is-the-grace-period",
+      "front": "How long does your SIGTERM handler actually have?",
+      "back": "Not your decision. The window between SIGTERM and SIGKILL is a setting on the platform rather than in your code, and your own numbers only matter measured against it. A drain that waits out a five second `keepAliveTimeout` inside a shorter grace period is a kill on every deploy, so compare the two rather than tuning either alone."
+    }
+  ]
+}
