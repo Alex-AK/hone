@@ -787,6 +787,20 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   readers will actually meet the trade. **Mongo and Mongoose stay deferred** and this page does not
   move that bar, which is unchanged since ADR-0054 — a brief has to need a document store.
 
+- **ADR-0155 — Recurrence is a page in `apis/`, and it does not reopen ADR-0086.** That entry put the
+  `dates` category in a module and called the handbook the wrong home for it, which reads at first
+  like a bar against this page. It is not, and the reason is ADR-0086's own test: `Date` is an API met
+  one edge at a time, and a recurrence rule is a model, so the rule sends the first to `js-date` and
+  the second here. Four reps share that model and getting it wrong is what makes all four fail, which
+  is the page bar in `content.md` rather than an exception to it. Three homes were rejected. A `dates`
+  handbook section, because one page is not a section and the roadmap's section queue is enumerated
+  and meant to run out; if recurrence turns out to want neighbours, that is the moment to revisit, not
+  now. `databases/`, which owns what a shape charges you, where the row is the least interesting part
+  of this and the traps are calendar semantics. And `javascript/`, which owns the language rather than
+  a calendar format nothing in the language implements. `apis/` earns it on the endpoint shape:
+  an infinite series has no last page, so the caller names a window, and `pagination.md` now argues
+  the same point from the finite end.
+
 ## The essentials path
 
 - **ADR-0087 — It is a second entrance, not a setting on the daily session.** Everything else here is judged

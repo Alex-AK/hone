@@ -515,4 +515,282 @@ export const dateProblems: ProblemDraft[] = [
     explanation:
       'Timers are best-effort: the callback is queued after the delay and runs when the main thread is free, so a busy frame pushes it late and the lateness compounds if you count ticks. Background throttling then turns a small drift into a large one. Deriving from a stored deadline makes the display self-correcting: whatever happened while the tab was hidden, the next tick shows the right number. Ticking more often than once a second also keeps the visible seconds from stuttering. For elapsed-time measurement rather than deadlines, use `performance.now()`, which is monotonic and unaffected by the user changing their system clock.',
   },
+
+  {
+    slug: 'dates-recurrence-month-end',
+    title: 'The month-end reminder that skipped February',
+    category: 'dates',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'A billing reminder is set to repeat monthly from 31 January:',
+      '',
+      code(
+        'text',
+        'DTSTART;TZID=Europe/Dublin:20260131T090000',
+        'RRULE:FREQ=MONTHLY;BYMONTHDAY=31'
+      ),
+      '',
+      'Across 2026 it fires seven times, not twelve.',
+      '',
+      'Explain what happens in the missing months, and what to write if you meant the last day of each one.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'no 31',
+            'not exist',
+            'nonexistent',
+            'non-existent',
+            'invalid',
+            'no such',
+            'shorter',
+            'fewer days',
+            '30 days',
+            '28 days',
+          ],
+          missingFeedback: 'What is different about February, April, June, September and November?',
+        },
+        {
+          // Deliberately no bare "clamp": it fires on the wrong model and its
+          // negation alike, so it cannot tell the two answers apart.
+          synonyms: [
+            'skip',
+            'omitted',
+            'dropped',
+            'produces nothing',
+            'no occurrence',
+            'nothing that month',
+            'does not fire',
+            'never fires',
+            'not counted',
+          ],
+          missingFeedback:
+            'Does the rule fall back to the nearest day it can find, or produce nothing at all?',
+        },
+        {
+          synonyms: ['-1', 'last day', 'negative', 'end of the month', 'end of month'],
+          missingFeedback:
+            'What do you write to mean "the last day of the month" whatever its length?',
+        },
+      ],
+      hints: [
+        'Look at which months are missing: February, April, June, September and November.',
+        'The rule asks for a date those months do not have. It does not go looking for a nearby one.',
+        'Skipped, not clamped. A negative `BYMONTHDAY` counts back from the end.',
+      ],
+    },
+    canonicalAnswer:
+      'Those five months have no 31st, and an occurrence that lands on a date which does not exist is skipped rather than clamped back to the 28th or the 30th, so the rule simply produces nothing that month. If you meant the last day of the month, write BYMONTHDAY=-1, which counts back from the end and gives 31, 28, 31, 30 and so on, leap years included.',
+    solution: code(
+      'text',
+      '# 7 occurrences in 2026: Jan, Mar, May, Jul, Aug, Oct, Dec',
+      'RRULE:FREQ=MONTHLY;BYMONTHDAY=31',
+      '',
+      '# 12 occurrences: 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31',
+      'RRULE:FREQ=MONTHLY;BYMONTHDAY=-1'
+    ),
+    explanation:
+      'RFC 5545 is explicit that this is a skip and not a nudge: a rule may generate an instance "with an invalid date (e.g., February 30)", and such instances "MUST be ignored and MUST NOT be counted as part of the recurrence set". The second half is the part that surprises people, because it means `COUNT` counts occurrences rather than months. The RFC\'s own worked example is `BYMONTHDAY=15,30;COUNT=5` from 15 January 2007, which yields January 15 and 30, February 15, then March 15 and 30: February 30 is not merely absent, it does not consume one of the five. Negative values are the fix and they exist for exactly this, `-1` being the last day and `-3` the third from last.',
+  },
+
+  {
+    slug: 'dates-recurrence-nth-weekday',
+    title: 'First Monday, not every Monday',
+    category: 'dates',
+    difficulty: 'easy',
+    relevance: 'occasional',
+    type: 'short-text',
+    prompt: md(
+      'A "first Monday of the month" reminder is firing on all four or five Mondays instead:',
+      '',
+      code('text', 'DTSTART;TZID=Europe/Dublin:20260302T090000', 'RRULE:FREQ=MONTHLY;BYDAY=MO'),
+      '',
+      'What should the `BYDAY` value be?'
+    ),
+    graderConfig: {
+      accept: ['1mo', '+1mo', 'byday=1mo', 'byday=+1mo'],
+      acceptPatterns: ['^\\s*(BYDAY\\s*=\\s*)?\\+?1\\s*MO\\s*$'],
+      nearMisses: {
+        mo: 'That is what it already says, and it means every Monday. Something goes in front of it.',
+        'byday=mo':
+          'That is what it already says, and it means every Monday. Something goes in front of it.',
+        '-1mo': 'That is the last Monday of the month. You want the one at the other end.',
+        'byday=-1mo': 'That is the last Monday of the month. You want the one at the other end.',
+      },
+      closeSubstrings: {
+        'first monday': 'Right idea. Now say it in the syntax: something goes in front of `MO`.',
+      },
+      hints: [
+        'A bare weekday means every one of them in the period. The syntax has a way to pick one.',
+        'An integer in front of the day picks the nth: it can be negative to count from the end.',
+        '`BYDAY=1MO`',
+      ],
+    },
+    canonicalAnswer: '1MO',
+    solution: code(
+      'text',
+      '# the first Monday of every month',
+      'RRULE:FREQ=MONTHLY;BYDAY=1MO',
+      '',
+      '# the last Monday of every month',
+      'RRULE:FREQ=MONTHLY;BYDAY=-1MO'
+    ),
+    explanation:
+      'The ordinal prefix is optional and its absence is meaningful: RFC 5545 says that if an integer modifier is not present, the value "means all days of this type within the specified frequency", so `MO` under a monthly rule is every Monday of the month. `+1MO` and `1MO` are the same thing, and `-1MO` is the last Monday. The prefix is only legal under `MONTHLY` or `YEARLY`, because under a weekly rule there is only one of each day to pick from. Where the day you want is the nth of a set rather than the nth weekday, `BYSETPOS` is the other tool: `FREQ=MONTHLY;BYDAY=MO,TU,WE,TH,FR;BYSETPOS=-1` is the last working day of the month, which no `BYDAY` prefix can express.',
+  },
+
+  {
+    slug: 'dates-recurrence-one-occurrence',
+    title: 'Moving one meeting moved all of them',
+    category: 'dates',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'A standup repeats every Tuesday at 09:00, stored as one row with a recurrence rule. Somebody drags next Tuesday to 10:00 and the handler writes the new time onto that row.',
+      '',
+      'Every standup now shows at 10:00, including the ones that already happened.',
+      '',
+      'Explain what to store instead, and how that single occurrence gets identified.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'whole series',
+            'every occurrence',
+            'all of them',
+            'all occurrences',
+            'the series',
+            'entire series',
+            'shared',
+            'describes',
+          ],
+          missingFeedback: 'What does the rule on that row describe?',
+        },
+        {
+          synonyms: [
+            'exception',
+            'override',
+            'separate row',
+            'its own row',
+            'extra row',
+            'second row',
+            'exdate',
+            'instance row',
+            'overrides table',
+          ],
+          missingFeedback: 'What gets written instead of editing the rule?',
+        },
+        {
+          synonyms: [
+            'original start',
+            'originalstarttime',
+            'recurrence-id',
+            'recurrenceid',
+            'would have',
+            'original time',
+            'original occurrence',
+            'the start it',
+          ],
+          missingFeedback:
+            'An occurrence has no row and no id, so what identifies which one moved?',
+        },
+      ],
+      hints: [
+        'The rule is a property of the series, not of next Tuesday.',
+        'The change belongs somewhere that only applies to one occurrence.',
+        'An occurrence has no id of its own, so it is keyed by the start the rule would have given it.',
+      ],
+    },
+    canonicalAnswer:
+      'The rule describes the whole series, so writing 10:00 onto it moves every occurrence, past ones included. Leave the rule alone and write an exception row that applies to one occurrence and carries its new start. Key that row by the start the occurrence would have had under the rule, 09:00 on that Tuesday, because an occurrence has no row and no id of its own: that key is RECURRENCE-ID in RFC 5545 and originalStartTime in the Google Calendar API.',
+    solution: code(
+      'sql',
+      'create table meeting_override (',
+      '  meeting_id integer not null references meeting(id),',
+      '  occurrence text    not null,  -- the local start this occurrence WOULD have had',
+      '  cancelled  integer not null default 0,',
+      '  starts_at  text,              -- set when this one occurrence moved',
+      '  primary key (meeting_id, occurrence)',
+      ');'
+    ),
+    explanation:
+      'An occurrence is computed, not stored, so the only stable name it has is the start the rule would have given it. That is why RFC 5545 identifies a modified instance with `RECURRENCE-ID` and why the Google Calendar API returns `originalStartTime`, "the time at which this event would start according to the recurrence data in the recurring event". Cancelling one is the same shape rather than a delete: `EXDATE` lists the starts to exclude, and the spec gives those precedence over anything the rule generates. The reason a calendar UI offers three buttons is that this row cannot guess between them, and "this and following" is the one worth knowing: it ends the old rule with an `UNTIL` and starts a second series, because a rule cannot describe two different times.',
+  },
+
+  codeProblem({
+    slug: 'dates-nth-weekday-of-month',
+    title: 'The nth weekday of a month',
+    category: 'dates',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    prompt: md(
+      'Write `nthWeekdayOfMonth(year, month, weekday, n)`, the calculation behind a "first Monday" or "last Friday" recurrence rule.',
+      '',
+      '`month` is zero-indexed and `weekday` is 0 for Sunday through 6 for Saturday, both as in `Date`. A positive `n` counts from the start of the month and a negative `n` counts from the end, so `-1` is the last one.',
+      '',
+      'Return the day of the month, or `null` when the month has no such day.'
+    ),
+    starter: 'function nthWeekdayOfMonth(year, month, weekday, n) {\n  \n}',
+    tests: [
+      {
+        // Mondays in March 2026: 2, 9, 16, 23, 30.
+        name: 'finds the first Monday',
+        expression: 'nthWeekdayOfMonth(2026, 2, 1, 1)',
+        expected: 2,
+      },
+      {
+        name: 'finds the last Monday',
+        expression: 'nthWeekdayOfMonth(2026, 2, 1, -1)',
+        expected: 30,
+      },
+      {
+        name: 'counts back from the end for -2',
+        expression: 'nthWeekdayOfMonth(2026, 2, 0, -2)',
+        expected: 22,
+      },
+      {
+        // February 2026 has only four Fridays: 6, 13, 20, 27.
+        name: 'returns null when there is no fifth one',
+        expression: 'nthWeekdayOfMonth(2026, 1, 5, 5)',
+        expected: null,
+      },
+      {
+        name: 'handles a short month from the end',
+        expression: 'nthWeekdayOfMonth(2026, 1, 5, -1)',
+        expected: 27,
+      },
+      {
+        // The last Tuesday of February 2028 is the 29th.
+        name: 'finds a leap day',
+        expression: 'nthWeekdayOfMonth(2028, 1, 2, -1)',
+        expected: 29,
+      },
+    ],
+    reference: [
+      'function nthWeekdayOfMonth(year, month, weekday, n) {',
+      '  // Day 0 of the next month is the last day of this one.',
+      '  const length = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();',
+      '',
+      '  const days = [];',
+      '  for (let day = 1; day <= length; day++) {',
+      '    if (new Date(Date.UTC(year, month, day)).getUTCDay() === weekday) days.push(day);',
+      '  }',
+      '',
+      '  const index = n > 0 ? n - 1 : days.length + n;',
+      '  return days[index] ?? null;',
+      '}',
+    ].join('\n'),
+    hints: [
+      'How many days a month has is `new Date(Date.UTC(year, month + 1, 0)).getUTCDate()`.',
+      'Collect every matching day first. Picking the nth is then an array index.',
+      'For a negative n, the index is `days.length + n`, and an out-of-range index gives `undefined`.',
+    ],
+    explanation:
+      'Collecting the matching days and then indexing is worth more than the arithmetic shortcut, because it makes the `null` fall out for free: a month with four Mondays has no fifth, and both a missing fifth and a missing minus-fifth are just an index that is not there. That is the behaviour RFC 5545 specifies, where an occurrence the rule cannot place "MUST be ignored and MUST NOT be counted as part of the recurrence set", so `BYDAY=5MO` fires in some months and not others. Everything is built through `Date.UTC` and read back with the UTC getters, which is the same discipline calendar arithmetic always needs: the local constructor would put this at whatever midnight means in the runner\'s zone, and a day is not reliably 24 hours long there.',
+  }),
 ];
