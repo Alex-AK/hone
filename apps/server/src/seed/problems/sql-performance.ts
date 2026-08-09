@@ -602,4 +602,176 @@ export const sqlPerformanceProblems: ProblemDraft[] = [
     explanation:
       'A `LIMIT` lets a plan stop early; an unfiltered `COUNT(*)` cannot, because nothing anywhere holds the number and the only way to produce it is to visit every row. An index makes that visit cheaper per row and no shorter, which is why "add an index" is the wrong instinct here and reaching for a different answer is the right one: drop the exact total, cache it, or show an estimate. Postgres behaves the same way and keeps an approximate row count in `pg_class.reltuples`, updated by `VACUUM` and `ANALYZE`, which is usually what a "roughly 12,000 results" label should be reading. Adding a `WHERE` does not rescue it either: the filter has to be evaluated on every row before anything can be counted.',
   },
+
+  // The two reps below are about the cost of a bulk *write* rather than the plan of
+  // a read, and they are Postgres where the rest of this file is SQLite. They sit
+  // here because the first one is the same defect as `sqlperf-keyset-page` seen from
+  // the writing end, and separating them would hide that. Both were measured against
+  // PostgreSQL 17.10 on a table of 500,000 rows; the numbers quoted are from the runs.
+  {
+    slug: 'sqlperf-backfill-offset-skips',
+    title: 'The backfill that missed half the table',
+    category: 'sql-performance',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'A backfill fills in a new column in batches, advancing the offset each pass and stopping when a pass updates nothing:',
+      '',
+      code(
+        'sql',
+        "UPDATE orders SET region = 'eu-west-1'",
+        'WHERE id IN (',
+        '  SELECT id FROM orders WHERE region IS NULL ORDER BY id LIMIT 10000 OFFSET :n',
+        ');'
+      ),
+      '',
+      'It runs to completion with no error. Half the rows still have `region` set to `NULL`.',
+      '',
+      'Explain why, and give a fix.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'shrink',
+            'smaller',
+            'no longer match',
+            'stop matching',
+            'leave the set',
+            'removes them',
+            'changes the set',
+            'moving target',
+            'fewer rows',
+          ],
+          missingFeedback:
+            'What does each batch do to the set of rows the next batch is paging through?',
+        },
+        {
+          synonyms: ['skip', 'past', 'over', 'miss', 'jump', 'never reached', 'steps'],
+          missingFeedback: 'Given that, where does the next OFFSET land?',
+        },
+        {
+          synonyms: [
+            'keyset',
+            'id >',
+            'last id',
+            'cursor',
+            'primary key',
+            'no offset',
+            'without offset',
+            'drop the offset',
+            'seek',
+            'remember where',
+          ],
+          missingFeedback: 'Give a fix.',
+        },
+      ],
+      hints: [
+        'Run two batches in your head. What has the first UPDATE done to the rows the second one counts through?',
+        'The offset counts into a set that is now 10,000 rows shorter than it was when the offset was chosen.',
+        'Page on something the backfill cannot move: keep the last id written and select `WHERE id > last_id`.',
+      ],
+    },
+    canonicalAnswer:
+      'Each batch sets region on the rows it touched, so those rows leave the region IS NULL set and the set shrinks by exactly one batch every pass. The next statement then applies OFFSET 10000 to a set that has already lost its first 10,000 rows, so it skips 10,000 rows that still need updating and starts past them. Every batch misses as many rows as it writes. Page on the primary key instead: keep the last id you wrote and select WHERE id > last_id, so the cursor names a position the update cannot move.',
+    solution: code(
+      'sql',
+      '-- The offset counts into a set the UPDATE is changing underneath it.',
+      "UPDATE orders SET region = 'eu-west-1'",
+      'WHERE id IN (SELECT id FROM orders WHERE region IS NULL ORDER BY id LIMIT 10000 OFFSET :n);',
+      '',
+      '-- A key the backfill cannot move. :cursor starts at 0 and becomes the batch max.',
+      "UPDATE orders SET region = 'eu-west-1'",
+      'WHERE id IN (SELECT id FROM orders WHERE id > :cursor ORDER BY id LIMIT 10000)',
+      'RETURNING id;'
+    ),
+    explanation:
+      'Measured on 500,000 rows against PostgreSQL 17.10, the offset version left 250,000 of them untouched and exited normally, which is what makes this worth practising: there is no error, the loop terminates, and the table is half done. It is the same defect as offset pagination over a list somebody is inserting into, except self-inflicted, because the predicate the offset counts through is the one the statement is falsifying. Two things follow. Any cursor a backfill pages on has to be stable under the backfill\'s own writes, which a primary key is and a filtered position is not. And a backfill needs a check that it finished, not just a loop that stopped: count the rows still matching the predicate afterwards, because "the last batch updated nothing" and "there is nothing left to update" are different statements.',
+  },
+
+  {
+    slug: 'sqlperf-backfill-open-transaction',
+    title: 'VACUUM reclaimed nothing',
+    category: 'sql-performance',
+    difficulty: 'hard',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'A backfill has rewritten all 500,000 rows of a Postgres table, leaving 500,000 dead row versions behind it. `VACUUM` runs and clears none of them.',
+      '',
+      'Nothing is writing. The only other session is an analytics query that opened a transaction an hour ago and does not read this table at all.',
+      '',
+      'Explain why `VACUUM` could not reclaim them, and what to change.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'visible',
+            'snapshot',
+            'mvcc',
+            'old version',
+            'row version',
+            'could still see',
+            'might see',
+            'still see',
+          ],
+          missingFeedback: 'What has to be true of a row version before VACUUM may remove it?',
+        },
+        {
+          synonyms: [
+            'oldest',
+            'horizon',
+            'xmin',
+            'still open',
+            'still running',
+            'has not committed',
+            "hasn't committed",
+            'database-wide',
+            'whole database',
+            'not per-table',
+            'any transaction',
+          ],
+          missingFeedback:
+            'The analytics query never touches this table. Why does it hold the backfill up anyway?',
+        },
+        {
+          synonyms: [
+            'idle_in_transaction',
+            'statement_timeout',
+            'short',
+            'bound',
+            'terminate',
+            'pg_terminate_backend',
+            'split',
+            'chunk',
+            'read replica',
+            'end it',
+          ],
+          missingFeedback: 'What do you change, given the fix is not on the backfill side?',
+        },
+      ],
+      hints: [
+        'VACUUM is not allowed to remove a version somebody might still be entitled to read.',
+        'That entitlement is a snapshot, and the analytics query took one an hour ago and still holds it.',
+        'The horizon is the oldest open snapshot in the database, whatever tables it reads. Fix the reporting session.',
+      ],
+    },
+    canonicalAnswer:
+      'VACUUM may only remove a row version once no running transaction could still see it. The analytics query took its snapshot an hour ago and has not committed, so every version that was live at that moment has to stay, and which tables it reads is irrelevant: the horizon is the oldest open snapshot in the database rather than a per-table one. So the fix is on the reporting side, not the backfill side. Keep that transaction short, bound it with idle_in_transaction_session_timeout, move it to a read replica, and watch pg_stat_activity for a large age(backend_xmin) whenever vacuum stops keeping up.',
+    solution: code(
+      'sql',
+      '-- Who is holding the horizon open:',
+      'SELECT pid, state, age(backend_xmin) AS xmin_age, query',
+      'FROM pg_stat_activity',
+      'WHERE backend_xmin IS NOT NULL',
+      'ORDER BY age(backend_xmin) DESC;',
+      '',
+      '-- The blunt guard, so one forgotten session cannot do this again:',
+      "SET idle_in_transaction_session_timeout = '5min';"
+    ),
+    explanation:
+      'Measured: with one idle `REPEATABLE READ` transaction open elsewhere in the database, `VACUUM` left all 500,000 dead tuples in place, and the identical `VACUUM` cleared every one of them the moment that session committed. Postgres puts the rule plainly, that a row version "must not be deleted while it is still potentially visible to other transactions", and the whole of this is that "potentially" is decided by the oldest open snapshot rather than by what anybody actually read. Two consequences worth carrying. A long transaction is expensive even when it is idle and even when it is read-only, which is not how a transaction is usually described. And the pair of workloads is what causes it: a backfill alone is fine, a reporting query alone is fine, and together they produce garbage neither can clear. Note also what did not happen, which is the backfill blocking readers: `UPDATE` takes `ROW EXCLUSIVE` and a plain `SELECT` takes `ACCESS SHARE`, and those two do not conflict.',
+  },
 ];

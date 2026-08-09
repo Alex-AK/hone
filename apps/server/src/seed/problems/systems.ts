@@ -1307,4 +1307,96 @@ export const systemsProblems: ProblemDraft[] = [
     explanation:
       'The framing is the trap: identifiers are a write-path and a coordination decision, and the URL they end up in is the one place they make no difference. What sequential ids cost is a coordinator, which is why they are awkward the moment ids come from more than one writer, and what random ones cost is insert locality in a B-tree. Both costs have a well-known escape: UUIDv7 and ULID put a timestamp in the high bits, so ids stay globally unique and still arrive roughly in order, which is why "integer or UUID" is a false pair. Postgres and MySQL both feel the scatter, MySQL harder, because InnoDB clusters the whole row on the primary key. There is a real argument for a client-minted id that has nothing to do with any of this: the client knows the id before the round trip, so a retry is idempotent and a graph of related rows can be written in one batch.',
   },
+
+  {
+    slug: 'sys-dual-write-two-orderings',
+    title: 'The order that fulfilment never heard about',
+    category: 'systems',
+    difficulty: 'hard',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'A handler writes the order, then publishes a message so the fulfilment service picks it up:',
+      '',
+      code(
+        'js',
+        'await db.insert(orders).values(input);',
+        "await broker.publish('order.paid', input);"
+      ),
+      '',
+      'Once or twice a week an order sits in the database that fulfilment never saw. A colleague suggests publishing first and writing the row second.',
+      '',
+      'Explain what swapping them changes, and what actually closes the gap.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'swap',
+            'reverse',
+            'other way',
+            'both',
+            'either',
+            'moves',
+            'trade',
+            'opposite',
+            'still fail',
+            'does not exist',
+            "doesn't exist",
+            'never written',
+            'no order',
+          ],
+          missingFeedback:
+            'What goes wrong if the publish happens first and the process then dies?',
+        },
+        {
+          synonyms: [
+            'atomic',
+            'atomically',
+            'two systems',
+            'no transaction',
+            'not in the transaction',
+            'separate systems',
+            'one transaction',
+            'cannot roll back',
+            "can't roll back",
+            'no shared',
+            'span',
+          ],
+          missingFeedback: 'Say why no ordering of the two statements can be correct.',
+        },
+        {
+          synonyms: [
+            'outbox',
+            'same transaction',
+            'inbox',
+            'relay',
+            'change data capture',
+            'cdc',
+            'log tailing',
+            'message in the database',
+            'message to the database',
+            'events table',
+          ],
+          missingFeedback:
+            'What do you write instead, given the database transaction is the only atomic thing you have?',
+        },
+      ],
+      hints: [
+        'Work out the failure for the suggested order too, not just the current one.',
+        'The database and the broker do not share a transaction, so there is always a window where one has happened and the other has not.',
+        'Write the message into the database, in the same transaction as the order, and let a separate process publish it from there.',
+      ],
+    },
+    canonicalAnswer:
+      'Swapping them does not remove the gap, it changes which way you fail: publish first and a crash before the insert leaves fulfilment working on an order that does not exist, which is worse than one it never heard about. Neither ordering can be right, because no transaction spans the database and the broker, so there is always a window where one write has landed and the other has not. Close it by making the message part of the database write: insert it into an outbox table in the same transaction as the order, and have a separate relay publish from that table and mark the row sent. The relay can still publish twice, so the consumer stays idempotent.',
+    solution: md(
+      '- **Swapping**: trades a lost message for a phantom one. A crash between the publish and the insert has fulfilment acting on an order nobody has a record of.',
+      '- **Why neither works**: the database and the broker do not share a transaction, so one of the two writes is always outside it.',
+      '- **The fix**: write the message to an `outbox` table inside the same transaction as the order. A separate relay reads unpublished rows, publishes each with the outbox id as the message id, then marks it sent.',
+      '- **What it does not fix**: the relay can publish and die before marking, so the consumer still has to be idempotent.'
+    ),
+    explanation:
+      'This is the dual write, and the useful part is that it has no in-process solution: every arrangement of two statements has a window between them, and the process disappearing inside that window is the failure. Retrying does not help either, because the thing that would retry is the thing that died. So the fix has to change what is being written rather than when, which is what the outbox does: the message becomes a row, the row commits with the order, and the only atomicity anyone needs is the atomicity the database already had. What it buys is exact and worth stating, since the message is sent if and only if the transaction commits, and no more than that: the relay can publish and crash before recording it, so this converts a silent loss into a visible duplicate. That is the trade rather than a leftover flaw, because a duplicate arriving at an idempotent consumer is a solved problem and a record that quietly went missing is not.',
+  },
 ];

@@ -95,7 +95,9 @@ which is why every payment and mail API offers one.
 There is still a gap, and it is worth naming rather than hiding. If the process dies after the
 commit and before the send, the redelivery sees the claim and skips the email, so that message is
 lost. Sending before the commit trades it for a possible duplicate. Pick per message type, according
-to which of the two you would rather explain.
+to which of the two you would rather explain. That choice is forced here because an email cannot be
+unsent; where the far side is a system you own, there is a third answer that removes the gap instead
+of choosing a side of it, and it is [two systems, one write](../systems/two-systems-one-write.md).
 
 ## Traps
 

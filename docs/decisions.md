@@ -801,6 +801,34 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   an infinite series has no last page, so the caller names a window, and `pagination.md` now argues
   the same point from the finite end.
 
+- **ADR-0156 — The backfill page is Postgres-only and its numbers are measured, not sourced.** Every
+  figure on `databases/backfilling-a-large-table.md` came out of a real PostgreSQL 17.10 on a
+  500,000-row table: the 25 MB heap that became 57 MB after one full `UPDATE`, the `VACUUM` that
+  cleared 500,000 dead tuples and shrank the file by nothing, the same `VACUUM` reclaiming zero with
+  one idle `REPEATABLE READ` reader open, and the offset-paged loop that silently left 250,000 rows
+  unbackfilled. That last one is the reason the page exists and it could not have been written from
+  the documentation, because no document says how many rows you lose. **The precedent to note is that
+  a page may depend on a daemon this repo does not ship**, which a workout may not without declaring
+  it in `requires`; the asymmetry is right, because a reader without Postgres loses nothing but the
+  ability to re-run a number the page already states. It was rejected as a traps-section addition to
+  `orms/migrations.md`, which owns DDL and its locks: a data backfill takes `ROW EXCLUSIVE` and blocks
+  no readers at all, so folding it in would have blurred the one distinction most worth having. Its
+  two reps sit in `sql-performance.ts` despite that file being SQLite throughout, because
+  `sqlperf-keyset-page` is the same defect read from the write side and separating them would hide
+  that; the file's header now says so.
+
+- **ADR-0157 — The dual write is one page in `systems/`, and it answers a paragraph left open in
+  `moving-data/`.** `queues-and-background-jobs.md` names the producer-side gap honestly and stops at
+  "pick per message type, according to which of the two you would rather explain", which was right for
+  an email and wrong as a general answer: where the far side is a system you own, the outbox removes
+  the gap rather than choosing a side of it. That page now points here and keeps its own framing,
+  because an email really cannot be unsent. `moving-data/` was rejected as the home even though the
+  setup lives there, since the section is about picking a transport and this is not one; `systems/`
+  already owns "another copy of the data". Only one rep was written. The obvious second, that an
+  outbox is still at-least-once and the consumer still has to be idempotent, is `sys-idempotency`
+  verbatim, and the page cites it instead — an uncited rep is not debt and a re-cited one is not
+  either.
+
 ## The essentials path
 
 - **ADR-0087 — It is a second entrance, not a setting on the daily session.** Everything else here is judged
