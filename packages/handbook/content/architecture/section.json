@@ -1,0 +1,6 @@
+{
+  "slug": "architecture",
+  "title": "Trade-offs, and where the boundaries go",
+  "order": 18,
+  "summary": "Three decisions that outlive the code they are made in: whether a boundary is a module or a deployment, how you replace something that is still serving traffic, and what an interface you own is worth over a dependency you do not. This is the section most at risk of turning into advice, so every page starts from a symptom somebody reported: two services that still write to the same table, a migration that has been ninety percent done for a year, a fake that passed while production failed. Redis is the worked example for the last of those, because this repo already ships a fake one and keeps the awkward semantics on purpose. Deploy mechanics belong to production and behaviour under load belongs to systems. What is here is the decision, and the bill that arrives later."
+}

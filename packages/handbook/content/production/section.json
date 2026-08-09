@@ -1,0 +1,6 @@
+{
+  "slug": "production",
+  "title": "Running it in production",
+  "order": 17,
+  "summary": "Every page here answers the same question about a different thing: what changes about code you already wrote once it stops being a process on your laptop. That is deliberately a narrow slice of running software, the part a web engineer owns rather than the part a cloud certification covers. What a deploy actually moves, what the running process can and cannot read out of its environment, how an instance says it is not ready, and which of the three telemetry signals can answer the question you are asking. Node behaviour here was run against Node 24.16.0; platform behaviour is quoted from the Kubernetes, nginx and OpenTelemetry documentation and marked as such."
+}

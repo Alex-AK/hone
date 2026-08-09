@@ -127,8 +127,8 @@ then "A new secret must be able to be quickly created and implemented." Rotating
 the same tool used ahead of time, "so that any stolen credentials will only work for a short time."
 
 At runtime a secret belongs in the server process's environment or a secret manager, injected at
-deploy time rather than at build time. How to hold and rotate them there is the subject of a
-"Running it in production" section this handbook does not have yet.
+deploy time rather than at build time. How to hold and rotate them there, and where the environment
+stops being enough, is [configuration and secrets](../production/config-and-secrets.md).
 
 ## Worked example
 

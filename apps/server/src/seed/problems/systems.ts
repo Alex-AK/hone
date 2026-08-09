@@ -1786,4 +1786,1254 @@ export const systemsProblems: ProblemDraft[] = [
     explanation:
       'Kafka documents this plainly, that "if a topic is configured with only two replicas and one fails (i.e., only one in sync replica remains), then writes that specify acks=all will succeed. However, these writes could be lost if the remaining replica also fails." The general lesson is bigger than Kafka: an acknowledgement is a claim about how far the bytes got, and "durable" is meaningless without naming the failure it survives. The same ladder shows up in Postgres as `synchronous_commit`, where every non-off setting waits for a local flush and `remote_write`, `on` and `remote_apply` buy successively more, at successively larger commit delays. Two rungs get conflated constantly and should not be: a replica having received a record is not the same as having flushed it, and neither is the same as having applied it so a query there can see it.',
   },
+
+  {
+    slug: 'sys-metric-series-count',
+    title: 'How many series is that',
+    category: 'systems',
+    difficulty: 'easy',
+    relevance: 'occasional',
+    type: 'short-text',
+    prompt: md(
+      'A request counter carries three labels:',
+      '',
+      code('js', 'httpRequests.inc({ route, method, status });'),
+      '',
+      'The app has 40 route templates, uses 4 HTTP methods, and returns 6 distinct status codes.',
+      '',
+      'At most, how many time series does this counter produce? Answer with a number.'
+    ),
+    graderConfig: {
+      accept: ['960', '40 * 4 * 6', '40 x 4 x 6', '40*4*6'],
+      acceptPatterns: ['\\b960\\b'],
+      nearMisses: {
+        '50': 'That is the three counts added together. Labels multiply: a series is one combination of all of them, so it is 40 x 4 x 6.',
+        '240':
+          'That is 40 x 6, which leaves the method label out. Every label multiplies the count, so it is 40 x 4 x 6.',
+      },
+      hints: [
+        'A time series is one metric name plus one specific combination of label values.',
+        'Count the combinations, not the labels.',
+        'Multiply the three: 40 route templates x 4 methods x 6 statuses.',
+      ],
+    },
+    canonicalAnswer: '960',
+    solution: md('960, which is 40 x 4 x 6: one series per combination of label values.'),
+    explanation:
+      'Labels multiply, and that is the only arithmetic you need to review a change to an instrumented metric. Every distinct combination of label values is a separate time series with its own memory, storage and query cost, so the counter is not one number, it is 960 of them. The reason to do this sum in review is what happens to it when somebody adds a label whose values are unbounded: a user id over 200,000 users takes the same counter to 192 million series, and nothing warns you until the backend starts dropping data. The ceiling here is an upper bound rather than the real figure, since most routes never return most statuses, but it is the number to design against because it is the one an unusual day can reach.',
+  },
+
+  {
+    slug: 'sys-rollback-kept-the-bug',
+    title: 'Rolled back, still broken',
+    category: 'systems',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'Release 118 goes out at 14:00 and breaks checkout. At 14:20 you redeploy the artefact release 117 was running, and checkout is still broken.',
+      '',
+      'Nothing else has been deployed in between, and the artefact really is the old one.',
+      '',
+      'Explain what a rollback moves and what it leaves alone, and name what to check before deciding the rollback failed.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'the build',
+            'the artefact',
+            'the artifact',
+            'the image',
+            'the code',
+            'only the code',
+            'code only',
+          ],
+          missingFeedback: 'Say which one of the two halves of a release actually went backwards.',
+        },
+        {
+          synonyms: [
+            'config',
+            'environment variable',
+            'env var',
+            'feature flag',
+            'the flag',
+            'a flag',
+            'secret',
+            'migration',
+            'schema',
+          ],
+          missingFeedback: 'Name the half that did not go backwards, and give an example of it.',
+        },
+        {
+          synonyms: [
+            'separately',
+            'new release',
+            'a fresh release',
+            'forward',
+            'what else changed',
+            'what changed',
+            'revert the flag',
+            'revert the config',
+            'roll that back',
+          ],
+          missingFeedback:
+            'A rollback is not a return to an old release. Say what that means for the thing you have to do next.',
+        },
+      ],
+      hints: [
+        'A release is not just the thing you built.',
+        'Ask what else went out at 14:00 that was not in the artefact.',
+        'Redeploying an old build creates a new release carrying today’s config, so anything that changed alongside the code is still on its new value.',
+      ],
+    },
+    canonicalAnswer:
+      'A rollback moves the build back and nothing else. What is running is the artefact plus this deploy’s config, so redeploying yesterday’s image picks up today’s environment variables, today’s feature flags and whatever migration has already run. It is a new release pointing at an old build rather than a return to an old release. Before deciding the rollback failed, check what changed in that window that was not code: a flag flipped alongside the deploy, an environment variable that moved, a schema change that landed first, and roll that back separately.',
+    solution: md(
+      '- **What moves**: the build. The artefact you deployed is the old one, and that part worked.',
+      '- **What does not**: the config half of the release. Environment variables, feature flags, secrets and anything already applied to the database are on their current values.',
+      '- **What it actually is**: a new release naming an old build. There is no old release to return to, so nothing else comes back with it.',
+      '- **What to check**: everything that shipped at 14:00 that was not in the artefact, and revert each of those on its own.'
+    ),
+    explanation:
+      'Releases are append-only, which is the property that makes this surprising the first time. Nothing ever goes backwards: redeploying an old build creates a new release, and that release is combined with the config as it stands now, not as it stood when the build was current. So the mental model to carry into an incident is that a rollback undoes exactly one of the things that changed. This is also the argument for shipping a code change and a config change separately rather than together, because a release with both in it has no clean rollback: you can undo either half and neither undoes the other. The same reasoning is why a schema change goes out as its own release ahead of the code that needs it, since a rollback of the code leaves the migration applied.',
+  },
+
+  {
+    slug: 'sys-deploy-chunk-404',
+    title: 'The tab that was already open',
+    category: 'systems',
+    difficulty: 'medium',
+    relevance: 'daily',
+    type: 'explain',
+    prompt: md(
+      'For a few minutes after each deploy, some users see the app break on navigation. The console says `Failed to fetch dynamically imported module` and the network tab shows a 404 for `/assets/Orders-c17e93.js`. A reload fixes it, and nobody can reproduce it on a fresh load.',
+      '',
+      'Explain why only some users hit it, and name two things that stop it.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'before the deploy',
+            'already open',
+            'old build',
+            'previous build',
+            'stale',
+            'cached html',
+            'old html',
+            'old index',
+            'outdated',
+            'loaded earlier',
+          ],
+          missingFeedback:
+            'What is different about the users who see it? Say when their page was loaded.',
+        },
+        {
+          synonyms: [
+            'no longer exists',
+            'does not exist',
+            'deleted',
+            'removed',
+            'replaced',
+            'new hash',
+            'different hash',
+            'gone',
+            'overwritten',
+          ],
+          missingFeedback: 'Say what happened to the file the browser is asking for.',
+        },
+        {
+          synonyms: [
+            'keep the previous',
+            'keep the old',
+            'keep old',
+            'retain',
+            'serve the old',
+            'reload',
+            'preloaderror',
+            'preload error',
+            'no-cache',
+            'no cache',
+          ],
+          missingFeedback:
+            'Name what you would change, on the server or in the client, to stop it.',
+        },
+      ],
+      hints: [
+        'Everybody who reloads is fine. Ask what the people who do not reload are holding on to.',
+        'Their HTML came from the old build and names chunk filenames the new build does not have.',
+        'Two fixes compose: stop deleting the previous build’s hashed assets immediately, and handle the failed import in the client by reloading.',
+      ],
+    },
+    canonicalAnswer:
+      'Only tabs that loaded the page before the deploy hit it. Their HTML names hashed chunk filenames from the old build, and the deploy replaced those files, so the lazily imported chunk no longer exists on the server and the request comes back 404. A fresh load never sees it because it gets the new index and the new filenames. Two things stop it: keep the previous build’s hashed assets served for a while instead of deleting them on deploy, and handle the failure in the client by reloading the page, which is what Vite’s vite:preloadError event is for. Sending Cache-Control: no-cache on the HTML keeps a cached index from starting the same problem again.',
+    solution: md(
+      '- **Who hits it**: anyone whose tab loaded before the deploy. Their HTML references the old build’s hashed filenames.',
+      '- **Why it 404s**: the deploy replaced those files with new hashes, so the chunk being imported is not there any more.',
+      '- **Fix one, on the server**: keep the previous build’s assets around for a while rather than deleting them, and send `Cache-Control: no-cache` on the HTML.',
+      '- **Fix two, in the client**: catch the failed dynamic import and reload. Vite emits `vite:preloadError` for exactly this.'
+    ),
+    explanation:
+      'Content-hashed filenames are what make assets cacheable forever, and the cost of that is that a deploy changes every filename the previous build referenced. So a long-lived tab is holding a manifest of files that are about to stop existing, and the failure only shows up on the first lazy route it tries to reach, which is why it looks intermittent and untraceable. The server-side half of the fix is cheap and worth doing whatever else you do: hashed assets never collide, so keeping two or three builds of them costs disk and nothing else. The client-side half matters because you cannot keep old assets forever, and a reload is safe here in a way it usually is not, since the user has not yet navigated anywhere. This is one visible symptom of a more general property of a rolling deploy, which is that two versions of your code are live at once and one of them is in a browser you do not control.',
+  },
+
+  {
+    slug: 'sys-secret-in-the-environment',
+    title: 'It is only in an environment variable',
+    category: 'systems',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'Your API key is never in the repository. The deploy injects it as an environment variable and the server reads `process.env.VENDOR_API_KEY`. A security review flags it anyway.',
+      '',
+      'Give two reasons the environment is a weak place to keep a secret, and say what changes if the process reads it from a mounted file instead.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'child process',
+            'children',
+            'inherit',
+            'every process',
+            'spawn',
+            'subprocess',
+            'sub-process',
+            'anything running as',
+            'whole environment',
+          ],
+          missingFeedback: 'What does every process you start get handed?',
+        },
+        {
+          synonyms: [
+            'crash',
+            'dump',
+            'error report',
+            'reporter',
+            'logged',
+            'in the logs',
+            'serialise',
+            'serialize',
+            'inspect',
+            'stack trace',
+            'diagnostic',
+          ],
+          missingFeedback: 'Where does the environment get copied without anybody asking for it?',
+        },
+        {
+          synonyms: [
+            'restart',
+            'rotate',
+            'rotation',
+            're-read',
+            'reread',
+            'read again',
+            'read it again',
+            'fixed for the life',
+            'without restarting',
+          ],
+          missingFeedback:
+            'A file can change under a running process. What can you do with a file that you cannot do with a variable?',
+        },
+      ],
+      hints: [
+        'Ask who else can see it, and ask what happens when you want to change it.',
+        'Every process you spawn inherits the whole environment, and crash reporters serialise it by default.',
+        'A process’s environment is fixed for the life of that process, so rotating a variable is a restart. A file is not.',
+      ],
+    },
+    canonicalAnswer:
+      'Two reasons. Every process you spawn inherits the whole environment, so a build step or a shell-out gets the key whether it needs it or not, and so does anything that can already run as you. And crash reporters, process inspectors and some logging setups serialise the environment by default, so the key ends up in a store with wider access than the app has. Reading it from a mounted file changes rotation: a process’s environment is fixed for the life of that process, so rotating a variable means restarting every instance, while a file can be rewritten and read again at the point the connection is opened.',
+    solution: md(
+      '- **Inheritance**: every child process gets the entire environment, needed or not.',
+      '- **Leakage**: crash dumps, error reporters and process inspection tools serialise it by default, into places with different access rules from your app.',
+      '- **What a file changes**: a running process’s environment cannot be updated, so rotating a variable is a rolling restart. A file can be rewritten and re-read at the point of use.'
+    ),
+    explanation:
+      'Putting a secret in the environment is a real improvement over putting it in the repository, and that is the whole of what it buys. It is not an access control: it is a value handed to a process and to everything that process starts, readable by anything already running as that user. OWASP puts the default the other way round, that environment variables "are generally accessible to all processes and may be included in logs or system dumps" and are therefore not recommended unless nothing else is available. The rotation point is the one that decides architecture rather than hygiene, because it is what makes a leaked credential expensive to replace: if rotation is a fleet restart, it will be scheduled, and a rotation you have to schedule is one you will not do during the incident that called for it. Short-lived credentials fetched at runtime are the same fix taken further, where the window closes on its own.',
+  },
+
+  {
+    slug: 'sys-liveness-vs-readiness',
+    title: 'One endpoint, two probes',
+    category: 'systems',
+    difficulty: 'medium',
+    relevance: 'daily',
+    type: 'explain',
+    prompt: md(
+      'Both probes point at the same endpoint, and that endpoint runs `select 1` before answering:',
+      '',
+      code(
+        'yaml',
+        'livenessProbe:  { httpGet: { path: /health } }',
+        'readinessProbe: { httpGet: { path: /health } }'
+      ),
+      '',
+      'The database has a 30-second blip. Every instance in the fleet restarts, and they keep restarting for several minutes after the database has recovered.',
+      '',
+      'Explain what each probe decides, and which one should have been touching the database.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'restart',
+            'restarted',
+            'kill',
+            'killed',
+            'replaces the container',
+            'recreate',
+          ],
+          missingFeedback: 'What does the platform do when a liveness probe fails?',
+        },
+        {
+          synonyms: [
+            'traffic',
+            'rotation',
+            'endpoint',
+            'routed',
+            'sent requests',
+            'sent a request',
+            'load balancer',
+            'out of the pool',
+          ],
+          missingFeedback: 'What does the platform do when a readiness probe fails?',
+        },
+        {
+          synonyms: [
+            'wedged',
+            'deadlock',
+            'event loop',
+            'the process itself',
+            'no dependencies',
+            'no dependency',
+            'cheap',
+            'responds at all',
+            'responding at all',
+            'answers at all',
+          ],
+          missingFeedback:
+            'Say what a liveness check should actually be measuring, given a restart cannot fix a database.',
+        },
+      ],
+      hints: [
+        'The two probes have different consequences when they fail, and that is the whole distinction.',
+        'One decides whether the container is restarted. The other decides whether it is sent traffic.',
+        'A restart cannot fix a shared database, so the dependency belongs in the probe whose failure means "not me" rather than "kill me".',
+      ],
+    },
+    canonicalAnswer:
+      'Liveness decides whether the container gets restarted. Readiness decides whether it is sent traffic, by taking it out of rotation when it fails. Pointing both at a check that queries the database means a database outage reads as every process being broken, so the whole fleet is killed and restarted, and a restart does nothing for a database, which is why it keeps happening. The dependency belongs in readiness only, where failing removes the instance from the pool and it rejoins on its own once the query works again. Liveness should measure whether this process itself is wedged, so responding at all is most of the answer: keep it cheap and give it no dependencies.',
+    solution: md(
+      '- **Liveness**: decides whether to restart the container. Failing it is a kill.',
+      '- **Readiness**: decides whether to send it traffic. Failing it removes the instance from rotation and nothing is destroyed.',
+      '- **Where the database belongs**: readiness. A restart cannot repair a shared dependency, and restarting throws away warm caches and pools at the worst moment.',
+      '- **What liveness should check**: that this process is not wedged. Answering the request at all is most of the signal.'
+    ),
+    explanation:
+      'The two probes look like the same question because both are called "health", and their failure modes have nothing in common. A liveness probe with a dependency in it converts an outage in that dependency into a fleet-wide restart loop, which is strictly worse than the outage: requests that did not need the database now fail too, warm state is thrown away, and every process reconnects at once the moment the database comes back, which is the load it least wants. The honest liveness check for a Node server is close to empty, because what it is really asking is whether the event loop is free enough to answer. A readiness check that fails everywhere at once has a subtler version of the same problem: the fleet leaves the rotation together and the balancer has nowhere to send anything, so where a dependency is shared it is often better to degrade inside the handler than to leave the pool at all.',
+  },
+
+  {
+    slug: 'sys-readiness-too-early',
+    title: 'Ready before it is ready',
+    category: 'systems',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'Every new instance serves errors for its first two or three seconds and then settles. The readiness endpoint is registered alongside the other routes and returns 200 as soon as the server is listening. Boot also opens a connection pool and loads a 40MB pricing table into memory.',
+      '',
+      'Explain why the deploy hands it traffic anyway, and give two ways to stop it.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'listening',
+            'as soon as',
+            'says yes',
+            'answers yes',
+            'returns 200',
+            'still loading',
+            'still booting',
+            'before the pool',
+            'not finished',
+            'has not finished',
+          ],
+          missingFeedback:
+            'The check is answering something. Say what it is answering, and how that differs from the question being asked.',
+        },
+        {
+          synonyms: [
+            'rotation',
+            'traffic',
+            'endpoint',
+            'the pool',
+            'sent requests',
+            'added',
+            'joins',
+            'joined',
+          ],
+          missingFeedback: 'Say what the deploy does as soon as the check passes.',
+        },
+        {
+          synonyms: [
+            'flag',
+            'starts false',
+            'false until',
+            'after boot',
+            'once boot',
+            'set it after',
+            'startup probe',
+            'initialdelay',
+            'initial delay',
+          ],
+          missingFeedback:
+            'Name something concrete that would hold the instance back until it is ready.',
+        },
+      ],
+      hints: [
+        'The endpoint is not lying. Ask what question it is actually able to answer.',
+        'It reports 200 as soon as the process is listening, which happens before the pool and the pricing table are ready.',
+        'Either hold a flag that only becomes true once boot has finished, or give the platform a startup probe so readiness is not consulted yet.',
+      ],
+    },
+    canonicalAnswer:
+      'The check answers a different question from the one being asked. It reports 200 as soon as the process is listening, which happens before the pool is open and before the pricing table is loaded, so it says yes while it is still booting and the swap adds it to the rotation immediately. Two ways to stop it: hold a flag that starts false and becomes true only once boot has finished, so readiness returns 503 until then, or configure a startup probe, which makes the platform wait before it consults readiness at all.',
+    solution: md(
+      '- **Why it gets traffic**: readiness passes the moment the server is listening, which is earlier than the moment it can serve a request.',
+      '- **Fix one**: a flag that starts `false` and is set after boot completes. Readiness returns 503 until then.',
+      '- **Fix two**: a startup probe, which holds off liveness and readiness entirely until the process reports it has started.'
+    ),
+    explanation:
+      'Readiness is a claim about being able to serve a request, and "the framework is listening" is a much weaker claim that happens to be available earlier. The gap is small on a laptop and large in production, because that is where the pool has to reach a real database and the warm-up has real data in it. The flag is the version worth reaching for first, because it puts the definition of ready in the code that knows what boot involves, rather than in a delay somebody guessed. Guessed delays are the failure mode of the alternative: an initial delay that is long enough today becomes too short the day the pricing table doubles, and nothing tells you except a spike of errors after each deploy. A startup probe is the platform-side version of the same idea and composes with the flag rather than replacing it.',
+  },
+
+  {
+    slug: 'sys-request-id-join',
+    title: 'One failure or five',
+    category: 'systems',
+    difficulty: 'medium',
+    relevance: 'daily',
+    type: 'explain',
+    prompt: md(
+      'A customer reports that checkout failed at about 09:15. Five services logged errors in that minute, all structured, all with timestamps and stack traces. Nobody can tell whether that was one failure that cascaded or five unrelated ones.',
+      '',
+      'Name what is missing, say where it has to be created, and say what makes it useful to whoever is taking the support call.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'request id',
+            'requestid',
+            'correlation',
+            'trace id',
+            'traceid',
+            'x-request-id',
+            'shared identifier',
+          ],
+          missingFeedback: 'Name the field that lets you tell one request’s lines from another’s.',
+        },
+        {
+          synonyms: [
+            'edge',
+            'first',
+            'entry point',
+            'gateway',
+            'the proxy',
+            'generate',
+            'generated',
+            'propagat',
+            'forward',
+            'passed on',
+            'header',
+          ],
+          missingFeedback: 'Say where the value comes from and how the other four services get it.',
+        },
+        {
+          synonyms: [
+            'response',
+            'returned',
+            'return it',
+            'error page',
+            'support',
+            'screenshot',
+            'ticket',
+            'the customer can',
+          ],
+          missingFeedback:
+            'Say what makes the id reachable from a support conversation rather than only from a log search.',
+        },
+      ],
+      hints: [
+        'Timestamps are not enough, because five services logging in the same minute is normal.',
+        'One value shared by every line that belongs to that one request, created once and passed on.',
+        'Generate it at the edge, forward it on every outbound call, and return it in the response so the customer can quote it.',
+      ],
+    },
+    canonicalAnswer:
+      'A request id, sometimes called a correlation id: one value shared by everything that handled that request. Generate it at the edge, at the first thing that touches the request, accepting an inbound one only from a proxy you operate, and forward it as a header on every outbound call so all five services put the same value on their lines. Joining the logs is then a filter rather than a guess about timestamps. What makes it useful on a support call is returning it in the response and showing it on the error page, so the id in the customer’s screenshot is the id you search for.',
+    solution: md(
+      '- **What is missing**: a request id shared by every line belonging to one request.',
+      '- **Where it starts**: the edge. Generate it at the first hop, and accept an inbound one only from a proxy you control.',
+      '- **How it spreads**: forwarded as a header on every outbound call, and put on every log line by the logger rather than by each call site.',
+      '- **What makes it useful**: returning it in the response, so a screenshot or a support ticket carries the search term.'
+    ),
+    explanation:
+      'Structured logs make each line queryable and still leave you unable to answer the question that matters during an incident, which is which lines belong together. An id fixes that for the price of one middleware, and the reason to generate it at the edge rather than per service is that anything created further in cannot cover the hops before it. Two details decide whether it survives contact with production. Trust the inbound header only from a proxy you operate, for the same reason a forwarded address is a claim rather than a fact, since a client can send any value it likes and a shared id is a way to pollute somebody else’s search. And attach it in the logger’s context rather than passing it to each call site, because a field that has to be remembered is a field that will be missing on the line you needed. Returning it to the client is the cheapest part and the one most often skipped.',
+  },
+
+  {
+    slug: 'sys-metric-cardinality',
+    title: 'One more label',
+    category: 'systems',
+    difficulty: 'medium',
+    relevance: 'daily',
+    type: 'explain',
+    prompt: md(
+      'A pull request adds one label to the request counter, so support can look up a specific customer:',
+      '',
+      code(
+        'diff',
+        '- httpRequests.inc({ route, method, status });',
+        '+ httpRequests.inc({ route, method, status, userId });'
+      ),
+      '',
+      'There are 40 route templates, 4 methods, 6 status codes and 200,000 users.',
+      '',
+      'Explain what this costs, and say where that field should go instead.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'time series',
+            'series',
+            'multipl',
+            'product',
+            'one per user',
+            'cardinality',
+            'explod',
+            'combination',
+          ],
+          missingFeedback:
+            'Say what a metric is actually storing, and what one more label does to it.',
+        },
+        {
+          synonyms: [
+            'unbounded',
+            '192',
+            'million',
+            'grows with',
+            'every new user',
+            'no ceiling',
+            '200,000',
+            '200000',
+            'keeps growing',
+          ],
+          missingFeedback: 'Put a number on it, or say what happens as the user table grows.',
+        },
+        {
+          synonyms: ['log', 'span', 'trace', 'per event', 'attribute'],
+          missingFeedback: 'Name the signal that can hold a customer id without this cost.',
+        },
+      ],
+      hints: [
+        'A metric is not a place you put things. Ask what it is actually storing.',
+        'A time series is one combination of label values, so labels multiply rather than add.',
+        '960 series becomes 192 million, and it grows with the user table. The customer id belongs on a log line or a span.',
+      ],
+    },
+    canonicalAnswer:
+      'It multiplies the number of time series. A series is one combination of metric name and label values, so the counter goes from 40 x 4 x 6, which is 960 series, to 192 million, and it keeps growing with every new user instead of settling. Each series costs memory and storage of its own in the metrics backend, and once the limit is hit the queries over the old labels stop returning what they used to. The customer id belongs on a log line or as a span attribute, where the cost is per event and the store is built for fields like it, because a metric is an aggregate and cannot answer a question about one customer anyway.',
+    solution: md(
+      '- **The cost**: labels multiply. 40 x 4 x 6 is 960 series; adding a user id over 200,000 users is 192 million, and it grows with the user table rather than settling.',
+      '- **Why it bites**: each series carries its own memory, storage and query cost, and hitting a backend’s cardinality limit degrades the panels built on the other labels too.',
+      '- **Where the field goes**: a log line or a span attribute, where the cost is per event.',
+      '- **The rule**: if the set of values is unbounded, it is not a label.'
+    ),
+    explanation:
+      'The reason this keeps happening is that a label looks like a field on a record, and it is not: it is a dimension, and dimensions multiply. What makes it worse than an ordinary capacity problem is the shape of the failure. The metric that broke is rarely the one that goes wrong first; the backend hits a limit and drops or collapses series, so panels built on the well-behaved labels start reading a different set of data, and the dashboards you would use to diagnose it are the ones that stopped working. OpenTelemetry is explicit that overflow replaces the entire attribute combination rather than just the high-cardinality part of it. The review question is one line: could this value ever be an id, an email address, a raw URL path, or an error message? Raw paths are the one people miss, since a `route` label holding `/orders/4821` is one series per order that has ever been fetched.',
+  },
+
+  codeProblem({
+    slug: 'sys-config-read-at-boot',
+    title: 'The environment is all strings',
+    category: 'systems',
+    difficulty: 'medium',
+    relevance: 'daily',
+    prompt: md(
+      'Write `readConfig(env)`, which turns a plain object of environment strings into a typed config object and refuses anything it cannot make sense of.',
+      '',
+      '- `port` comes from `PORT` and must be an integer. Default 3000.',
+      '- `databaseUrl` comes from `DATABASE_URL` and is required. An empty string counts as missing.',
+      '- `verboseErrors` comes from `VERBOSE_ERRORS`, which must be exactly `"true"` or `"false"`. Default `false`.',
+      '',
+      'Anything invalid or missing throws an `Error` whose message names the variable. Return the three keys and nothing else.'
+    ),
+    starter: 'function readConfig(env) {\n  \n}',
+    tests: [
+      {
+        name: 'applies the defaults when only the required variable is set',
+        expression: "readConfig({ DATABASE_URL: 'postgres://localhost/app' })",
+        expected: {
+          port: 3000,
+          databaseUrl: 'postgres://localhost/app',
+          verboseErrors: false,
+        },
+      },
+      {
+        name: 'parses the values that are set',
+        expression:
+          "readConfig({ DATABASE_URL: 'postgres://x', PORT: '8080', VERBOSE_ERRORS: 'true' })",
+        expected: { port: 8080, databaseUrl: 'postgres://x', verboseErrors: true },
+      },
+      {
+        name: '"false" is false, not a truthy string',
+        expression:
+          "readConfig({ DATABASE_URL: 'postgres://x', VERBOSE_ERRORS: 'false' }).verboseErrors",
+        expected: false,
+      },
+      {
+        name: 'port comes back as a number',
+        expression: "typeof readConfig({ DATABASE_URL: 'postgres://x', PORT: '8080' }).port",
+        expected: 'number',
+      },
+      {
+        name: 'a missing required variable throws, naming it',
+        expression: 'readConfig({})',
+        throws: 'DATABASE_URL',
+      },
+      {
+        name: 'an empty required variable counts as missing',
+        expression: "readConfig({ DATABASE_URL: '' })",
+        throws: 'DATABASE_URL',
+      },
+      {
+        name: 'a port that is not an integer throws, naming it',
+        expression: "readConfig({ DATABASE_URL: 'postgres://x', PORT: '8080abc' })",
+        throws: 'PORT',
+      },
+      {
+        name: 'a boolean that is not true or false throws, naming it',
+        expression: "readConfig({ DATABASE_URL: 'postgres://x', VERBOSE_ERRORS: '1' })",
+        throws: 'VERBOSE_ERRORS',
+      },
+    ],
+    hints: [
+      'Every value arriving here is a string or `undefined`. There is no boolean and no number to read.',
+      '`Boolean("false")` is `true`, so a flag has to compare against the two strings you accept.',
+      '`Number("8080abc")` is `NaN`, and `Number.isInteger` is the check that catches both that and `"80.5"`.',
+    ],
+    reference: [
+      'function readConfig(env) {',
+      '  const required = (name) => {',
+      '    const raw = env[name];',
+      "    if (raw === undefined || raw === '') throw new Error(`${name} is not set`);",
+      '    return raw;',
+      '  };',
+      '',
+      '  const integer = (name, fallback) => {',
+      '    const raw = env[name];',
+      '    if (raw === undefined) return fallback;',
+      '    const value = Number(raw);',
+      '    if (!Number.isInteger(value)) throw new Error(`${name} is "${raw}", not an integer`);',
+      '    return value;',
+      '  };',
+      '',
+      '  const flag = (name, fallback) => {',
+      '    const raw = env[name];',
+      '    if (raw === undefined) return fallback;',
+      "    if (raw !== 'true' && raw !== 'false') {",
+      '      throw new Error(`${name} is "${raw}", not true or false`);',
+      '    }',
+      "    return raw === 'true';",
+      '  };',
+      '',
+      '  return {',
+      "    port: integer('PORT', 3000),",
+      "    databaseUrl: required('DATABASE_URL'),",
+      "    verboseErrors: flag('VERBOSE_ERRORS', false),",
+      '  };',
+      '}',
+    ].join('\n'),
+    explanation:
+      'Everything in an environment is a string, so every type an app has is one you produced by parsing, and the only question is where. Doing it here means a bad value stops the process while somebody is watching the deploy, and the rest of the codebase reads `config.port` and gets a number. Doing it at the point of use means `Number(process.env.REQUEST_TIMEOUT_MS)` quietly becomes `NaN`, which Node accepts as a timeout of one millisecond behind a warning nobody reads. The boolean is the one that catches people out, because `Boolean("false")` is `true`: a non-empty string is truthy, and nothing in the chain knows the string was meant as a flag. Treating empty as missing is a judgement call worth making deliberately, since platforms differ on whether an unset variable arrives as absent or as an empty string, and a database URL of `""` is never what anybody meant.',
+  }),
+
+  {
+    slug: 'sys-drain-before-close',
+    title: 'Connection refused during the deploy',
+    category: 'systems',
+    difficulty: 'hard',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'A rolling deploy drops a few hundred requests every time. The shutdown handler looks correct, and requests already inside the process do finish:',
+      '',
+      code('js', "process.on('SIGTERM', () => {", '  server.close(() => process.exit(0));', '});'),
+      '',
+      'The failures are connection refused, and they land in the two or three seconds after each instance begins shutting down.',
+      '',
+      'Explain where those requests are coming from, and give the order the handler should do things in.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'poll',
+            'interval',
+            'has not noticed',
+            'still thinks',
+            'still sending',
+            'not found out',
+            'takes a moment',
+            'takes time',
+            'propagat',
+            'health check',
+            'probe',
+            'lag',
+          ],
+          missingFeedback:
+            'Something is still sending requests to this instance. Say how it finds out that it should stop.',
+        },
+        {
+          synonyms: [
+            'refus',
+            'stops accepting',
+            'stopped accepting',
+            'no longer accepting',
+            'closes the listener',
+            'closed the listener',
+            'immediately',
+            'straight away',
+          ],
+          missingFeedback:
+            'Say what `server.close()` does to a connection that arrives one millisecond later.',
+        },
+        {
+          synonyms: [
+            'readiness',
+            'unready',
+            'fail the check',
+            'out of rotation first',
+            'wait',
+            'delay',
+            'sleep',
+            'then close',
+            'before closing',
+          ],
+          missingFeedback: 'Give the order. Say what has to happen before the listener closes.',
+        },
+      ],
+      hints: [
+        'The requests are not being dropped by your process. Ask what is still sending them.',
+        'A balancer learns an instance is gone by asking, on an interval, so there is a window of seconds where it is still routing traffic here.',
+        'Fail readiness first and keep serving, wait longer than that interval, and only then stop accepting connections.',
+      ],
+    },
+    canonicalAnswer:
+      'They come from whatever is in front of the instance, which has not found out yet. A balancer learns that an instance is gone by polling a check on an interval, so for a few seconds after the process decides to stop it is still being routed traffic. server.close() stops accepting new connections immediately, so everything that arrives in that window is refused rather than served. Do it in the other order: fail the readiness check first and keep serving, wait longer than the checker’s interval so the instance leaves the rotation, then call server.close() and let the requests already inside the process finish, with a deadline afterwards so one slow handler cannot hold the deploy open forever.',
+    solution: md(
+      '1. **Fail readiness**, and keep serving. This is the only way to tell the balancer to stop, and it is not instant.',
+      '2. **Wait** longer than the checker’s interval. nginx’s passive default is one failed attempt inside a 10-second `fail_timeout`; an active probe has a period and a threshold.',
+      '3. **`server.close()`**, which stops accepting new connections and lets in-flight requests finish.',
+      '4. **A deadline**, after which you exit anyway, so one stuck handler cannot hold the deploy open.'
+    ),
+    explanation:
+      'The mistake is treating the stop signal as the moment traffic stops, when it is only the moment you found out. Nothing upstream is watching your process: it discovers the change by asking, so the interval between asks is a window in which requests keep arriving, and closing the listener first turns every one of them into a connection refused. That is why the handler spends its first seconds doing nothing except failing a health check. The deadline at the end matters for the opposite reason: `server.close()` waits for in-flight requests, so a single long-running handler or a websocket can hold the process open past the platform’s grace period, at which point it is killed and you get the abrupt shutdown you were trying to avoid. Two numbers make this concrete and are worth knowing for your own stack: how often the thing in front of you checks, and how long the platform waits before it stops asking.',
+  },
+
+  {
+    slug: 'sys-trace-stops-at-the-queue',
+    title: 'The trace that ends at the enqueue',
+    category: 'systems',
+    difficulty: 'hard',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'Tracing works. An incoming request produces one trace covering the API and two downstream HTTP calls it makes. The same handler also enqueues a job, and the worker that runs it produces a separate trace of its own, with nothing linking the two.',
+      '',
+      'Explain why the HTTP hops joined up and the queued job did not, and what has to change.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'header',
+            'traceparent',
+            'inject',
+            'instrumentation',
+            'automatic',
+            'automatically',
+            'http client',
+          ],
+          missingFeedback: 'Say how the context reached the two downstream services.',
+        },
+        {
+          synonyms: [
+            'nothing',
+            'no one',
+            'does not propagate',
+            'not propagated',
+            'only what',
+            'you put',
+            'manually',
+            'yourself',
+            'nobody',
+          ],
+          missingFeedback: 'Say why the same thing did not happen on the way into the queue.',
+        },
+        {
+          synonyms: [
+            'extract',
+            'child',
+            'parent',
+            'link',
+            'continue',
+            'resume',
+            'in the message',
+            'in the payload',
+          ],
+          missingFeedback: 'Say what the producer puts where, and what the worker does with it.',
+        },
+      ],
+      hints: [
+        'The HTTP calls did not join up by magic. Ask what physically travelled between the services.',
+        'Over HTTP the context rides in a request header and the instrumentation adds it for you. A queue message has no such convention.',
+        'Serialise the context into the message, extract it in the worker, and start the consumer’s span from it as a child or a link.',
+      ],
+    },
+    canonicalAnswer:
+      'The HTTP hops joined up because the trace context travels as a request header, traceparent, and the HTTP instrumentation injects it on the way out and extracts it on the way in without anybody asking. A queue message has no such convention: it carries only what you put in it, so nothing propagated the context and the worker started a fresh trace of its own. Serialise the context into the message, as a field of the payload or in the broker’s own message headers, extract it in the worker, and start the consumer’s span as a child of it or as a link to it.',
+    solution: md(
+      '- **Why HTTP worked**: the context rides in a request header (`traceparent`), and the client instrumentation injects it and the server instrumentation extracts it.',
+      '- **Why the queue did not**: a message carries only the fields you put in it. Nothing adds a header you did not write.',
+      '- **The change**: inject the serialised context into the message when producing, extract it when consuming, and start the worker’s span as a child of it, or as a link where the two are genuinely asynchronous.'
+    ),
+    explanation:
+      'Context propagation is a convention rather than a property of tracing, so it holds exactly where somebody has implemented it and stops everywhere else. HTTP has the convention and mature instrumentation, which is what makes the first half of the trace appear for free and gives the misleading impression that the tracer follows the work. It does not: it follows a header. Every boundary that is not an instrumented HTTP call is a place the trace ends, and a queue is only the most obvious one. An outbox row, a cron job reading a table, a `setTimeout` firing after the response, and a batch file picked up an hour later are all the same gap. Child span or link is a real choice rather than a detail: a child implies the parent is waiting, which is exactly what is not true of a queued job, so a link is usually the more honest shape once the producer has already returned a response.',
+  },
+
+  codeProblem({
+    slug: 'sys-module-boundary-imports',
+    title: 'The boundary nothing was checking',
+    category: 'systems',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    prompt: md(
+      'A modular monolith keeps its boundaries by checking them. Write `illegalImports(edges, allowed)`, which reports the imports that cross a boundary they are not allowed to cross.',
+      '',
+      "- An edge is `{ from, to }`, and each side is a path whose first segment names the module: `'billing/invoice.ts'` is in `billing`.",
+      '- `allowed` maps a module to the modules it may import. A module missing from it may import nothing outside itself.',
+      '- An import inside one module is always fine.',
+      '',
+      "Return `'billing -> orders'` for each illegal pair, in the order the edges appear, with each pair reported once."
+    ),
+    starter: 'function illegalImports(edges, allowed) {\n  \n}',
+    setup: [
+      "const ALLOWED = { billing: ['shared'], orders: ['shared', 'billing'] };",
+      '',
+      'const EDGES = [',
+      "  { from: 'orders/checkout.ts', to: 'shared/money.ts' },",
+      "  { from: 'orders/checkout.ts', to: 'billing/invoice.ts' },",
+      "  { from: 'billing/invoice.ts', to: 'billing/lines.ts' },",
+      "  { from: 'billing/invoice.ts', to: 'orders/repo.ts' },",
+      "  { from: 'billing/pdf.ts', to: 'orders/repo.ts' },",
+      "  { from: 'reports/daily.ts', to: 'orders/repo.ts' },",
+      '];',
+    ].join('\n'),
+    tests: [
+      {
+        name: 'reports each illegal pair once, in the order it first appears',
+        expression: 'illegalImports(EDGES, ALLOWED)',
+        expected: ['billing -> orders', 'reports -> orders'],
+      },
+      {
+        name: 'an import inside one module is never a crossing',
+        expression: "illegalImports([{ from: 'billing/a.ts', to: 'billing/b.ts' }], {})",
+        expected: [],
+      },
+      {
+        name: 'a module missing from the map may still import itself',
+        expression: "illegalImports([{ from: 'reports/a.ts', to: 'reports/b.ts' }], ALLOWED)",
+        expected: [],
+      },
+      {
+        name: 'a module missing from the map may import nothing else',
+        expression: "illegalImports([{ from: 'reports/a.ts', to: 'shared/money.ts' }], ALLOWED)",
+        expected: ['reports -> shared'],
+      },
+      {
+        name: 'an allowed crossing is not reported',
+        expression: "illegalImports([{ from: 'orders/a.ts', to: 'billing/b.ts' }], ALLOWED)",
+        expected: [],
+      },
+      {
+        name: 'a nested path is still the same module',
+        expression:
+          "illegalImports([{ from: 'billing/pdf/render.ts', to: 'billing/lines.ts' }], ALLOWED)",
+        expected: [],
+      },
+      {
+        name: 'nothing to check',
+        expression: 'illegalImports([], ALLOWED)',
+        expected: [],
+      },
+    ],
+    reference: [
+      'function illegalImports(edges, allowed) {',
+      '  const seen = new Set();',
+      '  const crossings = [];',
+      '',
+      '  for (const { from, to } of edges) {',
+      "    const source = from.split('/')[0];",
+      "    const target = to.split('/')[0];",
+      '    if (source === target) continue;',
+      '    if ((allowed[source] ?? []).includes(target)) continue;',
+      '',
+      '    const pair = `${source} -> ${target}`;',
+      '    if (seen.has(pair)) continue;',
+      '    seen.add(pair);',
+      '    crossings.push(pair);',
+      '  }',
+      '',
+      '  return crossings;',
+      '}',
+    ].join('\n'),
+    hints: [
+      'The module is the first path segment, so both sides need splitting before they can be compared.',
+      'Two things let an edge through: the modules are the same, or the target is on the source module’s list.',
+      '`allowed[source] ?? []` covers the module nobody listed, and a `Set` of pairs already reported covers the duplicates.',
+    ],
+    explanation:
+      'A module boundary is whatever fails when you cross it, and in a single deployable that is a check like this one rather than a network. The interesting decision is the `?? []`: a module with no entry can import nothing, so adding a module to the codebase without adding it to the map denies by default rather than opening a hole nobody notices. Reporting a pair once rather than a line once is what makes the output a burndown, because the number you care about is how many boundaries are being crossed rather than how many files do it. This is also the cheap half of the same argument a service boundary makes expensively: the enforcement is what stops accidental coupling, and only the enforcement mechanism differs.',
+  }),
+
+  {
+    slug: 'sys-split-shared-database',
+    title: 'Two services, one table',
+    category: 'systems',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'Orders and invoices were split into two services six months ago. Each has its own repository, its own pipeline and its own deploy, and they call each other over HTTP.',
+      '',
+      'Both still connect to the same Postgres, and both read and write the `orders` table.',
+      '',
+      'Last week a column rename needed both teams in a room and a release in a fixed order. Last month an invoices bug turned out to be an orders migration.',
+      '',
+      'Say what the split actually bought, and name the change that would make the two independent.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'schema',
+            'same table',
+            'shared database',
+            'share the database',
+            'still coupled',
+            'coupled',
+            'not independent',
+            'nothing',
+            'together',
+            'lockstep',
+            'coordinate',
+          ],
+          missingFeedback:
+            'Say what the two services still share, and what that means for a change to it.',
+        },
+        {
+          synonyms: [
+            'network',
+            'over http',
+            'http call',
+            'latency',
+            'two pipelines',
+            'two repos',
+            'operate',
+            'operational',
+            'overhead',
+            'the cost',
+            'can fail',
+            'partial failure',
+            'distributed',
+          ],
+          missingFeedback: 'Say what the split did add, given that it did not add independence.',
+        },
+        {
+          synonyms: [
+            'private',
+            'owns',
+            'own database',
+            'its own schema',
+            'only writer',
+            'one owner',
+            'through an api',
+            'via its api',
+            'via an api',
+            'behind an api',
+            'an api',
+            'an endpoint',
+            'an event',
+            'database per service',
+            'stop sharing',
+            'separate database',
+            'own tables',
+          ],
+          missingFeedback:
+            'Name the change. Say who may touch that table afterwards, and how the other side gets what it needs.',
+        },
+      ],
+      hints: [
+        'Two services with separate pipelines still have to ship in a fixed order. Ask what forces that.',
+        'A schema shared by two services is a contract neither of them owns, so every change to it is a negotiation and a release order.',
+        'The rule is that a service owns its data and everyone else asks for it: one writer, one owner of the schema, and an API or an event for the other side.',
+      ],
+    },
+    canonicalAnswer:
+      'Very little. The schema is the coupling and it did not move: both services read and write the same table, so a column rename is still a coordinated release in a fixed order and an orders migration can still break invoices. What did arrive is the cost, which is a network hop where there used to be a function call, two pipelines, and two of everything to operate. Make the orders service the only writer and reader of those tables, keep the data private to it, and give invoices an API to call or an event to consume for what it needs, so each side can change its own schema without asking.',
+    solution: md(
+      '- **What it bought**: the costs. A network hop where a function call used to be, two pipelines, two deploys, two of everything to operate.',
+      '- **What it did not buy**: independence. The schema is shared, so a rename is still a coordinated release in a fixed order and one side’s migration can still break the other.',
+      '- **The change**: the data becomes private to one service. One owner of those tables, one writer, and an API or an event for anybody else who needs what is in them.'
+    ),
+    explanation:
+      'Splitting the code is the visible half and splitting the data is the half that decides whether anything changed. Two services against one schema deploy in lockstep, because the schema is a contract that neither of them owns and both of them can break, so you have kept every coupling you had and added a network to it. The standard statement of the fix is to keep each service’s persistent data private and reachable only through its API, and the price is the part people skip: a join across the boundary becomes two calls and some assembly, and a write that spanned both tables becomes two writes with no transaction over them. That price is the reason this is a decision rather than a rule. Until it is paid, the honest description of the system is a monolith with a network in the middle.',
+  },
+
+  {
+    slug: 'sys-migration-stalled',
+    title: 'Ninety percent done for a year',
+    category: 'systems',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'A migration from an old HTTP client to a new one started nine months ago. There were 380 call sites then. There are 374 now.',
+      '',
+      'Every team has been told twice, the new client is documented on the wiki, and there is a `#migration` channel.',
+      '',
+      'Say why the number is not moving, and name the two mechanisms that would move it.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'new call site',
+            'new code',
+            'still being added',
+            'still added',
+            'keeps being',
+            'keep adding',
+            'keeps adding',
+            'nothing stops',
+            'nothing prevents',
+            'nothing stopping',
+            'no rule',
+            'not prevented',
+            'as fast as',
+            'net',
+            'still reaching for the old',
+            'still using the old',
+          ],
+          missingFeedback:
+            'Six in nine months is the difference between two rates. Say what the other rate is.',
+        },
+        {
+          synonyms: [
+            'ratchet',
+            'baseline',
+            'lint',
+            'the build',
+            'block',
+            'refuse',
+            'cannot add',
+            'max-warnings',
+            'commit the count',
+            'threshold',
+            'automated check',
+          ],
+          missingFeedback:
+            'Name the mechanism that stops the number going up, and say where it runs.',
+        },
+        {
+          synonyms: [
+            'ticket',
+            'owner',
+            'assign',
+            'priorit',
+            'leadership',
+            'burndown',
+            'do it yourself',
+            'themselves',
+            'the migrating team',
+            'finish it',
+            'the team leading',
+            'track',
+          ],
+          missingFeedback:
+            'Stopping the growth is only half. Say what actually removes the 374 that are left.',
+        },
+      ],
+      hints: [
+        'The number is the net of two rates, and you have only been managing one of them.',
+        'Nothing in the build stops a branch adding a 375th call site, so removals and additions cancel out.',
+        'Commit the current count as a baseline and fail the build on any increase, then cut a ticket per remaining site with a named owner and finish the stubborn ones yourself.',
+      ],
+    },
+    canonicalAnswer:
+      'Because nothing prevents a new call site. The old client is still being added while you remove it, so six in nine months is the net of two rates, and telling people changes neither one. Two mechanisms move it. A ratchet: count the 374 that exist, commit that number as a baseline, and fail the build when a branch makes it 375, so the number can only go down. And somebody finishing it: a tracking ticket per remaining call site with a named owner, status pushed to the teams that own them, and the last stubborn ones done by the team leading the migration rather than left with whoever happens to own the file.',
+    solution: md(
+      '- **Why it is stuck**: nothing prevents a new call site, so the old client keeps being added while you remove it and the visible number is the net of two rates.',
+      '- **Stop the growth**: a ratchet. Commit the current count as a baseline and fail the build on any increase, so nobody is blocked by the 374 that exist and nobody can make it 375.',
+      '- **Remove what is left**: a ticket per call site with a named owner, status pushed to the teams that own them, and the last few done by the team leading the migration.'
+    ),
+    explanation:
+      'A migration is two rates, and an announcement moves neither. Documentation and a channel tell people what to do when they are already thinking about it, which is the small fraction of the time somebody is adding a call site. The ratchet is what makes the good intention structural: it allows exactly what exists today, so no branch is blocked by somebody else’s file, and it refuses the next one, so the direction of travel is a property of CI. That leaves the finish, which is the part that reliably goes unfunded, because every remaining call site sits in a team whose own roadmap does not include your migration. The general rule is worth carrying: a migration with no number is not a migration, and one with a number and no ratchet is a treadmill.',
+  },
+
+  codeProblem({
+    slug: 'sys-ratchet-baseline',
+    title: 'Allow what exists, refuse what is new',
+    category: 'systems',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    prompt: md(
+      'A ratchet lets a rule land on a codebase that cannot satisfy it yet. It allows what is already there, refuses anything new, and never lets the number go back up.',
+      '',
+      'Write `ratchet(baseline, current)`. Both are objects mapping a rule name to a violation count.',
+      '',
+      '- A rule is fine when its current count is at or below its baseline.',
+      '- A rule with no baseline entry has never been allowed, so any count above zero fails it.',
+      '- Return `{ ok, worse, next }`. `worse` names the failing rules in the order they appear in `current`. `next` is the baseline to commit: one entry per rule in `current`, at the lower of the two counts, so a rule that regressed keeps the baseline it had.'
+    ),
+    starter: 'function ratchet(baseline, current) {\n  \n}',
+    tests: [
+      {
+        name: 'a run under baseline passes and lowers it',
+        expression:
+          "ratchet({ 'no-legacy-client': 382, 'no-any': 40 }, { 'no-legacy-client': 374, 'no-any': 40 })",
+        expected: {
+          ok: true,
+          worse: [],
+          next: { 'no-legacy-client': 374, 'no-any': 40 },
+        },
+      },
+      {
+        name: 'a rule that went up fails and is named',
+        expression: "ratchet({ 'no-any': 40 }, { 'no-any': 41 })",
+        expected: { ok: false, worse: ['no-any'], next: { 'no-any': 40 } },
+      },
+      {
+        name: 'the committed baseline never goes up',
+        expression: "ratchet({ 'no-any': 40 }, { 'no-any': 41 }).next['no-any']",
+        expected: 40,
+      },
+      {
+        name: 'a rule nobody baselined fails at any count',
+        expression: "ratchet({}, { 'no-console': 3 })",
+        expected: { ok: false, worse: ['no-console'], next: { 'no-console': 0 } },
+      },
+      {
+        name: 'a rule nobody baselined passes at zero',
+        expression: "ratchet({}, { 'no-console': 0 })",
+        expected: { ok: true, worse: [], next: { 'no-console': 0 } },
+      },
+      {
+        name: 'names every failing rule, in the order current lists them',
+        expression:
+          "ratchet({ 'no-any': 1, 'no-console': 1 }, { 'no-console': 2, 'no-any': 2 }).worse",
+        expected: ['no-console', 'no-any'],
+      },
+    ],
+    reference: [
+      'function ratchet(baseline, current) {',
+      '  const worse = [];',
+      '  const next = {};',
+      '',
+      '  for (const [rule, count] of Object.entries(current)) {',
+      '    const allowed = baseline[rule] ?? 0;',
+      '    if (count > allowed) worse.push(rule);',
+      '    next[rule] = Math.min(allowed, count);',
+      '  }',
+      '',
+      '  return { ok: worse.length === 0, worse, next };',
+      '}',
+    ].join('\n'),
+    hints: [
+      'Walk `current`, because a rule that was not measured this time has nothing to say about this run.',
+      '`baseline[rule] ?? 0` is what makes a rule nobody baselined strict rather than free.',
+      '`Math.min` is the whole of "never goes up": the number you commit is the lower of the two, including for a rule that just failed.',
+    ],
+    explanation:
+      'The baseline file is the burndown, and keeping it in the repository is what makes the direction of travel a property of the build rather than of everyone remembering. Two decisions in five lines are worth naming. An unbaselined rule is strict, so adding a rule to the config without measuring it fails loudly instead of silently allowing whatever is there. And `next` is computed on a failing run too, which keeps the function total and answers the question people ask about it: nothing commits that number, because CI already went red, so a regression cannot quietly widen the allowance it just broke. The reason a threshold beats a rule at all is social rather than technical, which is that a rule the codebase cannot satisfy blocks people whose branch has nothing to do with it, and it is turned off the same afternoon.',
+  }),
+
+  codeProblem({
+    slug: 'sys-port-translates-sentinels',
+    title: 'Minus two is not a number of seconds',
+    category: 'systems',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    prompt: md(
+      'A cache sits behind a port you own. The Redis client underneath answers `TTL` with the seconds a key has left, `-1` when the key exists with no deadline, and `-2` when there is no key at all.',
+      '',
+      "Write `nextAction(ttlReply, refreshWithinSeconds)`, the port's translation of that reply into one of three words:",
+      '',
+      "- `'populate'` — there is nothing cached.",
+      "- `'refresh'` — serve what is there, and rebuild it in the background.",
+      "- `'serve'` — serve it and do nothing else.",
+      '',
+      'A key at or inside the refresh window is refreshed. A key with no deadline never expires, so it is served and never refreshed.'
+    ),
+    starter: 'function nextAction(ttlReply, refreshWithinSeconds) {\n  \n}',
+    tests: [
+      { name: 'plenty of time left', expression: 'nextAction(300, 30)', expected: 'serve' },
+      { name: 'inside the refresh window', expression: 'nextAction(20, 30)', expected: 'refresh' },
+      { name: 'exactly at the threshold', expression: 'nextAction(30, 30)', expected: 'refresh' },
+      {
+        name: 'about to go, but still there',
+        expression: 'nextAction(0, 30)',
+        expected: 'refresh',
+      },
+      {
+        name: 'a key with no deadline is served, never refreshed',
+        expression: 'nextAction(-1, 30)',
+        expected: 'serve',
+      },
+      { name: 'no key at all', expression: 'nextAction(-2, 30)', expected: 'populate' },
+      {
+        name: 'a wide window does not turn a missing key into a refresh',
+        expression: 'nextAction(-2, 3600)',
+        expected: 'populate',
+      },
+      {
+        name: 'a wide window does not turn a deadline-free key into a refresh',
+        expression: 'nextAction(-1, 3600)',
+        expected: 'serve',
+      },
+    ],
+    reference: [
+      'function nextAction(ttlReply, refreshWithinSeconds) {',
+      "  if (ttlReply === -2) return 'populate';",
+      "  if (ttlReply === -1) return 'serve';",
+      '',
+      "  return ttlReply <= refreshWithinSeconds ? 'refresh' : 'serve';",
+      '}',
+    ].join('\n'),
+    hints: [
+      'Two of the possible replies are not durations at all. Deal with them before you compare anything.',
+      '-2 is "no key", which is a miss, and a miss wants a different action from a hit that is about to expire.',
+      '-1 is "no deadline", so there is nothing to refresh ahead of: serve it and stop.',
+    ],
+    explanation:
+      'The order of the branches is the lesson. Written the natural way round, `ttlReply <= refreshWithinSeconds` is true for both sentinels, so a key that does not exist and a key that never expires both get scheduled for a background refresh, and the two actually want opposite things. Sentinels sort like numbers and are not quantities, which is why they reach code that treats them as data. What a port is for is that this translation happens once: every caller above it gets `populate`, `refresh` or `serve`, and no caller has to remember which of the two negatives it is looking at. A wrapper that passed the raw reply through would have renamed the client and moved nothing, since the same mistake stays available at every call site.',
+  }),
 ];
