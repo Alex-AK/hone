@@ -11,6 +11,8 @@
     "build": "pnpm --filter @hone/shared build && pnpm --filter @hone/server build && pnpm --filter @hone/web build",
     "test": "pnpm --filter @hone/shared build && pnpm --filter @hone/server test",
     "seed": "pnpm --filter @hone/server seed",
+    "hone:export": "pnpm --silent --filter @hone/server hone:export",
+    "hone:import": "pnpm --silent --filter @hone/server hone:import",
     "grade": "pnpm --filter @hone/server grade",
     "workout": "pnpm --filter @hone/server workout",
     "verify": "bash scripts/verify.sh",

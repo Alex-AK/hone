@@ -1504,3 +1504,30 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   Per ADR-0146's own lesson, the reversal condition is named rather than left implicit: reopen if the
   goal changes from a personal practice tool to reach, and re-derive rather than assume this entry
   was right, because the engineering here was never what decided it.
+
+- **ADR-0169 — Progress moves between machines as a slug-keyed file, and the import merges.** Running
+  Hone on a work laptop and a personal one wants progress to follow, and the obvious answer is to copy
+  `app.db`. That answer is wrong, and quietly: every progress table keys on `problems.id`, an
+  autoincrement assigned in seeding order, so a machine that seeded months ago and has upserted since
+  holds different ids for the same slugs than a fresh seed does. Copied rows attach history to the
+  wrong problems and nothing complains. So the file is keyed by slug and resolved on the way in, which
+  is what `workout_attempts` already did by storing a slug rather than a reference.
+
+  **Merge rather than replace, because either machine can be the one holding newer work.** Replace is
+  simpler and makes the second machine read-only between exports, which is not what two machines are
+  for. Attempts union on full-row identity, sessions dedupe on `createdAt`, and the review ladder
+  follows whichever side has the later `lastSeenAt`. The rule worth recording is the one that is not
+  "take the bigger number": `attemptsCount` is **recomputed from the merged attempt log** rather than
+  maxed, because the log is the truth and a max is only ever conservative. `hintsRevealed` and
+  `solutionViewed` take the max precisely because nothing reconstructs them.
+
+  **Content is not progress and is not exported.** `problems` is rebuilt by `pnpm seed` and `users` is
+  one hardcoded row, so including either would only give a stale file a way to overwrite current
+  content. A slug the receiving machine does not have is named in the report rather than dropped,
+  since the usual cause is the two machines sitting on different commits and the list says which way.
+
+  **A CLI rather than a UI**, which is the ordinary bar rather than a principle: this runs twice a
+  year, `pnpm seed`, `pnpm grade` and `pnpm workout` establish the shape, and a UI would add two
+  routes and a file-upload path to be maintained for it. ADR-0154 describes export and import as part
+  of the hosted build it declined; that was never built and this is not it — no round trip, no second
+  runtime, no browser storage.

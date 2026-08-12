@@ -321,6 +321,19 @@ Two SQLite files in `apps/server/data/` (gitignored, created on boot):
 `data/workouts/<attemptId>/` holds the workspace for a workout you have open, and is deleted when
 the attempt finishes. Delete `apps/server/data/` to start completely over.
 
+### Moving progress between machines
+
+```bash
+pnpm hone:export progress.json    # or: pnpm hone:export > progress.json
+pnpm hone:import progress.json    # on the other machine
+```
+
+Import merges rather than replaces, so it is safe in either direction and running it twice changes
+nothing the second time. Copying `app.db` between machines is **not** equivalent: progress is keyed
+on an autoincrement id assigned in seeding order, so two machines hold different ids for the same
+slug. The export is keyed by slug and resolved on the way in. Slugs the receiving machine does not
+have are listed rather than dropped silently, which usually means the two are on different commits.
+
 ## Adding problems
 
 Problems live in `apps/server/src/seed/problems/<category>.ts` and are upserted by slug, so editing

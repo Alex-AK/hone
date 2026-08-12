@@ -119,6 +119,9 @@ apps/web/src/
   starter does not.
 - **Seeding without touching the real database:** set `HONE_DATA_DIR` to a scratch path. Useful
   for checking the seeder end to end when the user is mid-streak.
+- **`pnpm hone:export` / `pnpm hone:import` move progress between machines**, keyed by slug because
+  `problems.id` is a seeding-order artefact that differs per machine. Import merges and is idempotent.
+  Never suggest copying `app.db` between machines instead: see ADR-0169.
 - **Adding a module** is a directory under `packages/modules/content/`. `modules.spec.ts` runs every
   step's assertions against its own snippet, so a module that teaches something untrue fails the
   build. Assertions run on the reader's machine with no fake clock or fixed timezone: write ones that

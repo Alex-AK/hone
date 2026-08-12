@@ -7,6 +7,8 @@
     "build": "nest build",
     "start": "node dist/main.js",
     "seed": "tsx src/seed/seed-cli.ts",
+    "hone:export": "tsx src/cli/export-progress.ts",
+    "hone:import": "tsx src/cli/import-progress.ts",
     "db:generate": "drizzle-kit generate",
     "test": "vitest run",
     "test:watch": "vitest",
