@@ -7,6 +7,7 @@ practise:
   - ai-tool-results-one-message
   - ai-tool-schema-is-the-contract
   - ai-tool-authorization-boundary
+  - tool-loop-node
   - auth-guard-nestjs
 sources:
   - author: Anthropic

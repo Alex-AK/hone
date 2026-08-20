@@ -780,6 +780,36 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   fault, and the brief says so, which is what keeps it from being a gotcha. The CQRS page cites it,
   so ADR-0170's page now has the practical half its own worked example argues for.
 
+- **ADR-0174 — The AI fixture is an in-process fake, and "recorded fixture server" in the roadmap was
+  the wrong noun.** ADR-0005 permits a loopback process, so a port was allowed rather than forbidden,
+  and it was refused on cost instead. Everything the row wanted the fixture to owe is protocol rather
+  than transport: a 429 is an error object carrying `retryAfterMs`, a stream that stops mid-object is
+  an iterable that stops, an overflowable window is a counter. A port would buy realism nobody is
+  graded on and cost a socket lifecycle in every checkpoint of a whole track, which is the
+  `request(app)` failure ADR-0041 has already paid for twice. Reopen it where the lesson genuinely is
+  the transport, which is the streaming workout: real chunk boundaries may be the thing being taught.
+
+  **A fake may be stricter than the real API only where the real API is strict.** Two checks were
+  written and then deleted: that the assistant turn goes back verbatim, and that roles alternate.
+  Both would have caught real mistakes, and both would have taught a 400 that does not exist, since
+  consecutive same-role turns are combined rather than rejected. ADR-0048 says a fake keeps the
+  awkward semantics, and the corollary is that it may not invent them.
+
+  **A fixture that reads your error results is the cheapest way to make "say what was wrong"
+  checkable.** Grading an error message usually means asserting on its text, which is a gotcha. Here
+  the recorded transcript branches on it: a result naming the offending argument gets a corrected call
+  back, and a result of "failed" takes a recorded give-up branch, so the checkpoint asserts on the
+  outcome while the quality of the message stays load-bearing. That shape is reusable across the rest
+  of the track.
+
+  **The tool-call loop went first of the three** because it is the only one where the fixture's
+  semantics are the exercise. Structured-output repair can be practised against a bag of bad strings,
+  and an eval harness needs recorded outputs and no loop at all; both of those are a mock object,
+  which is what ADR-0048 says is not worth having. The 429 goes with the structured-output workout
+  rather than this one: backoff is already `retry-with-backoff-node`'s lesson, and the AI-specific
+  half, resending the same conversation without re-running the tools that already ran, is a second
+  thing rather than the same one.
+
 ## The handbook
 
 - **ADR-0067 — Pages are markdown that reads fine on GitHub.** The repo is public and that reach costs nothing.

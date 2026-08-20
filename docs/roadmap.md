@@ -121,13 +121,15 @@ return against what they cost.
   half. It waits on the same data, which is why it is here and not a row of its own. See ADR-0168 for
   what else that course was read for and why almost none of it applies.
 
-- **An AI-engineering workout track, over a recorded fixture server.** 24 reps and 10 pages, and none
-  of the 38 workouts touches a model, so half the stated subject has no execution-under-time half at
-  all. ADR-0005 already answers whether it is allowed: the network is refused, a loopback process is
-  not the network. ADR-0048 says what the fixture owes, which is the awkward semantics rather than
-  the happy path — a stream that stops mid-object, a 429 carrying `retry-after`, a tool call with an
-  argument that is not in the schema, a context window you can actually overflow. What it unlocks is
-  the tool-call loop, structured output and its repair path, and an eval harness.
+- **The rest of the AI-engineering track.** `tool-loop-node` is built, over a recorded in-process
+  fixture rather than a fixture server: ADR-0174 records why the noun changed and what would reopen
+  it. Two workouts are left and they are ordered. **Structured output and its repair path** comes
+  next, and the fixture grows a `stopReason` of `max_tokens` with a truncated body and a
+  schema-invalid response the model can be told about; the 429 carrying `retry-after` belongs here
+  rather than in the loop, because resending a conversation without re-running the tools that already
+  ran is its own lesson. **An eval harness** comes last, and needs recorded outputs over a fixed case
+  set and nothing else new. What still holds either of them to a bar is ADR-0048: a fixture that only
+  does the happy path teaches nothing a mock object would not.
 
 ## Platform
 

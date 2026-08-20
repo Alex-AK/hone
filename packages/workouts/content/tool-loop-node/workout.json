@@ -1,0 +1,40 @@
+{
+  "slug": "tool-loop-node",
+  "title": "The tool-call loop",
+  "kind": "feature",
+  "minutes": 25,
+  "difficulty": "medium",
+  "relevance": "daily",
+  "stack": {
+    "server": "node, zod"
+  },
+  "summary": "The support assistant told a customer their refund was on its way. Finance has no record of it, and neither does the order. Build the loop that runs what the model asks for, answers every one of those calls, and knows when to stop.",
+  "focus": ["tool use", "agent loops", "input validation", "context windows"],
+  "editable": ["src/lib/agent.ts"],
+  "checkpoints": [
+    {
+      "id": "the-loop-settles-and-answers",
+      "title": "The loop settles and answers",
+      "testFile": "tests/checkpoints/01-the-loop-settles-and-answers.test.ts",
+      "hint": "A turn that asks for a tool call is not an answer, and its text was written before anything ran. Push the assistant's content into the conversation, run the calls, send the results back as one user message, and go round. The answer is the first reply that comes back with no `tool_use` block in it."
+    },
+    {
+      "id": "every-call-comes-back",
+      "title": "Every call comes back",
+      "testFile": "tests/checkpoints/02-every-call-comes-back.test.ts",
+      "hint": "Catch around one call, not around the turn. A handler that threw still owes the model a result: same `tool_use_id`, `is_error: true`, and the thrown message as the content. Letting it escape abandons the calls beside it, and the next request is a `ProtocolError` for the ones nobody answered."
+    },
+    {
+      "id": "the-schema-is-the-contract",
+      "title": "The schema is the contract",
+      "testFile": "tests/checkpoints/03-the-schema-is-the-contract.test.ts",
+      "hint": "Nothing has checked `call.input` when it reaches you. Look the name up in `deps.tools`, run `tool.input.safeParse` on the arguments, and turn a name that is not there and a parse that failed into error results that name the problem. `tool.run` takes `unknown`, so handing it the raw input compiles."
+    },
+    {
+      "id": "the-loop-is-bounded",
+      "title": "The loop is bounded",
+      "testFile": "tests/checkpoints/04-the-loop-is-bounded.test.ts",
+      "hint": "Two ceilings, both yours. `maxTurns` counts requests to the model and running out is a `LoopDidNotSettleError`. `maxResultChars` is the most one result may add to a conversation that is resent whole every turn, so cut the tail off a long one before it goes in."
+    }
+  ]
+}
