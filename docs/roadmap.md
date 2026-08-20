@@ -82,14 +82,6 @@ return against what they cost.
   about the contract, and they wait behind the seven: `outbox-relay-node`,
   `idempotent-payments-express`, `rate-limit-express`.
 
-- **The `refactor` kind, which is declared and unused.** `WORKOUT_KINDS` has held three members since
-  the type was written and all 38 workouts are `feature` or `bug-hunt`. Zero is a hard authoring
-  problem rather than an oversight: when the code already works, a checkpoint cannot be "make it
-  work", so it has to hold behaviour fixed and assert that something countable moved. Statement
-  counts and a module's export surface are the two candidates, and both are already asserted on
-  elsewhere for other reasons. This is where the judgement being practised is closest to the job and
-  furthest from anything currently checked.
-
 - **Read the attempt history back, which answers two questions rather than one.** 579 reps, a review
   ladder, and nothing ever asks what the outcomes say. It is a local report over local data, so
   ADR-0004 is untouched, and it is the only row here that makes the library improve with use rather

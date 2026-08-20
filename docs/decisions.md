@@ -835,6 +835,40 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   overturns, and neutralising that prose would delete the exercise: the reader has to disagree with a
   written rationale, which is what a second visit is for.
 
+- **ADR-0176 — A refactor checkpoint observes provenance, and both quantities the roadmap named were
+  rejected.** A checkpoint observes a program running, and a refactor is defined by leaving observable
+  behaviour alone, so a refactor checkpoint that fails from the starter has to observe something that
+  is not behaviour, or it is a bug-hunt wearing the label. Statement counts and export-surface size
+  both fail that: each is a number the reader moves without moving anything that matters, and the
+  first is already the subject of two workouts where the count is the lesson. What works is **which of
+  the workout's own files was on the stack when a call reached the outside world**, recorded by the
+  fake through V8 call sites. The decisive case is that an import-graph check and a provenance check
+  disagree on exactly one move, passing the dependency in as an argument, and a refactor workout is
+  only worth having if it fails that move.
+
+  **Prohibitions are one-sided, and that is the ceiling on the kind.** You can assert that code does
+  not live somewhere: no import, no frame, no export. You cannot assert that it does, because living
+  in a file is not observable at run time. So a refactor workout can force code out of a place and
+  never into one, and it has to be built so the only remaining destination is the intended one, which
+  here is two editable files with the entry point pinned by a third the reader cannot edit. The
+  residual escape, inlining the rules into the caller and leaving a shell behind, is closed by a
+  stated constraint and a weak export check rather than by a checkpoint. That is the honest limit of
+  the kind rather than something to paper over.
+
+  **A refactor brief cannot withhold the diagnosis, and should not try.** ADR-0040 is written for a
+  bug-hunt, where the finding is the exercise, and nobody files "something is wrong, find it" against
+  code that works. In a refactor the finding is the ticket, and what stays withheld is the
+  decomposition, which is where the twenty-five minutes go. The rule's intent survives and its letter
+  does not.
+
+  **It also has to say out loud that it is not a performance workout.** The same fake, the same
+  recorded calls and the same failure vocabulary serve both, and a reader who sees a query inside a
+  loop reaches for N+1 first. Here the query count is allowed to rise, and one line in the brief is
+  what keeps the lesson distinct from the two workouts that count exactly these calls for the opposite
+  reason. **The kind itself needed no application code**: `WORKOUT_KINDS` has carried `refactor` since
+  the type was written and the loader never validated `kind` at all. Only the UI label moved, from a
+  bare noun to a verb phrase, so the three read alike.
+
 ## The handbook
 
 - **ADR-0067 — Pages are markdown that reads fine on GitHub.** The repo is public and that reach costs nothing.

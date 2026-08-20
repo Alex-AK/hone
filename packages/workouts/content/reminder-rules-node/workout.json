@@ -1,0 +1,40 @@
+{
+  "slug": "reminder-rules-node",
+  "title": "Nobody can try a chasing rule without the database",
+  "kind": "refactor",
+  "minutes": 25,
+  "difficulty": "hard",
+  "relevance": "daily",
+  "stack": {
+    "server": "node, no dependencies"
+  },
+  "summary": "Changing a chasing rule costs an afternoon, because the only way to see what one does is to get the database into the right state and the calendar into the right place. Make the rules something you can hand values to, without changing a reminder that goes out.",
+  "focus": ["seams", "side effects", "testability", "refactoring"],
+  "editable": ["src/server/chase.ts", "src/server/run.ts"],
+  "checkpoints": [
+    {
+      "id": "the-plan-is-unchanged",
+      "title": "The run still plans exactly what it planned",
+      "testFile": "tests/checkpoints/01-the-plan-is-unchanged.test.ts",
+      "hint": "Something about who gets chased moved, and the diff names it. The plan comes back most overdue first, an invoice appears at most once, and the cap trims from the bottom of that order rather than the top."
+    },
+    {
+      "id": "every-rule-still-fires",
+      "title": "Every rule still fires where it did",
+      "testFile": "tests/checkpoints/02-every-rule-still-fires.test.ts",
+      "hint": "One rule stopped firing. Each of them reads something: the customer for the hold and the payment plan, the invoice's own history for the level already sent and for the quiet period. A rule handed data nobody gathered goes quiet rather than loud, so check what reaches it before you check the rule."
+    },
+    {
+      "id": "the-rules-load-nothing",
+      "title": "Importing the rules pulls in nothing",
+      "testFile": "tests/checkpoints/03-the-rules-load-nothing.test.ts",
+      "hint": "Importing chase.ts brought the store or the clock in with it, and the failure names which. The rules cannot name what they need; it has to arrive as an argument. Types are free, because model.ts has no runtime code in it."
+    },
+    {
+      "id": "nothing-is-fetched-mid-decision",
+      "title": "Nothing is fetched while the decision is being made",
+      "testFile": "tests/checkpoints/04-nothing-is-fetched-mid-decision.test.ts",
+      "hint": "Something was fetched with chase.ts on the stack, and the failure names the calls. Handing the store in as an argument moves the import and not the call: the rules have to be given values, which means whatever they might ask for has to be fetched before they start."
+    }
+  ]
+}

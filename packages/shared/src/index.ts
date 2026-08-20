@@ -414,7 +414,7 @@ export type WorkoutKind = (typeof WORKOUT_KINDS)[number];
 export const WORKOUT_KIND_LABELS: Record<WorkoutKind, string> = {
   feature: 'Build a feature',
   'bug-hunt': 'Find the bugs',
-  refactor: 'Refactor',
+  refactor: 'Restructure it',
 };
 
 /** Free-form on purpose: the point is to practise against stacks you do not know. */
