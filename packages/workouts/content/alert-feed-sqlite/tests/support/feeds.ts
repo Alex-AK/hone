@@ -481,8 +481,13 @@ function report(scenario: Scenario): string {
     message = `the walk threw: ${error instanceof Error ? error.message : String(error)}`;
   }
 
+  // The rule comes first because the run report keeps only the first six lines
+  // of a failure: everything below is the reproduction, and it is the half that
+  // can afford to be cut.
   const lines = [
     'The feed broke one of its own rules on this walk:',
+    '',
+    `  ${message}`,
     '',
     `  page size ${scenario.limit}`,
     '',
@@ -501,7 +506,6 @@ function report(scenario: Scenario): string {
     lines.push('', '  what came back', ...pagesHandedOver(trace));
   }
 
-  lines.push('', `  ${message}`);
   return lines.join('\n');
 }
 

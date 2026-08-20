@@ -945,6 +945,45 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   not proved the same thing" one rule governing two things rather than two conditions that happen to
   agree.
 
+- **ADR-0181 — The axis was the correlation again, and the roadmap has now named the wrong one twice.**
+  ADR-0167 predicted "one computation per key per expiry, for any arrival schedule". Arrival schedule
+  is the parameter the story is about, fifty people opening one dashboard, and it finds nothing:
+  checkpoint 01 already arranges the only arrival that is hard, and fifty callers, five and one are
+  the same case. What the four hand-written suites hold fixed without saying so is **the clock, which
+  none of them moves while a computation is in flight**. Every one of their computations settles in
+  the millisecond it started, so a value dated from when its computation started and one dated from
+  when it finished are the same value, and the brief's own sentence about when the deadline is set has
+  no test behind it. `const now = this.clock.now()` at the top of `get`, reused for the freshness
+  check and the deadline, is the most natural way to write this cache and it is wrong. ADR-0177
+  predicted this shape and it held: two for two, the find is a variable the author never thought of as
+  a variable, not the one the row names.
+
+  **Cost is predicted by "does this workout drive a fake clock", not by "is it generated".** Measured:
+  226 ms of this checkpoint's 245 ms is 182 calls to `Clock.advance`, each ending in a `setTimeout(0)`
+  that Node clamps to 1.24 ms on this machine, against 27 ms for the other four combined. The
+  breaker's 10x and this workout's 8.5x have one cause and the feed's 0.5x is the absence of it. That
+  gives the five left in the ADR-0167 queue a prediction instead of a number to inherit:
+  `retry-with-backoff-node` and `queue-consumer-node` will be expensive, the three database ones will
+  not. It also decides the driver's shape, which drains microtasks between steps and pays for a real
+  macrotask only when a caller is genuinely still unanswered.
+
+  **A generated report has to fit in six lines, and the feed's did not.** `describeFailure` keeps the
+  first six non-blank, non-stack lines of a failure, which the breaker's four-line report survives.
+  The feed's put the rule that broke last, so a reader saw the header, the page size and three rows of
+  seeded data and never reached the reason. Fixed by leading with the rule and letting the
+  reproduction be the half that gets cut, which is also what makes shrinking load-bearing in a second
+  way: it is what keeps a counterexample inside the window. Handing the full report to the transcript
+  panel with `record()` (ADR-0179) is the other available answer and was not taken here, because a
+  four-line report in a panel is the same four lines twice.
+
+  **A blind spot can belong to the contract rather than to the checkpoint.** A cache that drops a
+  key's stored value when a computation for it fails passes all five checkpoints, and no schedule can
+  separate it from the reference: a computation only ever starts for a key with no fresh value, so the
+  entry that handler deletes has always already expired. That is different in kind from ADR-0177's
+  index-order blind spot, which generation could see if a suite were allowed to reach into `db.ts`.
+  This one is unobservable through what `get` exposes, so it is a limit of the surface rather than of
+  the generator.
+
 ## The handbook
 
 - **ADR-0067 — Pages are markdown that reads fine on GitHub.** The repo is public and that reach costs nothing.

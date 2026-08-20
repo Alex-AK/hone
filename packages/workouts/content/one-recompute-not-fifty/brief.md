@@ -28,6 +28,19 @@ was already cached under a different key stays where it is.
 except a checkpoint calling `advance()`, so a thirty-second TTL expires instantly. Read the time
 from it rather than from `Date.now()`, which the checkpoints cannot move.
 
+## The last checkpoint
+
+The first four drive schedules somebody wrote. The last one generates them: the TTL, the keys, when
+each caller arrives, whether the computation it waits on succeeds or fails, and where the clock
+moves. Two things about those schedules are worth knowing. The clock moves while a computation is
+still running, which none of the first four do, so the moment a computation starts and the moment it
+finishes are different times. And a computation only settles when the checkpoint settles it, so one
+of them can be left running across everything else that happens.
+
+It adds no rules. Everything it checks is on this page already. When it fails it prints the shortest
+schedule that still breaks one, step by step, and then the rule that broke. Those steps are a
+complete reproduction: that TTL, those calls, in that order.
+
 ## Notes
 
 `get` is `async`, which means every `await` inside it is a place where fifty other callers can run.

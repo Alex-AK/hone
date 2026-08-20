@@ -35,6 +35,12 @@
       "title": "The stampede after expiry",
       "testFile": "tests/checkpoints/04-the-stampede-after-expiry.test.ts",
       "hint": "Expiry is the same cold-key path as the very first request, so if single-flight works there it works here. If fifty computations start, the check for an existing flight is happening after an await, and fifty callers have already gone past it."
+    },
+    {
+      "id": "rules-hold-on-any-schedule",
+      "title": "The rules hold on schedules nobody wrote",
+      "testFile": "tests/checkpoints/05-the-rules-hold-on-any-schedule.test.ts",
+      "hint": "These schedules move the clock while a computation is in flight, which the other four never do, so `clock.now()` on the way into `get` and `clock.now()` when the computation finishes stop being the same number. Read the last line of the report first, because it names which rule went. If a value was rebuilt with time left on it, the deadline was taken from the wrong end: it runs from the moment the computation finished, not from when it started and not from when the caller arrived."
     }
   ]
 }
