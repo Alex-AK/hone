@@ -810,6 +810,31 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   half, resending the same conversation without re-running the tools that already ran, is a second
   thing rather than the same one.
 
+- **ADR-0175 — A second-visit ticket has to invalidate a decision part one wrote down, and the
+  roadmap's suggested ticket did the opposite.** The row proposed that the outbox "now has to preserve
+  order", which part one already guarantees in its brief and enforces in its third checkpoint. What
+  produces an exercise is relaxing a guarantee rather than adding one: fulfilment is keyed by order
+  now, global ordering is over-strict, and part one's stop-the-pass-on-first-failure, which it argues
+  for in a comment and encodes in its outcome type, is what held 900 unrelated orders for six hours.
+  **The test is that a part-one checkpoint has to be rewritten, not that a new one can be added.** The
+  row's other candidate fails that test: a per-tenant limiter leaves every original checkpoint true
+  verbatim, so it extends a design rather than overturning one.
+
+  **The manifest gains no `partOf` field, deliberately.** The relationship is carried by the title,
+  the summary and the brief's first paragraph. A link field is a loader, a DTO and a UI for something
+  one sentence already says, and it would invite an ordering across the library that nothing else has.
+
+  **A checkpoint that passes from the starter is not slack in the safety net, and the way to prove
+  that is to run the obvious wrong fix.** `workouts.spec.ts` requires only one failure, so three
+  passing checkpoints is legal. The one that matters here earns its place by going red for the naive
+  `continue` that turns another green, which was established by building four candidate
+  implementations and running each. That probe should be the standard for every part-two workout,
+  because the inherited checkpoints are precisely the ones nobody re-derives.
+
+  **Part one's comments carry over unedited.** The starter arrives arguing for the decision the ticket
+  overturns, and neutralising that prose would delete the exercise: the reader has to disagree with a
+  written rationale, which is what a second visit is for.
+
 ## The handbook
 
 - **ADR-0067 — Pages are markdown that reads fine on GitHub.** The repo is public and that reach costs nothing.

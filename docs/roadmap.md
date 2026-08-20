@@ -82,12 +82,6 @@ return against what they cost.
   about the contract, and they wait behind the seven: `outbox-relay-node`,
   `idempotent-payments-express`, `rate-limit-express`.
 
-- **The second visit.** Nothing here practises changing code that already exists under a requirement
-  it was not built for, which is most of the work. A part-two workout whose `files/` is another
-  workout's `solution/`, and a ticket that breaks the assumption the first one was built on: the
-  limiter is now per-tenant, the outbox now has to preserve order. It costs no application code, and
-  it is the only shape that asks whether the first design was any good rather than whether it passed.
-
 - **The `refactor` kind, which is declared and unused.** `WORKOUT_KINDS` has held three members since
   the type was written and all 38 workouts are `feature` or `bug-hunt`. Zero is a hard authoring
   problem rather than an oversight: when the code already works, a checkpoint cannot be "make it

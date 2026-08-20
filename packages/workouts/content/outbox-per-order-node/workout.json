@@ -1,0 +1,46 @@
+{
+  "slug": "outbox-per-order-node",
+  "title": "The outbox again, one stream per order",
+  "kind": "feature",
+  "minutes": 25,
+  "difficulty": "hard",
+  "relevance": "occasional",
+  "stack": {
+    "server": "node, better-sqlite3"
+  },
+  "summary": "Fulfilment stopped for six hours behind one order the broker would not take, and the morning backlog now takes most of an hour. The relay does what it was built to do; what fulfilment wants from it has changed.",
+  "focus": ["ordering guarantees", "head-of-line blocking", "concurrency", "outbox"],
+  "editable": ["src/lib/relay.ts"],
+  "checkpoints": [
+    {
+      "id": "every-message-still-reaches-the-broker",
+      "title": "Every message still reaches the broker",
+      "testFile": "tests/checkpoints/01-every-message-still-reaches-the-broker.test.ts",
+      "hint": "This one was passing when you started. If it broke on the way past, look at how the rows are split up: the query is still `LIMIT ?` on `batchSize`, and every row it returns has to end up in exactly one group."
+    },
+    {
+      "id": "nothing-is-marked-that-the-broker-did-not-take",
+      "title": "Nothing is marked that the broker did not take",
+      "testFile": "tests/checkpoints/02-nothing-is-marked-that-the-broker-did-not-take.test.ts",
+      "hint": "This one was passing when you started. The mark stays behind the publish: `published_at` is a claim the broker has the message, so a row is only written once its own publish has resolved."
+    },
+    {
+      "id": "one-stuck-order-does-not-hold-up-the-rest",
+      "title": "One stuck order does not hold up the rest",
+      "testFile": "tests/checkpoints/03-one-stuck-order-does-not-hold-up-the-rest.test.ts",
+      "hint": "A refused publish ends that order's run, not the whole pass. Catch it around the publish alone, leave the row unmarked, and let the other orders finish. `blocked` counts orders, not rows."
+    },
+    {
+      "id": "a-stuck-order-keeps-its-own-messages-behind-it",
+      "title": "A stuck order keeps its own messages behind it",
+      "testFile": "tests/checkpoints/04-a-stuck-order-keeps-its-own-messages-behind-it.test.ts",
+      "hint": "Skipping the refused row is not the same as stopping the order it belongs to. Once one of an order's messages fails, the ones written after it have to stay where they are, or fulfilment gets the cancellation before the payment."
+    },
+    {
+      "id": "orders-move-at-the-same-time",
+      "title": "Orders move at the same time, and nothing is held while they do",
+      "testFile": "tests/checkpoints/05-orders-move-at-the-same-time.test.ts",
+      "hint": "One `await` per row in one loop makes every message wait for the one before it, whichever order it came from. What has to be sequential is the messages inside an order. A transaction is the other way to make everything wait: opened before the loop, it stays open across every publish in it."
+    }
+  ]
+}
