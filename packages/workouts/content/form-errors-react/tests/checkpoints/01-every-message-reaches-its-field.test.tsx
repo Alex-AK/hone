@@ -1,7 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { prettyDOM, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { record } from '../../hone/record';
 import { fixture } from '../../src/client/api';
 import { ContactDetailsForm } from '../../src/client/ContactDetailsForm';
 import { MESSAGES } from '../../src/client/rules';
@@ -73,6 +74,13 @@ describe('every message reaches the field it is about', () => {
 
     await user.click(save);
 
+    // "described by nothing" is a claim about `aria-describedby` and an id
+    // somewhere else in the tree, which is the one thing a verdict cannot show.
+    // `highlight: false` because the panel renders text, not a terminal.
+    record(
+      'the form after a failed save',
+      prettyDOM(save.closest('form') ?? document.body, undefined, { highlight: false }) ?? ''
+    );
     expect(screen.getByText(MESSAGES.fullName)).toBeDefined();
     expect(description(fullName), 'the full name field is described by nothing').toContain(
       MESSAGES.fullName

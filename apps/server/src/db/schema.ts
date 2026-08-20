@@ -170,4 +170,13 @@ export const workoutAttempts = sqliteTable('workout_attempts', {
   /** Best checkpoint count across every run of this attempt. */
   bestPassed: integer('best_passed').notNull().default(0),
   solutionViewed: integer('solution_viewed').notNull().default(0),
+  /**
+   * When every checkpoint first passed together, which is the only column that
+   * can answer how long a second attempt took against a first. Nothing already
+   * here could: `last_run` is overwritten by every run and the workout invites
+   * more of them, since the diff and the reference only unlock on green;
+   * `finished_at` is when Finish was pressed, after the review; `best_passed`
+   * says you got there and never when. Written once, on the first green run.
+   */
+  reachedGreenAt: text('reached_green_at'),
 });

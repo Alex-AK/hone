@@ -1,8 +1,10 @@
 import type {
   UnmetRequirement,
+  WorkoutAttemptRecord,
   WorkoutCheckpointResult,
   WorkoutDetail,
   WorkoutFile,
+  WorkoutWorkspaceFile,
 } from '@hone/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, Circle, Play, RotateCcw, Square, XCircle } from 'lucide-react';
@@ -11,6 +13,7 @@ import { Link, useParams } from 'react-router-dom';
 
 import { CodeEditor, type CodeEditorHandle } from '@/components/CodeEditor';
 import { DiffView } from '@/components/DiffView';
+import { FileTree } from '@/components/FileTree';
 import { HandbookLinks } from '@/components/HandbookLinks';
 import { Markdown } from '@/components/Markdown';
 import { ErrorState, LoadingState } from '@/components/states';
@@ -97,8 +100,73 @@ function WorkoutIntro({
           {detail.checkpointCount} checkpoints. Partial progress counts.
         </span>
       </div>
+
+      <AttemptHistory history={detail.history} checkpointCount={detail.checkpointCount} />
     </div>
   );
+}
+
+/**
+ * What the earlier attempts came to, on the page where the decision to do it
+ * again gets made. Time to green is the column, not time in the workout: the
+ * clock keeps running through the diff and the reference, and reading those is
+ * the part of an attempt that is deliberately not timed.
+ */
+function AttemptHistory({
+  history,
+  checkpointCount,
+}: {
+  history: WorkoutAttemptRecord[];
+  checkpointCount: number;
+}): React.ReactElement {
+  if (history.length === 0) return <></>;
+
+  const timed = history
+    .map((attempt) => attempt.secondsToGreen)
+    .filter((seconds): seconds is number => seconds !== null);
+  const best = timed.length > 0 ? Math.min(...timed) : null;
+
+  return (
+    <Card>
+      <CardContent className="space-y-3 p-5">
+        <h2 className="font-medium">Earlier attempts</h2>
+        <ul className="space-y-2 text-sm">
+          {history.map((attempt) => (
+            <li key={attempt.startedAt} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="text-muted-foreground">{shortDate(attempt.startedAt)}</span>
+              <span className="font-mono tabular-nums">
+                {attempt.secondsToGreen === null
+                  ? '—'
+                  : `${clock(attempt.secondsToGreen)} to green`}
+              </span>
+              <span className="text-muted-foreground">
+                {attempt.checkpointsPassed} of {checkpointCount} checkpoints
+              </span>
+              {attempt.solutionViewed && (
+                <span className="text-muted-foreground">read the reference</span>
+              )}
+            </li>
+          ))}
+        </ul>
+        {best !== null && history.length > 1 && (
+          <p className="text-xs text-muted-foreground">Fastest so far: {clock(best)}.</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function clock(seconds: number): string {
+  const mm = Math.floor(seconds / 60);
+  const ss = String(seconds % 60).padStart(2, '0');
+  return `${String(mm)}:${ss}`;
+}
+
+function shortDate(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? iso
+    : date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
 /**
@@ -131,8 +199,12 @@ function WorkoutIde({ slug, detail }: { slug: string; detail: WorkoutDetail }): 
   const attempt = detail.attempt;
   const editorRef = React.useRef<CodeEditorHandle>(null);
 
-  const [files, setFiles] = React.useState<WorkoutFile[]>(attempt?.files ?? []);
-  const [activePath, setActivePath] = React.useState(files[0]?.path ?? '');
+  const [files, setFiles] = React.useState<WorkoutWorkspaceFile[]>(attempt?.files ?? []);
+  // The tree opens on work rather than on context, so the landing file is the
+  // first editable one and not the alphabetically first thing in `src/`.
+  const [activePath, setActivePath] = React.useState(
+    (files.find((file) => file.editable) ?? files[0])?.path ?? ''
+  );
   const [run, setRun] = React.useState(attempt?.lastRun ?? null);
   // Three ways to look at the same file. `diff` is the one the review after the
   // timer wants: reading two files in turn is not comparing them.
@@ -140,11 +212,15 @@ function WorkoutIde({ slug, detail }: { slug: string; detail: WorkoutDetail }): 
   const [solution, setSolution] = React.useState<WorkoutFile[] | null>(detail.solution);
 
   const active = files.find((file) => file.path === activePath) ?? files[0];
+  const editable = active?.editable ?? false;
   // The reference only ships the files it changes, so a missing one is a real
   // answer ("this file is already right") and not an empty editor.
   const reference = solution?.find((file) => file.path === activePath)?.contents ?? null;
+  // A read-only file has no version of yours to diff against, so switching to
+  // one drops back to plain reading rather than carrying the last view over.
+  const shownView = editable ? view : 'mine';
   const shown =
-    view === 'reference' ? (reference ?? active?.contents ?? '') : (active?.contents ?? '');
+    shownView === 'reference' ? (reference ?? active?.contents ?? '') : (active?.contents ?? '');
 
   const refresh = React.useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: queryKeys.workouts });
@@ -165,7 +241,7 @@ function WorkoutIde({ slug, detail }: { slug: string; detail: WorkoutDetail }): 
   });
 
   function edit(contents: string): void {
-    if (!active || view !== 'mine') return;
+    if (!active || !active.editable || view !== 'mine') return;
     setFiles((current) =>
       current.map((file) => (file.path === active.path ? { ...file, contents } : file))
     );
@@ -224,65 +300,64 @@ function WorkoutIde({ slug, detail }: { slug: string; detail: WorkoutDetail }): 
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-1 border-b">
-            {files.map((file) => (
-              <button
-                key={file.path}
-                type="button"
-                onClick={() => setActivePath(file.path)}
-                className={cn(
-                  'rounded-t-md px-3 py-1.5 text-sm',
-                  file.path === activePath
-                    ? 'border-b-2 border-primary font-medium'
-                    : 'text-muted-foreground hover:text-foreground'
+        <div className="grid gap-3 lg:grid-cols-[13rem_minmax(0,1fr)]">
+          <FileTree files={files} activePath={activePath} onSelect={setActivePath} />
+
+          <div className="min-w-0 space-y-3">
+            <div className="flex flex-wrap items-center gap-2 border-b pb-1">
+              <span className="font-mono text-xs text-muted-foreground">{activePath}</span>
+              <div className="ml-auto flex items-center gap-2">
+                {editable && solution && <ViewSwitch value={view} onChange={setView} />}
+                {editable && (
+                  <Button
+                    variant="ghost"
+                    className="h-7 text-xs"
+                    disabled={view !== 'mine'}
+                    onClick={() => {
+                      void api.resetWorkoutFile(slug, activePath).then((result) => {
+                        setFiles(result.files);
+                      });
+                    }}
+                  >
+                    <RotateCcw />
+                    Reset file
+                  </Button>
                 )}
-              >
-                {file.path.replace(/^src\//, '')}
-              </button>
-            ))}
-            <div className="ml-auto flex items-center gap-2 pb-1">
-              {solution && <ViewSwitch value={view} onChange={setView} />}
-              <Button
-                variant="ghost"
-                className="h-7 text-xs"
-                disabled={view !== 'mine'}
-                onClick={() => {
-                  void api.resetWorkoutFile(slug, activePath).then((result) => {
-                    setFiles(result.files);
-                  });
-                }}
-              >
-                <RotateCcw />
-                Reset file
-              </Button>
+              </div>
             </div>
+
+            {!editable && (
+              <p className="text-xs text-muted-foreground">
+                This file is part of the workout and cannot be changed. Read it.
+              </p>
+            )}
+
+            {editable && view === 'reference' && (
+              <p className="text-xs text-amber-700">
+                {reference === null
+                  ? 'The reference leaves this file alone, so this is still your code.'
+                  : 'Showing the reference implementation. Edits here are not saved.'}
+              </p>
+            )}
+
+            {shownView === 'diff' ? (
+              <DiffView mine={active?.contents ?? ''} reference={reference} />
+            ) : (
+              active && (
+                <CodeEditor
+                  key={`${activePath}-${shownView}`}
+                  ref={editorRef}
+                  value={shown}
+                  onChange={edit}
+                  language={languageForPath(activePath)}
+                  placeholder=""
+                  onSubmit={() => runMutation.mutate(undefined)}
+                  minHeight="34rem"
+                  readOnly={!editable || shownView === 'reference'}
+                />
+              )
+            )}
           </div>
-
-          {view === 'reference' && (
-            <p className="text-xs text-amber-700">
-              {reference === null
-                ? 'The reference leaves this file alone, so this is still your code.'
-                : 'Showing the reference implementation. Edits here are not saved.'}
-            </p>
-          )}
-
-          {view === 'diff' ? (
-            <DiffView mine={active?.contents ?? ''} reference={reference} />
-          ) : (
-            active && (
-              <CodeEditor
-                key={`${activePath}-${view}`}
-                ref={editorRef}
-                value={shown}
-                onChange={edit}
-                language={languageForPath(activePath)}
-                placeholder=""
-                onSubmit={() => runMutation.mutate(undefined)}
-                minHeight="34rem"
-              />
-            )
-          )}
         </div>
 
         <div className="space-y-4">
@@ -293,6 +368,7 @@ function WorkoutIde({ slug, detail }: { slug: string; detail: WorkoutDetail }): 
             running={runMutation.isPending}
             onRun={(checkpoint) => runMutation.mutate(checkpoint)}
           />
+          <TranscriptPanel results={run?.checkpoints ?? []} />
           <Card>
             <CardContent className="max-h-[22rem] overflow-y-auto p-5 text-sm">
               <Markdown>{detail.brief}</Markdown>
@@ -314,6 +390,50 @@ function notRunYet(detail: WorkoutDetail): WorkoutCheckpointResult[] {
     testsTotal: 0,
     failure: null,
   }));
+}
+
+/**
+ * What the suites handed over while they ran, beside the verdict that came out
+ * of them. A checkpoint answers yes or no, and where the subject is a shape —
+ * the body an endpoint sent, the rows a page of a feed held, the markup a
+ * component rendered — a no on its own names a path into something nobody can
+ * look at.
+ *
+ * This is a transcript and nothing else. Everything here is text a suite already
+ * produced, printed as it arrived. Nothing is re-run, and no component is
+ * rendered here: that would be a second runtime, and it is the line this panel
+ * exists on the safe side of.
+ */
+function TranscriptPanel({ results }: { results: WorkoutCheckpointResult[] }): React.ReactElement {
+  const recorded = results.filter((result) => result.transcript?.length);
+  if (recorded.length === 0) return <></>;
+
+  return (
+    <Card>
+      <CardContent className="space-y-4 p-5">
+        <h2 className="font-medium">What the run produced</h2>
+        {recorded.map((result) => (
+          <div key={result.id} className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              {result.title}
+              {result.stale && ' · not re-run just now'}
+            </p>
+            {(result.transcript ?? []).map((entry, index) => (
+              <div key={`${entry.label}-${String(index)}`} className="space-y-1">
+                <p className="text-xs font-medium">{entry.label}</p>
+                <pre className="max-h-64 overflow-auto rounded bg-muted p-2 text-[11px] leading-relaxed">
+                  {entry.body}
+                </pre>
+                {entry.truncated && (
+                  <p className="text-xs text-muted-foreground">Cut off at 4,000 characters.</p>
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
 }
 
 const VIEWS = [

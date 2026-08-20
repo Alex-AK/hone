@@ -2,6 +2,7 @@ import request from 'supertest';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ZodError } from 'zod';
 
+import { record } from '../../hone/record';
 import { type Board, parseBoard } from '../../src/client/contract';
 import { column, type Harness, open } from '../support/board';
 
@@ -22,9 +23,38 @@ function complaints(payload: unknown): string[] {
   }
 }
 
+/**
+ * A complaint names a path like `columns.0.cards.3.updatedAt` and the payload it
+ * names is the thing nobody can look at. So the run report gets the skeleton and
+ * one whole card, which is where every field in the contract can be seen at
+ * once. The whole board is 94 tickets and would be scrolling, not evidence.
+ *
+ * Three tests below fetch the same board, so the exhibit is filed once.
+ */
+let filed = false;
+
+function file(payload: unknown): void {
+  if (filed) return;
+  filed = true;
+
+  const columns = (
+    payload as { columns?: { status?: string; total?: unknown; cards?: unknown[] }[] }
+  ).columns;
+  record(
+    'the shape GET /board answered with',
+    (columns ?? []).map((entry) => ({
+      status: entry.status,
+      total: entry.total,
+      cards: entry.cards?.length ?? 0,
+    }))
+  );
+  record('one card, exactly as it was sent', columns?.[0]?.cards?.[0]);
+}
+
 async function board(): Promise<Board> {
   harness = open('busy');
   const response = await request(harness.server).get('/board');
+  file(response.body);
   expect(complaints(response.body), 'the client refused the payload').toEqual([]);
   return parseBoard(response.body);
 }

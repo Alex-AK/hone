@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { readFileSync, rmSync } from 'node:fs';
+import { readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type {
@@ -7,6 +7,7 @@ import type {
   WorkoutCheckpointResult,
   WorkoutManifest,
   WorkoutRun,
+  WorkoutTranscriptEntry,
 } from '@hone/shared';
 
 import { skipReason, unmetRequirements } from './requirements';
@@ -15,6 +16,13 @@ import { RUNTIME_MODULES } from './workout-content';
 /** A workout run is a timed exercise. Well past that, something is wrong. */
 const RUN_TIMEOUT_MS = 90_000;
 const RESULTS_FILE = 'results.json';
+/** Written by `hone/record.ts` in the workspace, one file per vitest worker. */
+const TRANSCRIPT_DIR = '.transcript';
+/**
+ * Per checkpoint, and low on purpose. The panel is read while a timer runs, and
+ * the whole run is persisted as the attempt's `lastRun`.
+ */
+const MAX_TRANSCRIPT_ENTRIES = 8;
 
 /** The subset of vitest's JSON reporter we depend on. */
 interface VitestJson {
@@ -86,6 +94,9 @@ export async function runCheckpoints(
   }
 
   rmSync(join(workspace, RESULTS_FILE), { force: true });
+  // Emptied rather than merged: a transcript from the previous run beside this
+  // run's verdict is the same lie a stale tick would be.
+  rmSync(join(workspace, TRANSCRIPT_DIR), { recursive: true, force: true });
 
   const outcome = await spawnVitest(workspace, workout, target?.testFile);
   const durationMs = Date.now() - startedAt;
@@ -117,8 +128,9 @@ export async function runCheckpoints(
     };
   }
 
+  const transcripts = readTranscripts(workspace);
   const results = checkpoints.map((checkpoint) =>
-    ranHere(checkpoint) ? summarise(checkpoint, report) : carry(checkpoint)
+    ranHere(checkpoint) ? summarise(checkpoint, report, transcripts) : carry(checkpoint)
   );
   return {
     ranAt,
@@ -224,7 +236,11 @@ function readReport(workspace: string): VitestJson | null {
   }
 }
 
-function summarise(checkpoint: WorkoutCheckpoint, report: VitestJson): WorkoutCheckpointResult {
+function summarise(
+  checkpoint: WorkoutCheckpoint,
+  report: VitestJson,
+  transcripts: [string, WorkoutTranscriptEntry[]][]
+): WorkoutCheckpointResult {
   // vitest reports absolute paths; the manifest holds workout-relative ones.
   const suite = report.testResults?.find((file) => file.name?.endsWith(checkpoint.testFile));
   const assertions = suite?.assertionResults ?? [];
@@ -233,6 +249,7 @@ function summarise(checkpoint: WorkoutCheckpoint, report: VitestJson): WorkoutCh
 
   const passed = assertions.filter((assertion) => assertion.status === 'passed').length;
   const failure = assertions.find((assertion) => assertion.status === 'failed');
+  const transcript = transcripts.find(([path]) => path.endsWith(checkpoint.testFile))?.[1];
 
   return {
     id: checkpoint.id,
@@ -242,7 +259,68 @@ function summarise(checkpoint: WorkoutCheckpoint, report: VitestJson): WorkoutCh
     testsPassed: passed,
     testsTotal: assertions.length,
     failure: failure ? describeFailure(failure) : null,
+    ...(transcript?.length ? { transcript } : {}),
   };
+}
+
+interface RecordedLine extends WorkoutTranscriptEntry {
+  testPath?: string;
+}
+
+/**
+ * What the suites recorded, keyed by the absolute path vitest gave the suite and
+ * matched back with the same `endsWith` that maps a suite to a checkpoint. It
+ * cannot be a workspace-relative key: macOS hands `/var/folders/...` to the
+ * runner and `/private/var/folders/...` to vitest, so the two agree on the tail
+ * of the path and on nothing before it.
+ *
+ * Nothing here is trusted. These files are written by code running inside a
+ * workspace, so a malformed line is skipped rather than allowed to take the run
+ * report down with it.
+ */
+function readTranscripts(workspace: string): [string, WorkoutTranscriptEntry[]][] {
+  const byPath = new Map<string, WorkoutTranscriptEntry[]>();
+  const dir = join(workspace, TRANSCRIPT_DIR);
+
+  let files: string[];
+  try {
+    files = readdirSync(dir);
+  } catch {
+    return [];
+  }
+
+  for (const file of files.sort()) {
+    let lines: string[];
+    try {
+      lines = readFileSync(join(dir, file), 'utf8').split('\n');
+    } catch {
+      continue;
+    }
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      let parsed: RecordedLine;
+      try {
+        parsed = JSON.parse(line) as RecordedLine;
+      } catch {
+        continue;
+      }
+
+      const key = parsed.testPath;
+      if (!key || typeof parsed.label !== 'string' || typeof parsed.body !== 'string') continue;
+
+      const entries = byPath.get(key) ?? [];
+      if (entries.length >= MAX_TRANSCRIPT_ENTRIES) continue;
+      entries.push({
+        label: parsed.label,
+        body: parsed.body,
+        truncated: parsed.truncated === true,
+      });
+      byPath.set(key, entries);
+    }
+  }
+
+  return [...byPath];
 }
 
 function notRun(checkpoint: WorkoutCheckpoint): WorkoutCheckpointResult {

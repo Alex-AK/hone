@@ -116,27 +116,6 @@ return against what they cost.
   set and nothing else new. What still holds either of them to a bar is ADR-0048: a fixture that only
   does the happy path teaches nothing a mock object would not.
 
-## Platform
-
-Content is the product, so this stays short. All of it is workout depth.
-
-- **Attempt history per workout**: second and third runs are the point, so the UI should show the
-  trend in time-to-green.
-- **Multi-file tree** rather than a flat tab list. **The condition it was waiting on has been met**:
-  `session-revocation-nestjs` ships eight files under `files/`, and a flat tab list stops being
-  readable somewhere around there. This is now the platform row with an actual workout behind it.
-- **Show what the code produced, not only whether it passed.** A checkpoint answers yes or no, and
-  for most of the set that is the whole feedback a workout gives. The cases where it is thin are the
-  ones whose subject is a shape: the JSON body an endpoint answered with, the rows a query returned,
-  the markup a component rendered. `support-board-express` is the sharpest version, because its
-  checkpoint reads the client's own parser and reports a path like `columns.0.cards.3.updatedAt`,
-  which is one line of a payload nobody can look at.
-  **The line to hold is that this is a transcript, not a preview.** What a suite already produces is
-  serialisable: a failure message, a returned value, `prettyDOM` output. Surfacing that is one
-  addition to the run report and one panel. Rendering a live component in an iframe is a second
-  runtime, and it is application work per workout of exactly the kind the library is built to avoid.
-  So the row is the first thing, and the second one is not queued.
-
 ## Deferred
 
 Listed so they are decisions rather than oversights. The arguments live in

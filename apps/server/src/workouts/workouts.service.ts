@@ -1,10 +1,12 @@
 import type {
   WorkoutAttempt,
+  WorkoutAttemptRecord,
   WorkoutDetail,
   WorkoutFile,
   WorkoutManifest,
   WorkoutRun,
   WorkoutSummary,
+  WorkoutWorkspaceFile,
 } from '@hone/shared';
 import {
   BadRequestException,
@@ -13,7 +15,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, isNull } from 'drizzle-orm';
 
 import { CurrentUserService } from '../common/current-user.service';
 import type { AppDb } from '../db/client';
@@ -25,8 +27,8 @@ import { runCheckpoints } from './workout-runner';
 import {
   destroy,
   materialise,
-  readEditable,
   readSolution,
+  readWorkspace,
   restoreEditable,
   workspacePath,
   writeEditable,
@@ -84,9 +86,43 @@ export class WorkoutsService {
       editable: manifest.editable,
       checkpoints: manifest.checkpoints,
       attempt,
+      history: this.history(slug),
       solution: this.solutionIfEarned(manifest, attempt),
       unmet: await unmetRequirements(manifest.requires),
     };
+  }
+
+  /**
+   * Every finished attempt, newest first. A workout is entered cold and the
+   * second entry is the one that measures anything, so the row that matters is
+   * how long it took to go green rather than how long the attempt lasted: the
+   * clock keeps running through the diff, and reading the reference is not
+   * solving it again.
+   */
+  private history(slug: string): WorkoutAttemptRecord[] {
+    return (
+      this.db
+        .select()
+        .from(workoutAttempts)
+        .where(
+          and(
+            eq(workoutAttempts.userId, this.currentUser.getUserId()),
+            eq(workoutAttempts.slug, slug),
+            isNotNull(workoutAttempts.finishedAt)
+          )
+        )
+        // By id, not by `started_at`: two attempts a moment apart carry the same
+        // millisecond, and insertion order is the order they happened in.
+        .orderBy(desc(workoutAttempts.id))
+        .all()
+        .map((row) => ({
+          startedAt: row.startedAt,
+          finishedAt: row.finishedAt,
+          checkpointsPassed: row.bestPassed,
+          secondsToGreen: secondsBetween(row.startedAt, row.reachedGreenAt),
+          solutionViewed: row.solutionViewed === 1,
+        }))
+    );
   }
 
   /** Start the clock: materialise a fresh workspace and pin the start time. */
@@ -114,19 +150,19 @@ export class WorkoutsService {
     return this.detail(slug);
   }
 
-  saveFile(slug: string, path: string, contents: string): WorkoutFile[] {
+  saveFile(slug: string, path: string, contents: string): WorkoutWorkspaceFile[] {
     const manifest = this.requireManifest(slug);
     const attempt = this.requireActiveAttempt(slug);
     writeEditable(attempt.id, manifest, path, contents);
-    return readEditable(attempt.id, manifest);
+    return readWorkspace(attempt.id, manifest);
   }
 
   /** Put one file back to how the workout shipped it. */
-  resetFile(slug: string, path: string): WorkoutFile[] {
+  resetFile(slug: string, path: string): WorkoutWorkspaceFile[] {
     const manifest = this.requireManifest(slug);
     const attempt = this.requireActiveAttempt(slug);
     writeEditable(attempt.id, manifest, path, restoreEditable(manifest, path));
-    return readEditable(attempt.id, manifest);
+    return readWorkspace(attempt.id, manifest);
   }
 
   /**
@@ -147,11 +183,19 @@ export class WorkoutsService {
       previous: attempt.lastRun ? (JSON.parse(attempt.lastRun) as WorkoutRun) : null,
     });
 
+    // The first green run wins and later ones do not move it. Going green,
+    // breaking it and fixing it again took as long as it took the first time.
+    // `!only` for the same reason the solution is: a checkpoint run on its own
+    // carries the others forward, and carried passes are somebody else's work.
+    const wentGreen =
+      !attempt.reachedGreenAt && !result.only && result.passedCount === manifest.checkpoints.length;
+
     this.db
       .update(workoutAttempts)
       .set({
         lastRun: JSON.stringify(result),
         bestPassed: Math.max(attempt.bestPassed, result.passedCount),
+        ...(wentGreen ? { reachedGreenAt: result.ranAt } : {}),
       })
       .where(eq(workoutAttempts.id, attempt.id))
       .run();
@@ -188,7 +232,7 @@ export class WorkoutsService {
       slug: row.slug,
       startedAt: row.startedAt,
       finishedAt: row.finishedAt,
-      files: readEditable(row.id, manifest),
+      files: readWorkspace(row.id, manifest),
       lastRun: row.lastRun ? (JSON.parse(row.lastRun) as WorkoutRun) : null,
     };
   }
@@ -269,4 +313,11 @@ function toSummary(
     focus: manifest.focus,
     checkpointCount: manifest.checkpoints.length,
   };
+}
+
+/** Null when the attempt never went green, which is a real answer. */
+function secondsBetween(from: string, to: string | null): number | null {
+  if (!to) return null;
+  const seconds = Math.round((Date.parse(to) - Date.parse(from)) / 1000);
+  return Number.isFinite(seconds) ? Math.max(0, seconds) : null;
 }

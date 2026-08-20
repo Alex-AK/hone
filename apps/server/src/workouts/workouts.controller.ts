@@ -1,4 +1,10 @@
-import type { WorkoutDetail, WorkoutFile, WorkoutRun, WorkoutSummary } from '@hone/shared';
+import type {
+  WorkoutDetail,
+  WorkoutFile,
+  WorkoutRun,
+  WorkoutSummary,
+  WorkoutWorkspaceFile,
+} from '@hone/shared';
 import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 
 import { RunWorkoutDto, SaveWorkoutFileDto, WorkoutFilePathDto } from './dto';
@@ -27,13 +33,19 @@ export class WorkoutsController {
 
   @Post(':slug/files')
   @HttpCode(200)
-  save(@Param('slug') slug: string, @Body() body: SaveWorkoutFileDto): { files: WorkoutFile[] } {
+  save(
+    @Param('slug') slug: string,
+    @Body() body: SaveWorkoutFileDto
+  ): { files: WorkoutWorkspaceFile[] } {
     return { files: this.workouts.saveFile(slug, body.path, body.contents) };
   }
 
   @Post(':slug/files/reset')
   @HttpCode(200)
-  reset(@Param('slug') slug: string, @Body() body: WorkoutFilePathDto): { files: WorkoutFile[] } {
+  reset(
+    @Param('slug') slug: string,
+    @Body() body: WorkoutFilePathDto
+  ): { files: WorkoutWorkspaceFile[] } {
     return { files: this.workouts.resetFile(slug, body.path) };
   }
 

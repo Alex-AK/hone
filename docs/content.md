@@ -378,6 +378,40 @@ expensive kind of failure to diagnose because it never reproduces where you are 
 `beforeEach` (`server = app.listen(0)`), close in `afterEach`, and pass `server` to supertest. Keep
 the `app` binding too if an assertion reads `app.locals`.
 
+### Showing what the code produced
+
+A checkpoint answers yes or no, and for most of the set that is the whole feedback and it is enough.
+Where it is thin is the checkpoint whose subject is a shape: the JSON body an endpoint answered with,
+the rows a page of a query held, the markup a component rendered. There the verdict names a path like
+`columns.0.cards.3.updatedAt` into something the reader cannot look at.
+
+A suite may hand one of those over:
+
+```ts
+import { record } from '../../hone/record';
+
+record('one card, exactly as it was sent', columns[0].cards[0]);
+```
+
+It lands in a panel beside that checkpoint's verdict. A string is printed as it arrives, which is how
+`prettyDOM` output and a failure message get there; anything else is JSON, pretty-printed, cut at
+4,000 characters. Recording cannot decide anything: every error inside it is swallowed, so a
+checkpoint ends exactly where it would have ended without the call.
+
+Three rules.
+
+- **Record the exhibit, not the haystack.** Whole payloads are scrolling. `support-board-express`
+  records the board's skeleton and one card, because one card is where every field in the contract is
+  visible at once, and the whole board is 94 tickets.
+- **Once per suite.** Three tests fetching the same board is one exhibit, not three.
+- **Most checkpoints record nothing.** This is for the ones whose subject is a shape, and a workout
+  with no such checkpoint gets no panel. Reach for it where a verdict names a path into something
+  invisible, not to narrate a run.
+
+**It is a transcript, not a preview.** What goes in is text a suite already produced, and what comes
+out is text in a panel. Rendering a live component in an iframe is a second runtime, and it is
+refused: see the roadmap's Platform section.
+
 ### The brief
 
 **A brief states the symptom and the requirement, never the cause.** Working out what is wrong is

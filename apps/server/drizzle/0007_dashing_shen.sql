@@ -1,0 +1,1 @@
+ALTER TABLE `workout_attempts` ADD `reached_green_at` text;

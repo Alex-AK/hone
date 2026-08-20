@@ -149,6 +149,12 @@ apps/web/src/
   production"), not the diagnosis ("a query per row, and no index"). Constraints and unguessable
   environment details stay explicit; checkpoint hints are where it is safe to be specific, because
   they appear only after that checkpoint has failed. See `WRITING.md`.
+- **The whole of a workout's `src/` is readable in the editor**, and only the manifest's `editable`
+  list can be typed in. That is what the briefs saying "read `contract.ts`, it is the specification"
+  always meant, so a fake's semantics belong in the file rather than paraphrased into the brief.
+- **A checkpoint whose subject is a shape can hand the payload over**: `record(label, value)` from
+  `hone/record` puts text beside that checkpoint's verdict. It cannot fail a checkpoint, most
+  checkpoints want nothing, and it is a transcript rather than a preview. See `docs/content.md`.
 - **A workout needs a new library?** Add it to `packages/workouts/package.json`. Workspaces symlink
   their `node_modules` at that package, which is how a workout imports the real drizzle-orm.
 - **A workout needs a daemon this repo does not ship?** Declare it in the manifest's `requires`

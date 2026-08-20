@@ -2,6 +2,7 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
   symlinkSync,
@@ -9,7 +10,7 @@ import {
 } from 'node:fs';
 import { dirname, join, normalize, relative, sep } from 'node:path';
 
-import type { WorkoutFile, WorkoutManifest } from '@hone/shared';
+import type { WorkoutFile, WorkoutManifest, WorkoutWorkspaceFile } from '@hone/shared';
 
 import { DATA_DIR } from '../common/paths';
 import { RUNTIME_MODULES, SCAFFOLD_DIR, workoutDir } from './workout-content';
@@ -55,15 +56,50 @@ export function destroy(attemptId: number): void {
 }
 
 /**
- * Only the files the manifest names are exposed. Everything else in the
- * workspace — the tests, the config, node_modules — stays out of the editor.
+ * The workout's own source tree, which is `src/` and nothing else: the tests,
+ * the config and node_modules stay out of the editor. Everything under it is
+ * readable and only the manifest's `editable` list is writable, because a brief
+ * that says "read `contract.ts`, it is the specification" is describing a file
+ * the reader has to be able to open.
  */
-export function readEditable(attemptId: number, manifest: WorkoutManifest): WorkoutFile[] {
+export function readWorkspace(
+  attemptId: number,
+  manifest: WorkoutManifest
+): WorkoutWorkspaceFile[] {
   const workspace = workspacePath(attemptId);
-  return manifest.editable.map((path) => ({
+  const editable = new Set(manifest.editable);
+  const paths = new Set([...walk(join(workspace, 'src'), 'src'), ...manifest.editable]);
+
+  return [...paths].sort(byTree).map((path) => ({
     path,
+    editable: editable.has(path),
     contents: existsSync(join(workspace, path)) ? readFileSync(join(workspace, path), 'utf8') : '',
   }));
+}
+
+function walk(dir: string, prefix: string): string[] {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = `${prefix}/${entry.name}`;
+    return entry.isDirectory() ? walk(join(dir, entry.name), path) : [path];
+  });
+}
+
+/** Directory before file at each level, which is the order a tree renders in. */
+function byTree(a: string, b: string): number {
+  const left = a.split('/');
+  const right = b.split('/');
+
+  for (let i = 0; i < Math.min(left.length, right.length); i += 1) {
+    const one = left[i] ?? '';
+    const other = right[i] ?? '';
+    if (one === other) continue;
+    const oneIsDir = i < left.length - 1;
+    const otherIsDir = i < right.length - 1;
+    if (oneIsDir !== otherIsDir) return oneIsDir ? -1 : 1;
+    return one.localeCompare(other);
+  }
+  return left.length - right.length;
 }
 
 export function writeEditable(

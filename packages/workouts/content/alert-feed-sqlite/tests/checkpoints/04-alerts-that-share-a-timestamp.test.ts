@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { record } from '../../hone/record';
 import { addAlert, BURST_CREATED_AT, createDb, type Db } from '../../src/server/db';
 import { listAlerts } from '../../src/server/feed';
 import { repeats, walkFeed } from '../support/walk';
@@ -18,10 +19,15 @@ function burstIds(): number[] {
     .map((row) => row.id);
 }
 
-/** Walk the feed, with a thirty-first alert landing in the same millisecond. */
-function walkThroughTheBurst(): number[] {
+/**
+ * Walk the feed, with a thirty-first alert landing in the same millisecond.
+ * `pages` collects what each page handed over, which is the only place the
+ * boundary between two pages is visible at all.
+ */
+function walkThroughTheBurst(pages?: number[][]): number[] {
   return walkFeed(db, {
-    between: (_page, index) => {
+    between: (page, index) => {
+      pages?.push(page.items.map((alert) => alert.id));
       if (index === 0) {
         addAlert(db, {
           service: 'checkout-api',
@@ -44,9 +50,17 @@ describe('the thirty alerts that share a created_at', () => {
 
   it('hands over every one of them, even when a thirty-first lands in the same millisecond', () => {
     const before = burstIds();
-    const seen = walkThroughTheBurst();
+    const pages: number[][] = [];
+    const seen = walkThroughTheBurst(pages);
     const missed = before.filter((id) => !seen.includes(id));
 
+    // Written out as lines rather than handed over as arrays: thirty ids one to
+    // a line is scrolling, and the thing worth seeing is where a page stops.
+    record('the burst, newest first', before.join(', '));
+    record(
+      'what each page handed over, in walk order',
+      pages.map((ids, index) => `page ${String(index + 1)}: ${ids.join(', ')}`).join('\n')
+    );
     expect(missed, `${missed.length} of the thirty were on no page at all`).toEqual([]);
   });
 

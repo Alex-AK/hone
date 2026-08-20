@@ -899,6 +899,52 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   is the reimplementation it also refuses. The workout accepts a solution that is right by accident of
   an index, and that is the price of both refusals rather than an oversight.
 
+- **ADR-0178 — The workspace tree is about the files with no tab, not about too many tabs.** The
+  roadmap's trigger was that `session-revocation-nestjs` ships eight files under `files/` and a flat
+  tab list stops being readable around there. The premise was true and the inference was wrong: the
+  strip rendered `attempt.files`, which is `readEditable()`, so it only ever listed the manifest's
+  `editable` paths, and the widest workout in the library declares three. There were never eight tabs.
+  What the audit found instead is that the other files are materialised into the workspace, imported
+  by the checkpoint suites, and unreachable from the UI, while eighteen briefs describe them in prose
+  and several tell you to open one: "`src/client/contract.ts` … Read it: it is the specification".
+  The workaround was paraphrasing a fake's API into the brief, fifteen lines of it in one case. So the
+  row inverts, and the fix is **more** files on screen rather than fewer tabs. **A brief that inlines
+  a read-only file's API is now a content smell rather than the only option.** Read-only is
+  presentation over the `writeEditable` allowlist that already existed, so nothing about what can be
+  typed in has changed.
+
+- **ADR-0179 — A transcript is text the suite already produced, and the type is where that line
+  lives.** `WorkoutTranscriptEntry.body` is `string` and nothing else, which is the whole argument in
+  one field: a payload object the panel could re-render, or markup an iframe could mount, is a second
+  runtime and application work per workout, which is what the roadmap declined and what the library is
+  built to avoid. Strings pass through untouched, which is the `prettyDOM` and failure-message path;
+  anything else is serialised where it is recorded and truncated there.
+
+  **Record the exhibit, not the haystack.** The content forced this rather than taste: the whole board
+  payload truncated mid-JSON at four thousand characters and taught nothing, where a skeleton plus one
+  card, beside a complaint naming `columns.0.cards.3.updatedAt`, teaches on sight. Three workouts of
+  thirty-nine record anything at all, and that ratio is the expected end state rather than a start.
+
+  **Recording can never decide a checkpoint.** Every error inside `record` is swallowed, and a test
+  proves a circular reference, an `undefined` and a function cannot turn a passing checkpoint red. A
+  diagnostics call that can fail a checkpoint is worse than printing nothing, because it makes the
+  safety net lie about the content rather than about the code.
+
+- **ADR-0180 — Time-to-green needed a column, because the app encourages exactly the runs that destroy
+  it.** `workout_attempts` could not answer the question as it stood. `last_run` is overwritten on
+  every run, and going green is the moment the workout invites more of them, since the diff and the
+  reference only unlock then. `finished_at` is when Finish was pressed, which is after the diff
+  review, so it measures time spent in the workout rather than time to solve. `best_passed` says you
+  got there and never says when. So `reached_green_at`, written once, on the first full-suite green.
+  **This is the same shape as the session-outcome snapshot rule**: a derived value looks free until
+  the write path that clobbers it turns out to be the one the feature encourages.
+
+  **First green wins, and a partial run never counts.** Going green, breaking it and fixing it took as
+  long as it took the first time. And a single-checkpoint run cannot set the timestamp for the same
+  reason it cannot unlock the solution, which makes "a partial run that totals up to everything has
+  not proved the same thing" one rule governing two things rather than two conditions that happen to
+  agree.
+
 ## The handbook
 
 - **ADR-0067 — Pages are markdown that reads fine on GitHub.** The repo is public and that reach costs nothing.

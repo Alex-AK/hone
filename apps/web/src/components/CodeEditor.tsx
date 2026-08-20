@@ -24,6 +24,8 @@ interface CodeEditorProps {
   /** Cmd/Ctrl+Enter, matching the textarea it replaces. */
   onSubmit: () => void;
   minHeight: string;
+  /** Read-only files in a workout workspace: openable, never writable. */
+  readOnly?: boolean;
 }
 
 /**
@@ -32,7 +34,7 @@ interface CodeEditorProps {
  * no wrapper to keep in step. Everything ships in the bundle, so it works offline.
  */
 export const CodeEditor = React.forwardRef<CodeEditorHandle, CodeEditorProps>(function CodeEditor(
-  { value, onChange, language, placeholder, onSubmit, minHeight },
+  { value, onChange, language, placeholder, onSubmit, minHeight, readOnly = false },
   ref
 ) {
   const host = React.useRef<HTMLDivElement>(null);
@@ -53,6 +55,8 @@ export const CodeEditor = React.forwardRef<CodeEditorHandle, CodeEditorProps>(fu
       doc: value,
       extensions: [
         history(),
+        EditorState.readOnly.of(readOnly),
+        EditorView.editable.of(!readOnly),
         bracketMatching(),
         indentOnInput(),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
@@ -100,7 +104,7 @@ export const CodeEditor = React.forwardRef<CodeEditorHandle, CodeEditorProps>(fu
     };
     // The editor is created once per problem; `value` seeds it and is synced below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, placeholder, minHeight]);
+  }, [language, placeholder, minHeight, readOnly]);
 
   // Push external changes in (starter code arriving, answer cleared on navigation)
   // without clobbering what is being typed.

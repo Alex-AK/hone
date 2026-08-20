@@ -23,6 +23,7 @@ import type {
   WorkoutFile,
   WorkoutRun,
   WorkoutSummary,
+  WorkoutWorkspaceFile,
 } from '@hone/shared';
 
 export class ApiError extends Error {
@@ -74,13 +75,13 @@ export const api = {
     slug: string,
     path: string,
     contents: string
-  ): Promise<{ files: WorkoutFile[] }> =>
+  ): Promise<{ files: WorkoutWorkspaceFile[] }> =>
     request(`/workouts/${slug}/files`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ path, contents }),
     }),
-  resetWorkoutFile: (slug: string, path: string): Promise<{ files: WorkoutFile[] }> =>
+  resetWorkoutFile: (slug: string, path: string): Promise<{ files: WorkoutWorkspaceFile[] }> =>
     request(`/workouts/${slug}/files/reset`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

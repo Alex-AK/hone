@@ -547,14 +547,40 @@ export interface WorkoutFile {
   contents: string;
 }
 
+/**
+ * A file in the materialised workspace. The tree carries every file the workout
+ * ships, not only the ones the manifest names, because briefs across the library
+ * say "read it" about files the editor could not open: a contract the client
+ * parses with, a fake whose semantics are the whole exercise. `editable` is what
+ * separates the two, and the server refuses a write to anything without it.
+ */
+export interface WorkoutWorkspaceFile extends WorkoutFile {
+  editable: boolean;
+}
+
 /** An in-progress attempt: a materialised workspace plus a clock. */
 export interface WorkoutAttempt {
   id: number;
   slug: string;
   startedAt: string;
   finishedAt: string | null;
-  files: WorkoutFile[];
+  files: WorkoutWorkspaceFile[];
   lastRun: WorkoutRun | null;
+}
+
+/**
+ * Something the checkpoint saw, handed over by the suite itself: the JSON body
+ * an endpoint answered with, the rows a query returned, `prettyDOM` output.
+ *
+ * `body` is text and only ever text. It is a transcript of a run that is over,
+ * not a payload to re-execute or markup to re-render, and the type says so
+ * because that is the whole line between one panel and a second runtime.
+ */
+export interface WorkoutTranscriptEntry {
+  label: string;
+  body: string;
+  /** The run produced more than the panel is willing to carry. */
+  truncated: boolean;
 }
 
 export interface WorkoutCheckpointResult {
@@ -566,6 +592,8 @@ export interface WorkoutCheckpointResult {
   testsTotal: number;
   /** First failing assertion, trimmed for display. */
   failure: string | null;
+  /** Absent on the checkpoints whose subject is not a shape, which is most. */
+  transcript?: WorkoutTranscriptEntry[];
   /**
    * Carried over from an earlier run, not re-checked by the run that returned
    * it. Only a single-checkpoint run produces these, and the UI has to say so:
@@ -658,11 +686,29 @@ export interface HandbookPageDetail extends HandbookPageSummary {
   next: HandbookPageRef | null;
 }
 
+/**
+ * A finished attempt, for reading a second and third one against the first.
+ * Time-to-green is the number worth watching: a workout entered cold measures
+ * how long it took to work out what was wrong, and entering it again measures
+ * whether that stayed learned.
+ */
+export interface WorkoutAttemptRecord {
+  startedAt: string;
+  finishedAt: string | null;
+  /** Best across the attempt's runs, so an attempt that broke it again keeps it. */
+  checkpointsPassed: number;
+  /** Start to the first fully green run. Null for an attempt that never got there. */
+  secondsToGreen: number | null;
+  solutionViewed: boolean;
+}
+
 export interface WorkoutDetail extends WorkoutSummary {
   brief: string;
   editable: string[];
   checkpoints: WorkoutCheckpoint[];
   attempt: WorkoutAttempt | null;
+  /** Finished attempts, newest first. Empty until you have done it once. */
+  history: WorkoutAttemptRecord[];
   /** Revealed once every checkpoint passes, or on request. */
   solution: WorkoutFile[] | null;
   /**
