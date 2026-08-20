@@ -869,6 +869,36 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   the type was written and the loader never validated `kind` at all. Only the UI label moved, from a
   bare noun to a verb phrase, so the three read alike.
 
+- **ADR-0177 — The axis worth generating over is the correlation the author did not notice they were
+  holding fixed, and the roadmap named the wrong one.** The row predicted that the bug reachable only
+  by generation would be a cursor carrying no id tiebreak; checkpoint 04 already arranges a boundary
+  inside a burst and catches every timestamp-only cursor. What a fixed dataset cannot reach is the
+  shape of the *fix*: `created_at <= ? AND id < ?`, which reads like the row-value comparison it is
+  standing in for and silently drops every older alert whose id happens to be larger. It is invisible
+  in the seeded feed for exactly one reason, which is that `createDb` numbers its 630 alerts in the
+  order they fired, so no row ever has a smaller timestamp and a larger id. Generation reached it with
+  two alerts, no tie and no mutation, and not by varying the page size, which is what the row expected.
+
+  **The liveness half is where the catches come from, again**, which is ADR-0166's finding holding on
+  a second workout. "No alert twice" is what a reader thinks of and what the brief's story describes;
+  every bug this checkpoint uniquely catches was found instead by "an alert firing throughout the walk
+  appeared on no page at all". A duplicate is visible from two pages and a miss is visible from none,
+  which is why the second failure in that story ran for forty minutes.
+
+  **A generated checkpoint is expensive because of the workout's own machinery, not because of the
+  generation.** The breaker's costs ten times its other four because its clock spends a macrotask per
+  advance. This one costs about half of its other four, because the whole cost is SQLite over twenty
+  rows on a single connection reused across scenarios rather than re-seeded per scenario. So cost is a
+  question to ask per workout rather than a ratio inherited from the breaker, and the six left in the
+  ADR-0167 queue should each be costed rather than assumed expensive.
+
+  **One blind spot is recorded rather than chased.** A submission ordering by `created_at DESC` with
+  no tiebreak passes all five checkpoints, because SQLite serves that order from the index and ties
+  come back by id anyway. Seeing it would mean either editing the non-editable `db.ts` to drop the
+  index, which ADR-0166 refuses as a class of move, or modelling the planner inside the suite, which
+  is the reimplementation it also refuses. The workout accepts a solution that is right by accident of
+  an index, and that is the price of both refusals rather than an oversight.
+
 ## The handbook
 
 - **ADR-0067 — Pages are markdown that reads fine on GitHub.** The repo is public and that reach costs nothing.

@@ -26,6 +26,19 @@ What has to be true when you are done:
 - `src/server/db.ts` builds the database and is not editable, so the fix lives in the query.
 - No new dependency.
 
+## The last checkpoint
+
+The first four walk one feed: the 630 alerts below, twenty to a page. The last one generates the feed
+instead, along with the page size and what happens to it mid-walk, and judges the walk by the same
+rules. Two things about its feeds are worth knowing. They are paged one, two, three and more at a
+time rather than twenty, so a page boundary lands in a different place on every one of them. And an
+id there says nothing about when the alert fired: the 630 below were numbered in the order they
+arrived, and nothing in the schema says they had to be.
+
+It adds no rules. Everything it checks is on this page already. When it fails it prints the shortest
+feed that still breaks one, what was acknowledged or fired while that feed was walked, and which ids
+came back on each page, which is a complete reproduction.
+
 ## Notes
 
 The database is in-memory SQLite through better-sqlite3, so every call on it is synchronous.

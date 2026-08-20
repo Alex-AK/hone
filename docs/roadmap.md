@@ -69,18 +69,17 @@ again, so what a run proves is "the examples somebody thought of came back right
 are about making the same 38 workouts and 579 reps ask for more, and they are ordered by what they
 return against what they cost.
 
-- **Seven more generated checkpoints, and `alert-feed-sqlite` is the one to write first.** The audit
-  the previous version of this row asked for has been done, and ADR-0167 records it along with what
-  it refused. The queue, in order: `alert-feed-sqlite`, `one-recompute-not-fifty`,
-  `retry-with-backoff-node`, `queue-consumer-node`, `class-places-sqlite`, `product-search-drizzle`,
-  `records-sorting-drizzle`. **The first one is a better candidate than either workout that already
-  has one**, because its property is already written down: `tests/support/walk.ts` walks the feed and
-  `repeats` names anything handed over twice, and all four checkpoints run that on one dataset, one
-  page size and one mutation at one fixed point. Varying the page size, where the tied timestamps
-  sit and when the feed moves reaches the case a fixed `limit: 20` structurally cannot, which is a
-  cursor carrying no id tiebreak. Three more have the contract and an argument about cost rather than
-  about the contract, and they wait behind the seven: `outbox-relay-node`,
-  `idempotent-payments-express`, `rate-limit-express`.
+- **Six more generated checkpoints, and `one-recompute-not-fifty` is next.** ADR-0167 holds the audit
+  that produced the queue and what it refused; `alert-feed-sqlite` is done and ADR-0177 holds what it
+  found. The rest, in order: `one-recompute-not-fifty`, `retry-with-backoff-node`,
+  `queue-consumer-node`, `class-places-sqlite`, `product-search-drizzle`, `records-sorting-drizzle`.
+  Three more have the contract and an argument about cost rather than about the contract, and they
+  wait behind those six: `outbox-relay-node`, `idempotent-payments-express`, `rate-limit-express`.
+  **Cost each one rather than inheriting the breaker's ratio.** The breaker's generated checkpoint
+  costs ten times its other four and the feed's costs half of its other four, because what is
+  expensive is the workout's own machinery rather than the generating. **And pick the axis last**: the
+  bug this queue is for is usually a correlation the author held fixed without noticing, not the
+  parameter the row happens to name.
 
 - **Read the attempt history back, which answers two questions rather than one.** 579 reps, a review
   ladder, and nothing ever asks what the outcomes say. It is a local report over local data, so

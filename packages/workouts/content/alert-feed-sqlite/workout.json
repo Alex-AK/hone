@@ -36,6 +36,12 @@
       "title": "Alerts that share a created_at each come over once",
       "testFile": "tests/checkpoints/04-alerts-that-share-a-timestamp.test.ts",
       "hint": "Thirty alerts here carry the same `created_at` to the millisecond, and a page boundary lands in the middle of them. A cursor holding only the timestamp cannot say which of the thirty the page stopped at, so it either skips the rest of them or hands them back. Keep a unique column alongside it and compare the pair: `(created_at, id) < (?, ?)` is read left to right, stopping at the first pair that differs, which is the rule `ORDER BY created_at DESC, id DESC` sorts by."
+    },
+    {
+      "id": "rules-hold-on-any-feed",
+      "title": "The rules hold on feeds nobody wrote",
+      "testFile": "tests/checkpoints/05-the-rules-hold-on-any-feed.test.ts",
+      "hint": "This one builds its own feeds, at page sizes from one upward, and an alert's id there says nothing about when it fired. Read the last line of the report first, because it names which rule went. If an alert was on no page at all, look at what the cursor compares: `created_at <= ? AND id < ?` looks like `(created_at, id) < (?, ?)` and is not, because it also drops every older alert whose id happens to be the larger. The pair is compared as a pair, or written out as `created_at < ? OR (created_at = ? AND id < ?)`."
     }
   ]
 }
