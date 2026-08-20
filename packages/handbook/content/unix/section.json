@@ -1,6 +1,6 @@
 {
   "slug": "unix",
   "title": "Unix, at the level you meet it",
-  "order": 13.5,
+  "order": 15,
   "summary": "Not a shell course and not systems administration: the handful of operating-system facts that decide how a Node process behaves once your terminal is not the thing starting it. What it inherits from whoever launched it, which of its two output streams a line belongs on, what a signal actually is and what has to happen before the platform stops waiting, and why the container runs as a number that has to match the one on the volume."
 }

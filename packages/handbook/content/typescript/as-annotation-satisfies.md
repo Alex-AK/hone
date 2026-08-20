@@ -9,6 +9,7 @@ practise:
   - ts-as-const
   - ts-excess-property
   - ts-as-const-not-frozen
+  - ts-as-const-satisfies
 sources:
   - author: TypeScript
     title: 'Everyday Types: Type Assertions'

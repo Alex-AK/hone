@@ -1,6 +1,6 @@
 {
   "slug": "orms",
   "title": "ORMs and query builders",
-  "order": 12.5,
+  "order": 13,
   "summary": "The library sitting between your objects and your rows, and what it decides on your behalf. A query builder types the SQL you were going to write; a data mapper reads the row before it writes over it, and that difference is behind most of the surprises. Drizzle, Kysely and TypeORM are the worked examples, because six workouts already run against them, and every claim names the library and the version it was measured on."
 }

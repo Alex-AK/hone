@@ -9,6 +9,8 @@ practise:
   - ts-await-typing
   - ts-awaited
   - ts-overload-signature
+  - ts-const-type-param
+  - ts-no-infer
 sources:
   - author: TypeScript
     title: Generics

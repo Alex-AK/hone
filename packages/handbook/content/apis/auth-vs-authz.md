@@ -7,6 +7,7 @@ practise:
   - auth-guard-nestjs
   - http-401-vs-403
   - security-token-storage
+  - security-unguessable-id-not-authorization
 sources:
   - author: IETF
     title: 'RFC 9110: HTTP Semantics'

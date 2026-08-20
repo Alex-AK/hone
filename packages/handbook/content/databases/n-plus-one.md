@@ -8,6 +8,8 @@ practise:
   - slow-list-endpoint-kysely
   - help-board-graphql
   - sql-orders-per-customer
+  - orm-batch-one-tick
+  - orm-join-or-second-query
 sources:
   - author: Markus Winand
     title: Nested Loops

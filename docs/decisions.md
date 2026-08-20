@@ -1131,6 +1131,38 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   roadmap's own observation from the other end: 38 `react` reps and not one about the pass that
   produced the HTML. That gap is reps rather than a page, and it is now a row rather than a footnote.
 
+- **ADR-0173 — The uncited-rep count is retired as a health metric, and the hold that waited on it was
+  argued from a prediction that turned out wrong.** The figure recorded before four sections landed
+  was twenty-nine easy reps cited by no page. The pass that waited for those sections measured it
+  again and found **the same twenty-nine slugs, identical slug for slug**, across a corpus that had
+  grown by 65 reps. The new sections cited every rep they brought and picked up two previously
+  uncited ones. So the number was never measuring drift: it was counting a floor of reps that are
+  uncited by design, and it only ever named the easy tail, where 83 of the 112 uncited reps are
+  medium or hard. The method was sound and the argument for holding, that every section still to be
+  written moves the answer, was wrong by two reps. That is worth recording so the next hold is
+  justified on something other than expected movement. **What replaces it is the direction nothing
+  enforces**, practice volume with no page behind it, which has now been run and found clean: every
+  category with volume and no page is one of the four already-recorded refusals, and at the model
+  level rather than the category level, the seven models with reps and no page have one rep each.
+
+  **A rep joins a `practise` list only where the page carries the model that makes the rep pass.
+  Symptom-matching is refused.** The worked example is `dep-devdependency-at-runtime`, which produces
+  the same `Cannot find module` on CI as the first trap of `dependencies/the-tree-is-not-the-list`
+  and for an unrelated reason: a reader sent from that trap to that rep answers "phantom dependency"
+  with confidence and is wrong. That rule is what found seventeen real omissions while leaving
+  ninety-five reps uncited on purpose, and it is the operational form of the standing rule that a
+  `practise` list padded until every rep appears somewhere makes the handbook an index.
+
+  **A section `order` is a reading order, not an insertion log.** Four sections had been slotted in at
+  8.5, 13.5, 17 and 18, which records when each arrived, and git already holds that. They are
+  consecutive integers now, and `isolation` moved out of the run about a request (moving-data,
+  headers, security, caching, apis, sql, databases) into the run about what code runs inside
+  (server-runtime, unix, isolation, systems). Two things were already true and unwritten:
+  `unix/your-server-is-a-process` and `isolation/what-a-process-gives-you` sat five sections apart
+  sharing a rep, and `isolation/running-code-a-model-wrote` pointed forward to `ai-engineering` from
+  eight sections back. **A reason for adjacency is not a reason to interrupt a longer arc**, which is
+  what "isolation is a security property" had been doing.
+
 ## The essentials path
 
 - **ADR-0087 — It is a second entrance, not a setting on the daily session.** Everything else here is judged

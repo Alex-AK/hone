@@ -38,32 +38,19 @@ and every claim on that page was measured rather than read.
 `packages/decks/content/` is the inventory, and a deck named there and not on disk is a name that
 changed, not a deck that is missing.
 
-## The last pass, which is now due rather than held
+## The end of the queue
 
 **The content queue has run out, which was always the intended end.** The subject is practical
 knowledge for web engineering and AI engineering judged against a 15-minute morning, and that is a
 finite thing to cover. Everything past this is maintenance, which is a page going stale or a new API
-worth knowing, and neither is a queue. What is left above is one row that is waiting on something
-else, by design.
+worth knowing, and neither of those is a queue.
 
-**One pass was deliberately held until the sections landed, and they have.** It is reading every
-page's practise list against the whole problem set at once. The argument for holding it was that
-every section still to be written arrives with its own reps and moves the answer, so doing it once
-costs less than doing it three times. Four sections have now arrived with roughly thirty-five reps
-between them, which is exactly the movement the hold was waiting on. There is nothing left to wait
-for.
-
-**The uncited count is stale and re-measuring it is the first step, not a footnote.** The figure
-recorded here was twenty-nine easy reps cited by no page, six of them `query-params` reps, which is
-the case that produced a module rather than a page and is the standing reminder that "uncited" is
-not the same as "missing something". That number predates four sections and cannot be carried
-forward. Measure it before reading anything into it.
-
-The rest of the pass: every uncited rep offered to the pages it actually serves, each section's
-`order` re-read now that the section is whole, and the pairing rule checked in the direction nothing
-enforces, which is practice volume with no page behind it. Section `order` deserves particular
-attention this time, because four sections were slotted in at 8.5, 13.5, 17 and 18 without the whole
-sequence being read end to end. It is one sitting over finished content, not a rolling chore.
+**The pass that was held until the sections landed has been run.** The uncited-rep count was
+re-measured, the reps that wanted a page were offered to one, every section's `order` was read end to
+end and renumbered, and the pairing rule was checked in the direction nothing enforces. ADR-0173
+records what it found, including why the count the pass was built around is retired rather than
+carried forward: it had not moved a single slug across four sections and sixty-five new reps, because
+it was counting a floor rather than a drift.
 
 ## The server pass has a page and no reps
 

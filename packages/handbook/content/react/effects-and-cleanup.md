@@ -10,6 +10,7 @@ practise:
   - react-fetch-race
   - react-abort-on-unmount
   - react-effect-vs-handler
+  - react-read-timer-hook
   - autocomplete-react
 sources:
   - author: React

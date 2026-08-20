@@ -8,6 +8,7 @@ practise:
   - ts-readonly-array
   - ts-noimplicit-index-access
   - ts-readonly-shallow
+  - ts-handler-variance
 sources:
   - author: TypeScript
     title: Type Compatibility

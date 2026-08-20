@@ -8,6 +8,8 @@ practise:
   - debug-async-foreach
   - js-await-in-loop
   - debug-try-catch-async
+  - js-await-suspends-caller
+  - dates-timer-drift
 sources:
   - author: MDN
     title: JavaScript execution model

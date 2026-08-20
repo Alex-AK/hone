@@ -9,6 +9,7 @@ practise:
   - ts-assertion-function
   - ts-optional-vs-undefined
   - ts-falsy-vs-nullish
+  - ts-assert-defined
 sources:
   - author: TypeScript
     title: Narrowing

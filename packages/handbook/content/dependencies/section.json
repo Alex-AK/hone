@@ -1,6 +1,6 @@
 {
   "slug": "dependencies",
   "title": "Dependencies, and the tree you install",
-  "order": 16,
+  "order": 19,
   "summary": "The range you wrote in package.json and the tree that landed in node_modules are two different artefacts, and most dependency surprises live in the gap between them. This repo is the worked example: a pnpm workspace where express is installed and cannot be imported, React 18 sits beside React 19 without either breaking, and a blocked install script is the difference between a database that opens and one that does not. Every command output here was run against pnpm 11.5.0 on Node 24.16.0, and every range expansion through semver 7.8.5."
 }

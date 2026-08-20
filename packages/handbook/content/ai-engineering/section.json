@@ -1,6 +1,6 @@
 {
   "slug": "ai-engineering",
   "title": "Building on a model",
-  "order": 15,
+  "order": 18,
   "summary": "The code around a generative dependency, which is the part you own and the part that fails. What one call costs in tokens and in seconds, a stream that has to be framed, an answer that has to survive being turned into data, a tool call that nothing has run yet, a nearest-neighbour lookup that promises less than it looks like it does, a retrieval step that is usually where the wrong answer came from, a tool boundary that is an API, and a test suite for output you cannot predict. No page here is about training a model."
 }

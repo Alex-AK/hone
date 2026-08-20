@@ -15,6 +15,7 @@ practise:
   - js-nullish-vs-or
   - ts-falsy-vs-nullish
   - debug-empty-query-param
+  - logic-nullish-mixing
 sources:
   - author: MDN
     title: Logical AND (&&)

@@ -9,6 +9,8 @@ practise:
   - orm-update-skips-the-subscriber
   - orm-save-unknown-id-inserts
   - orm-nested-where-truncates-relation
+  - orm-update-all-undefined
+  - orm-save-many-not-insert
   - article-tags-typeorm
   - orders-report-typeorm
 sources:

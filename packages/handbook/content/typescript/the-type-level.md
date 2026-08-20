@@ -12,6 +12,8 @@ practise:
   - ts-mapped-key-remap
   - ts-conditional-infer
   - ts-template-literal-type
+  - ts-never-distributes
+  - ts-distributive-omit
 sources:
   - author: TypeScript
     title: Keyof Type Operator

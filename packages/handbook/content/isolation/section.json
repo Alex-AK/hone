@@ -1,6 +1,6 @@
 {
   "slug": "isolation",
   "title": "Isolation, and what actually contains code",
-  "order": 8.5,
+  "order": 16,
   "summary": "One question asked at four depths: when this code does the worst thing it can, what stops it? A process stops almost nothing, a container is namespaces and cgroups over a kernel everything still shares, and a virtual machine buys a second kernel at a price that decided what the people running other people's code actually built. Hone is its own worked example here, because the grader runs submitted code and node:vm is documented in this repo as a convenience rather than a boundary. The last page is the case a web engineer now meets weekly, which is running code a model wrote. Packaging and deploying an image belong to production; this section owns isolation as a security property."
 }

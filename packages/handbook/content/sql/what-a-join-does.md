@@ -10,6 +10,7 @@ practise:
   - sql-direct-reports
   - sql-order-totals
   - sql-not-exists
+  - sql-read-join-condition
 sources:
   - author: PostgreSQL
     title: Table Expressions

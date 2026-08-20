@@ -1,6 +1,6 @@
 {
   "slug": "systems",
   "title": "Systems, one concept at a time",
-  "order": 14,
+  "order": 17,
   "summary": "Concepts before case studies, because system design conversations are lost on fundamentals rather than on architectures you have not read. Each card is one thing that changes when the traffic goes up: another machine, another copy of the data, another queue between two services that used to call each other directly."
 }
