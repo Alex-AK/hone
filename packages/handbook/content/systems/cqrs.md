@@ -3,6 +3,7 @@ title: CQRS
 question: The list page wants a different shape from the write path. Do I need a second database?
 order: 19
 practise:
+  - dispatch-board-sqlite
   - sys-cache-aside-vs-write-through
   - sys-replica-lag
   - sys-strong-vs-eventual-consistency

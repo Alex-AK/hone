@@ -760,6 +760,26 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   surface — a route table, a token lifecycle, a set of query parameters — where enumerating it is both
   cheaper and more honest than generating over it.
 
+- **ADR-0171 — `dispatch-board-sqlite` is the projection workout, and what it teaches is recompute
+  over delta.** ADR-0170 declined one on the grounds that the failure modes were already practised,
+  and that was wrong in the way this repo's own bar predicts: the reps make you *name* the failure,
+  and none of them makes you build the thing that fails. A read model that has drifted three ways is
+  not answerable in a rep, and the board here has drifted all three: a write path that never told it,
+  a change the relay delivered twice, and a repair that only puts back what is missing.
+
+  **What separates it from the two workouts it sits next to is the thing worth recording**, because
+  the next projection workout will look like a duplicate of one of them. `approval-log-sqlite` is
+  atomicity, a change and its log row being one unit of work, and this workout deliberately does not
+  retread it: nothing here turns on a transaction. `outbox-relay-node` is delivery, what a relay may
+  claim it sent. This one is the projection itself, and all three of its fixes are one idea, that
+  **a delta cannot be applied twice and a recompute can**, which is why the checkpoint about a change
+  arriving twice is the one that forces the redesign rather than a patch. **The fourth checkpoint
+  passes against the starting files**, following `outbox-relay-node`'s first: the tempting repair for
+  a board that disagrees with the tables is to stop having a board and join at render time, which
+  answers the same question and gives up the reason the table exists. It is a guard rather than a
+  fault, and the brief says so, which is what keeps it from being a gotcha. The CQRS page cites it,
+  so ADR-0170's page now has the practical half its own worked example argues for.
+
 ## The handbook
 
 - **ADR-0067 — Pages are markdown that reads fine on GitHub.** The repo is public and that reach costs nothing.
@@ -1075,9 +1095,10 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   database, this page would have shipped the usual claim that a read model is what makes a list
   endpoint fast, which is only true of a query nobody rewrote.
 
-  **No rep, no deck and no workout came with it**, and none is owed. The three failure modes the page
-  teaches, a user not seeing their own write, a projection drifting, and a refresh locking readers
-  out, are staleness and dual-write failures, which is what `sys-replica-lag`,
+  **No rep and no deck came with it**, and neither is owed. This paragraph also declined a workout,
+  and that half is superseded by ADR-0171. The three failure modes the page teaches, a user not
+  seeing their own write, a projection drifting, and a refresh locking readers out, are staleness
+  and dual-write failures, which is what `sys-replica-lag`,
   `sys-strong-vs-eventual-consistency`, `sys-dual-write-two-orderings` and `outbox-relay-node` already
   practise; the page cites six existing reps and adds nothing to the seed. A rep that asked what the
   letters stand for would be trivia, and the deck test in ADR-0163 refuses a contrast set that is a

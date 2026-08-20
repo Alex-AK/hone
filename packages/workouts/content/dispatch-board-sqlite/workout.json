@@ -1,0 +1,41 @@
+{
+  "slug": "dispatch-board-sqlite",
+  "title": "The board and the warehouse disagree",
+  "kind": "bug-hunt",
+  "minutes": 22,
+  "difficulty": "medium",
+  "relevance": "occasional",
+  "stack": {
+    "server": "node, no framework",
+    "database": "sqlite via better-sqlite3"
+  },
+  "summary": "A consignment the customer cancelled on Monday was picked and loaded on Tuesday, and the dispatch board had it waiting for a picker all morning. Repairing the board brought back two consignments that had gone missing from it, both showing no parcels, and left another one showing twice the parcels it holds.",
+  "focus": ["read models", "projections", "idempotency", "sqlite"],
+  "editable": ["src/server/board.ts", "src/server/consignments.ts"],
+  "checkpoints": [
+    {
+      "id": "board-agrees-after-every-change",
+      "title": "The board agrees with the consignments after every change",
+      "testFile": "tests/checkpoints/01-board-agrees-after-every-change.test.ts",
+      "hint": "Every write path in `consignments.ts` tells the board what it did, except one. A board that hears about four changes out of five is wrong for as long as nobody looks, which is the failure this whole workout is about."
+    },
+    {
+      "id": "replaying-a-change-changes-nothing",
+      "title": "A change the relay delivers twice counts once",
+      "testFile": "tests/checkpoints/02-replaying-a-change-changes-nothing.test.ts",
+      "hint": "`parcel_count + 1` is a delta, and a delta applied twice counts twice. The row is derived from the consignment and its parcels, so read it off them instead: count and sum on every change, and write with `INSERT ... ON CONFLICT (consignment_id) DO UPDATE SET ...` so the second delivery lands where the first one did."
+    },
+    {
+      "id": "a-rebuild-repairs-a-drifted-board",
+      "title": "A rebuild repairs a board that has drifted",
+      "testFile": "tests/checkpoints/03-a-rebuild-repairs-a-drifted-board.test.ts",
+      "hint": "The rebuild only adds rows that are missing, so a row holding the wrong numbers keeps them and a row for a consignment that is not there stays on the board. Recompute every consignment's row from the consignment tables, and take off whatever the consignments do not account for."
+    },
+    {
+      "id": "the-board-page-reads-only-the-board",
+      "title": "The board page still reads only the board",
+      "testFile": "tests/checkpoints/04-the-board-page-reads-only-the-board.test.ts",
+      "hint": "This one passes at the start. If it broke, `listBoard` is reading `consignment` or `parcel` again: joining at render time answers the same question and gives up the reason the board table exists. Keep it one read of `board_row`."
+    }
+  ]
+}
