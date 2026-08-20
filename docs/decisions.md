@@ -1106,6 +1106,31 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   in `systems/` rather than next to event sourcing because every page it leans on, replication,
   caching, the dual write and event sourcing itself, comes before it.
 
+- **ADR-0172 — Where rendering happens is one page in `react`, and practising it is refused.** The
+  roadmap row guessed that the topic cut across `react` and `moving-data`, and that a workout would
+  need a bundler and two runtimes in the workspace. Half of that survived contact. The page sits in
+  `react` because every failure mode turned out to be a React-runtime failure diagnosed inside a
+  component and fixed with a React API, where `moving-data` is about choosing and living with a
+  transport between machines; what actually cuts across sections is the reps the page wants, not the
+  page. **The workout is refused, and the express fallback the row offered does not rescue it.** Three
+  of the four traps are about DOM adoption, what hydration keeps, what it discards and what it leaves
+  silently wrong, which no express workout can express, and the fourth only means anything against
+  them.
+
+  **Three claims on the page changed because they were measured**, on React 19.2.8 with the two passes
+  in separate processes so the server one genuinely had no DOM. An attribute-only mismatch is silent
+  in a production build, and the DOM keeps the server's value while React's tree believes the
+  client's, which is the sharpest thing on the page and is in no document. A text mismatch discards
+  every node up to the nearest `<Suspense>` boundary, the root where there is none. And
+  `suppressHydrationWarning` silences the report without localising anything: the server's text stays
+  on screen through later re-renders of that component. `react.dev/errors/418` 404s on fetch, so the
+  production error string is reported as measured rather than cited, which is the citation policy
+  working rather than failing.
+
+  **The page ships with four practise slugs and only one is a `react` rep**, which confirms the
+  roadmap's own observation from the other end: 38 `react` reps and not one about the pass that
+  produced the HTML. That gap is reps rather than a page, and it is now a row rather than a footnote.
+
 ## The essentials path
 
 - **ADR-0087 — It is a second entrance, not a setting on the daily session.** Everything else here is judged

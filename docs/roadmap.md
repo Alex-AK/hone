@@ -28,6 +28,13 @@ cite pages written for reps, none of which was written with a deck in mind. A fo
 refused rather than written, and the reason is recorded rather than left as a gap. That read is done
 and is not owed again until the next section ships.
 
+**A third candidate arrived with `react/where-rendering-happens.md`**, unplanned, which is the way
+the rule above says a deck is supposed to arrive. The contrast set is what React does when the two
+passes disagree: loud (a text mismatch, every node up to the nearest boundary discarded), silent (an
+attribute mismatch, never repaired, the server's value left on screen) and silent by request
+(`suppressHydrationWarning`, which localises nothing). Unlike the two above it has a `page` to cite,
+and every claim on that page was measured rather than read.
+
 `packages/decks/content/` is the inventory, and a deck named there and not on disk is a name that
 changed, not a deck that is missing.
 
@@ -57,6 +64,15 @@ The rest of the pass: every uncited rep offered to the pages it actually serves,
 enforces, which is practice volume with no page behind it. Section `order` deserves particular
 attention this time, because four sections were slotted in at 8.5, 13.5, 17 and 18 without the whole
 sequence being read end to end. It is one sitting over finished content, not a rolling chore.
+
+## The server pass has a page and no reps
+
+`react/where-rendering-happens.md` shipped and could cite only one `react` rep, because the category
+holds 38 and none of them is about the pass that produced the HTML. The page's traps hand over three
+candidates ready-made, all `explain` or `short-text` shaped and needing no new machinery: what a text
+mismatch costs against what an attribute mismatch costs, what `suppressHydrationWarning` actually
+leaves on the screen, and why `typeof window` is a worse fix than the crash it prevents. A workout is
+refused rather than queued, and ADR-0172 has that argument.
 
 ## Depth per challenge
 
