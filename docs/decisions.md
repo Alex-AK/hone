@@ -1059,6 +1059,32 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   formats, are still blocked on a `page` that does not exist, and reading fifteen pages that had
   nothing to do with either did not change that.
 
+- **ADR-0170 — CQRS is its own page, and measuring it turned the page into an argument against
+  adopting it.** It already had three sentences, inside the bullet list on `event-sourcing.md` that
+  separates it from event streaming. That list answers "which of these three words do I mean", which
+  is not the question anyone arrives with: theirs is whether the list page wanting a different shape
+  from the write path means a second database, and the bullet says nothing about what saying yes
+  costs. **The worked example was measured against a real PostgreSQL 17.10**, on the same ground as
+  ADR-0156, and the numbers moved the page's centre of gravity. The list endpoint that groups over
+  50,000 pending orders takes 84 ms; the identical answer, rewritten to page first and aggregate only
+  those 50 rows, takes 0.30 ms; the read-model table takes 0.028 ms. **The query rewrite closed 99.6%
+  of the gap**, so a slow list endpoint is not evidence for the pattern, and the page says so where a
+  reader will hit it. What does survive is the second measurement: sorting the same orders by a total
+  no row holds is 92 ms against the write model against 0.075 ms against an indexed read model,
+  because you cannot index a value you do not store. Written from the documentation instead of the
+  database, this page would have shipped the usual claim that a read model is what makes a list
+  endpoint fast, which is only true of a query nobody rewrote.
+
+  **No rep, no deck and no workout came with it**, and none is owed. The three failure modes the page
+  teaches, a user not seeing their own write, a projection drifting, and a refresh locking readers
+  out, are staleness and dual-write failures, which is what `sys-replica-lag`,
+  `sys-strong-vs-eventual-consistency`, `sys-dual-write-two-orderings` and `outbox-relay-node` already
+  practise; the page cites six existing reps and adds nothing to the seed. A rep that asked what the
+  letters stand for would be trivia, and the deck test in ADR-0163 refuses a contrast set that is a
+  taxonomy, which "command side against query side" is until it is attached to a system. It sits last
+  in `systems/` rather than next to event sourcing because every page it leans on, replication,
+  caching, the dual write and event sourcing itself, comes before it.
+
 ## The essentials path
 
 - **ADR-0087 — It is a second entrance, not a setting on the daily session.** Everything else here is judged

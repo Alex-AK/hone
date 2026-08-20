@@ -57,9 +57,9 @@ Three words that get used interchangeably and should not be:
 - **Event sourcing** is a persistence decision: the log is the truth, state is derived.
 - **Event streaming** is a transport decision: services communicate over
   [a log rather than a queue](./the-log-is-not-a-queue.md). You can do either without the other.
-- **CQRS** is a modelling decision: the write side and the read side are different models. It pairs
-  naturally with event sourcing, because a fold is a bad way to serve a list endpoint, but it is not
-  the same claim and it does not require events.
+- **[CQRS](./cqrs.md)** is a modelling decision: the write side and the read side are different
+  models. It pairs naturally with event sourcing, because a fold is a bad way to serve a list
+  endpoint, but it is not the same claim and it does not require events.
 
 ## Worked example
 
