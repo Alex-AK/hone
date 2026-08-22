@@ -984,6 +984,46 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   This one is unobservable through what `get` exposes, so it is a limit of the surface rather than of
   the generator.
 
+- **ADR-0182 — The third axis was the example set's own uniformity, and the row that named nothing
+  was righter than the two that named something.** ADR-0167 described `retry-with-backoff-node` as
+  "attempt-trace invariants, the direct sibling of the breaker", which is a shape rather than a
+  parameter, and that turned out to be the honest thing to write down. What the four hand-written
+  checkpoints hold fixed is not a setting at all: it is **which failure each one uses**. Every wait
+  is measured on a run of 503s, every ambiguous failure is a dropped connection, and no suite ever
+  changes what the downstream does between one attempt and the next. Four of the eight bugs only the
+  generated checkpoint catches live in exactly that seam, and one of them is the brief's own story:
+  a client that treats a deadline it fired itself as proof the downstream never ran the request
+  sends the charge twice, and passes all four.
+
+  **The other four are of two kinds, and both are cheaper to describe than the seam.** Two are
+  scalars nobody thought of as scalars, which is ADR-0181's finding again: the budget never lands
+  exactly on a boundary, so `>=` reads the same as `>`, and the clock always reads zero when the
+  call is made, so a budget taken from `budgetMs` rather than from `clock.now()` is the same
+  deadline. Two are plain holes in an enumeration, since no example sends a 502, a 504 or a DELETE.
+  Holes like those are the argument ADR-0167 made for *not* generating over a small fixed surface,
+  and they are worth having only because the generator was going to vary the status anyway.
+
+  **So the queue should stop predicting the axis.** Three workouts in, the row has named it wrong
+  twice and named nothing once, and the one that named nothing cost nothing to be right about. What
+  the remaining rows can usefully carry is the contract and the cost, which are both checkable
+  before any code is written.
+
+  **Cost is set by clock movements per scenario, not by the presence of a fake clock.** ADR-0181
+  predicted this workout would be expensive on the strength of driving one, and it is 4.5x its other
+  four rather than the breaker's 10x or the cache's 8.5x. The reason is that a whole call is four to
+  six timers, where a breaker schedule is dozens: the generated scenario here is one `request`, and
+  the clock is driven by draining what the client asked for rather than by a script of advances. So
+  the predictor is the number of times the clock has to move, and `queue-consumer-node` should be
+  costed on that rather than inheriting a multiplier.
+
+  **Two blind spots are accepted rather than chased.** Where a client is both out of attempts and
+  holding a failure it may not send again, the brief does not say which reason it should give, so
+  the checkpoint accepts either; a client that reports the less useful one passes. And a
+  reimplementation was refused where it would have been easiest: the expected wait for a gap is
+  computed from the brief's formula and the scenario's own jitter sequence rather than by running a
+  second client, which is why the wait rules are checked one gap at a time against what the trace
+  says already happened.
+
 ## The handbook
 
 - **ADR-0067 — Pages are markdown that reads fine on GitHub.** The repo is public and that reach costs nothing.

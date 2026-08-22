@@ -41,7 +41,7 @@
       "id": "rules-hold-on-any-feed",
       "title": "The rules hold on feeds nobody wrote",
       "testFile": "tests/checkpoints/05-the-rules-hold-on-any-feed.test.ts",
-      "hint": "This one builds its own feeds, at page sizes from one upward, and an alert's id there says nothing about when it fired. Read the last line of the report first, because it names which rule went. If an alert was on no page at all, look at what the cursor compares: `created_at <= ? AND id < ?` looks like `(created_at, id) < (?, ?)` and is not, because it also drops every older alert whose id happens to be the larger. The pair is compared as a pair, or written out as `created_at < ? OR (created_at = ? AND id < ?)`."
+      "hint": "This one builds its own feeds, at page sizes from one upward, and an alert's id there says nothing about when it fired. Read the first line of the report, because it names which rule went. If an alert was on no page at all, look at what the cursor compares: `created_at <= ? AND id < ?` looks like `(created_at, id) < (?, ?)` and is not, because it also drops every older alert whose id happens to be the larger. The pair is compared as a pair, or written out as `created_at < ? OR (created_at = ? AND id < ?)`."
     }
   ]
 }

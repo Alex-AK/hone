@@ -35,6 +35,12 @@
       "title": "It gives up, and says why",
       "testFile": "tests/checkpoints/04-it-gives-up-and-says-why.test.ts",
       "hint": "Both stopping conditions are asked between attempts rather than inside one. `maxAttempts` counts the first attempt, and the budget question is whether `clock.now()` plus `timeoutMs` still fits inside the deadline you took at the top of `request`, asked after the wait rather than before it."
+    },
+    {
+      "id": "rules-hold-on-any-outage",
+      "title": "The rules hold on outages nobody wrote",
+      "testFile": "tests/checkpoints/05-the-rules-hold-on-any-outage.test.ts",
+      "hint": "These outages change what the downstream does between one attempt and the next, which the other four never do, and the clock does not always read zero when the call is made. Read the first line of the report, because it names which rule went. Two leads if it does not land on its own: a deadline you fired yourself is still an attempt that got no answer, so a POST without a key stops there whether it was the connection that died or the timeout; and `waits` in the backoff formula counts every wait already made, including one the downstream named and one that followed an attempt nobody answered."
     }
   ]
 }

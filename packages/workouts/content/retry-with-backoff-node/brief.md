@@ -57,6 +57,19 @@ and the two rejections `send` produces: `RequestAbortedError` once a deadline fi
 It is injected for the same reason the clock is: the checkpoints hand it a fixed sequence, and
 `Math.random` would make them a coin flip. Do not reach past it.
 
+## The last checkpoint
+
+The first four drive outages somebody wrote. The last one generates them: the options, the request,
+the jitter, and what the downstream does to each attempt in turn. Three things about those outages
+are worth knowing. The downstream rarely does the same thing twice running, so a wait can follow an
+attempt nobody answered, and an attempt that got no answer is as often a deadline you fired yourself
+as a connection that died. The clock does not always read zero when `request` is called. And the
+budget is often tight enough that whether one more attempt fits is the whole question.
+
+It adds no rules. Everything it checks is on this page already. When it fails it leads with the rule
+that broke and then prints the shortest outage that still breaks it, which is a complete
+reproduction: those options, that request, those replies, in that order.
+
 ## Notes
 
 The downstream the checkpoints put behind `send` answers in the same tick or not at all. A scripted
