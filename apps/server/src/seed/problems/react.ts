@@ -2255,4 +2255,224 @@ export const reactProblems: ProblemDraft[] = [
     explanation:
       "The cleanup is what makes this a debounce rather than a delay. React runs the previous effect's cleanup before re-running it, so each new `value` cancels the timeout the previous one scheduled, and a timeout only ever fires if its value survives `delay` ms unchanged. Rendered for real with `delay = 50` and a new letter every 20ms, a component fed `r`, `re`, `rea`, `reac`, `react` received `r` and then `react`, and nothing else. Drop the `clearTimeout` and every keystroke lands `delay` ms later instead, which is the same number of renders as before with a lag added: a delay, not a debounce.",
   },
+
+  {
+    slug: 'react-hydration-mismatch-cost',
+    title: 'Two mismatches, two bills',
+    category: 'react',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      "A page hydrates with two mismatches. The server container is set to UTC, the reader's browser",
+      'is in New York, and `isNarrow` is measured from the viewport:',
+      '',
+      code(
+        'jsx',
+        "<p>Updated {new Date(at).toLocaleString('en-GB')}</p>",
+        "<nav className={isNarrow ? 'nav-narrow' : 'nav-wide'} />"
+      ),
+      '',
+      'One of these is the expensive failure and the other is the dangerous one. Explain what each',
+      'costs in the DOM.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'discard',
+            'regenerat',
+            'rebuil',
+            'recreat',
+            'remount',
+            'thrown away',
+            'throw away',
+            'from scratch',
+            'every node',
+            'whole tree',
+            'boundary',
+            'suspense',
+          ],
+          missingFeedback: 'What happens to the DOM nodes around the text mismatch?',
+        },
+        {
+          synonyms: [
+            'not patch',
+            'never patch',
+            "isn't patch",
+            'not repair',
+            'never repair',
+            'unrepaired',
+            'keeps',
+            'kept',
+            'stays',
+            'left alone',
+            'stale',
+            'nav-narrow',
+          ],
+          missingFeedback: 'And the class attribute: what does the DOM end up holding?',
+        },
+        {
+          synonyms: [
+            'silent',
+            'production',
+            'no warning',
+            'no error',
+            'nothing',
+            'unnoticed',
+            'no log',
+          ],
+          missingFeedback: 'Which of the two would you never hear about, and why?',
+        },
+      ],
+      hints: [
+        'Hydration compares two renders. What it does about a difference depends on where the difference is.',
+        'One of them regenerates DOM nodes. The other leaves the DOM exactly as the server wrote it.',
+        'The attribute mismatch is never patched up, and a production build does not log it.',
+      ],
+    },
+    canonicalAnswer:
+      "The text mismatch is loud and expensive: React discards every node up to the nearest Suspense boundary, or the whole root when there is none, and rebuilds them, so focus, scroll and uncontrolled input values go with them. The attribute mismatch is cheap and dangerous: it is never patched up, so the DOM keeps the server's nav-narrow while React's tree believes nav-wide, and a production build logs nothing at all.",
+    solution: md(
+      'Text mismatch: React discards every node up to the nearest `<Suspense>` boundary and rebuilds',
+      'it. Expensive, and it announces itself.',
+      '',
+      'Attribute mismatch: nothing is repaired. The DOM keeps `nav-narrow`, React believes',
+      '`nav-wide`, and a production build logs nothing.'
+    ),
+    explanation:
+      'Measured on React 19.2.8: a text mismatch inside a `<p>` nested three levels deep discarded all five nodes in the tree, and a `<Suspense>` boundary around the section cut that to two. The server render bought nothing for the region it threw away, and whatever the DOM was holding went with it: focus, scroll position, an uncontrolled input\'s value. The attribute mismatch kept every node and repaired none. React gives the reason rather than apologising for it: "There are no guarantees that attribute differences will be patched up ... validating all markup would be prohibitively expensive." So the `<nav>` keeps the server\'s class through later state changes that rewrite the text inside it, a development build logs one line, and a production build logs nothing. The failure that shouts is the one you fix in an afternoon.',
+  },
+
+  {
+    slug: 'react-suppress-hydration-warning',
+    title: 'The warning is gone, the time is wrong',
+    category: 'react',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'short-text',
+    prompt: md(
+      'A comment timestamp mismatched during hydration, so the warning was silenced:',
+      '',
+      code(
+        'jsx',
+        '<time dateTime={at} suppressHydrationWarning>',
+        "  {new Date(at).toLocaleString('en-GB')}",
+        '</time>'
+      ),
+      '',
+      'The server container is set to UTC and the reader is in New York, so the two renders produce',
+      'different text. Whose text is on screen once hydration finishes, and still there after a',
+      'later re-render of this component?'
+    ),
+    graderConfig: {
+      accept: [
+        "the server's",
+        "server's",
+        'the server',
+        'server',
+        'the server render',
+        'the server pass',
+        "the server's text",
+      ],
+      closeSubstrings: {
+        client:
+          "That is what you get without the prop: a text mismatch discards the node and rebuilds it from the client render. Suppressing the warning keeps the node instead, so the other render's text is the one that stays.",
+        '06:20':
+          "That is the browser's render. The prop keeps the node React would otherwise have discarded, so the text written before it was ever sent is the text that stays.",
+      },
+      hints: [
+        'The prop tells React not to report the difference. It does not tell React to fix it.',
+        'Without the prop, a text mismatch discards the node and rebuilds it from the client render. With it, the node is kept.',
+        'Kept means the string that arrived in the HTML is still there, and still there after the next re-render.',
+      ],
+    },
+    canonicalAnswer: "the server's",
+    solution:
+      "The server's. `suppressHydrationWarning` keeps the node React would otherwise have discarded, so the UTC text stays on screen.",
+    explanation:
+      'Measured on React 19.2.8: with the prop, hydration reports nothing, keeps every node, and leaves the server\'s `19/02/2026, 11:20:00` on screen, still there after a state change re-rendered the same component. The prop is not a fix for a zone problem, it is a way to stop hearing about one, and it leaves the reader on UTC. React calls it "an escape hatch" and says "Don\'t overuse it." The two fixes that localise anything are sending the finished string from the server, which needs the zone in a cookie because a request does not carry it, or rendering something zone-free and correcting it after mount, which costs a second render and a flash. `dateTime` is doing the other half of the job: whatever the text says, the machine-readable value stays right.',
+  },
+
+  {
+    slug: 'react-typeof-window-guard',
+    title: 'The guard that shipped the bug',
+    category: 'react',
+    difficulty: 'medium',
+    relevance: 'daily',
+    type: 'explain',
+    prompt: md(
+      'A component read `window.innerWidth` during render, and the server pass threw',
+      '`ReferenceError: window is not defined`. This shipped:',
+      '',
+      code('jsx', "const isNarrow = typeof window !== 'undefined' && window.innerWidth < 700;"),
+      '',
+      'The crash is gone. Explain what replaced it, and what you would do instead.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'mismatch',
+            'differ',
+            'different branch',
+            'branch',
+            'false on the server',
+            'true in the browser',
+            'disagree',
+            'hydrat',
+          ],
+          missingFeedback: 'What value does the guard have in each of the two passes?',
+        },
+        {
+          synonyms: [
+            'silent',
+            'every request',
+            'someone else',
+            'production',
+            'intermittent',
+            'harder',
+            'deterministic',
+            "you don't have",
+            'do not have',
+          ],
+          missingFeedback: 'Compare the two failures: where and when does each one show up?',
+        },
+        {
+          synonyms: [
+            'effect',
+            'usestate',
+            'isclient',
+            'after mount',
+            'on mount',
+            'client-only',
+            'client only',
+            'fallback',
+            'ssr: false',
+          ],
+          missingFeedback: 'What would you do instead?',
+        },
+      ],
+      hints: [
+        "`typeof window !== 'undefined'` has a known value in each pass. Write down what it is in both.",
+        'The two renders now take different branches, which is exactly what hydration compares.',
+        'A crash happens on every request and you fix it that morning. A mismatch happens in a browser you do not have.',
+      ],
+    },
+    canonicalAnswer:
+      "The guard is false during the server pass and true in the browser, so the two renders take different branches by construction and hydration mismatches. That trades a crash you get on every request, which you find immediately, for a wrong render in someone else's browser that a production build never logs. Render the server's version, then set an isClient flag in an effect and re-render, or mark the subtree client-only so the server emits a fallback.",
+    solution: md(
+      code(
+        'jsx',
+        'const [isClient, setIsClient] = useState(false);',
+        'useEffect(() => setIsClient(true), []);',
+        'const isNarrow = isClient && window.innerWidth < 700;'
+      ),
+      '',
+      'Both passes render the same thing, then the client corrects itself. The alternative is marking',
+      'the subtree client-only so the server renders a fallback for it.'
+    ),
+    explanation:
+      "React's hydration error message lists this cause first: \"A server/client branch `if (typeof window !== 'undefined')`\". The guard does exactly what it says, which is the problem. It is false where there is no `window` and true where there is, so the two passes render different trees on purpose, and hydration is the comparison that catches it. What was given up is worth naming: a `ReferenceError` out of `renderToString` fails every request, in your own terminal, on the first one you send. A mismatch fails in a browser you do not have, and if it lands on an attribute rather than text, nothing is repaired and a production build logs nothing. The honest fix costs a second render, because a value only one runtime can work out has to travel with the HTML or wait until after hydration.",
+  },
 ];

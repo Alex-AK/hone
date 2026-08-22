@@ -52,22 +52,13 @@ records what it found, including why the count the pass was built around is reti
 carried forward: it had not moved a single slug across four sections and sixty-five new reps, because
 it was counting a floor rather than a drift.
 
-## The server pass has a page and no reps
-
-`react/where-rendering-happens.md` shipped and could cite only one `react` rep, because the category
-holds 38 and none of them is about the pass that produced the HTML. The page's traps hand over three
-candidates ready-made, all `explain` or `short-text` shaped and needing no new machinery: what a text
-mismatch costs against what an attribute mismatch costs, what `suppressHydrationWarning` actually
-leaves on the screen, and why `typeof window` is a worse fix than the crash it prevents. A workout is
-refused rather than queued, and ADR-0172 has that argument.
-
 ## Depth per challenge
 
 **The content queue has run out and none of this is more content.** What is left is that a green tick
 is a weak claim. Every workout is entered cold, ends the moment its suites pass, and is never opened
-again, so what a run proves is "the examples somebody thought of came back right". These five rows
-are about making the same 38 workouts and 579 reps ask for more, and they are ordered by what they
-return against what they cost.
+again, so what a run proves is "the examples somebody thought of came back right". These three rows
+are about making the same library ask for more, and they are ordered by what they return against
+what they cost.
 
 - **Four more generated checkpoints, and `queue-consumer-node` is next.** ADR-0167 holds the audit
   that produced the queue and what it refused; `alert-feed-sqlite`, `one-recompute-not-fifty` and

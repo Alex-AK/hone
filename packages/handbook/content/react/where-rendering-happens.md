@@ -3,6 +3,9 @@ title: Where rendering happens
 question: React says the server HTML did not match. What ran twice, and why do the two disagree?
 order: 9
 practise:
+  - react-hydration-mismatch-cost
+  - react-suppress-hydration-warning
+  - react-typeof-window-guard
   - react-unnecessary-effect
   - dates-format-locale
   - dates-relative-time
