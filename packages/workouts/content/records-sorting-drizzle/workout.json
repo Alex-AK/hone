@@ -38,6 +38,12 @@
       "title": "Clicking a header sorts, and clicking again reverses it",
       "testFile": "tests/checkpoints/04-client-toggles.test.tsx",
       "hint": "The header click has to change local state and pass it to the fetch, and clicking the active column flips the direction."
+    },
+    {
+      "id": "rules-hold-on-any-roster",
+      "title": "The rules hold on rosters nobody wrote",
+      "testFile": "tests/checkpoints/05-the-rules-hold-on-any-roster.test.ts",
+      "hint": "These rosters walk every column in both directions, at a page size chosen not to divide the roster, which is the walk the other four never take. Read the first line of the report, because it names the rule that broke. If an employee is on no page at all, look for a WHERE that is only there when the sort column is nullable. If the ordering breaks across a boundary, check that the key the database sorted on is the column the caller asked for: an allowlist keyed `started_at` never matches a request for `startedAt` and falls back to name without saying so."
     }
   ]
 }

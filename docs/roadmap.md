@@ -60,27 +60,31 @@ again, so what a run proves is "the examples somebody thought of came back right
 about making the same library ask for more, and they are ordered by what they return against what
 they cost.
 
-- **One more generated checkpoint, and it is `records-sorting-drizzle`.** ADR-0167 holds the audit
-  that produced the queue and what it refused; `alert-feed-sqlite`, `one-recompute-not-fifty`,
-  `retry-with-backoff-node`, `queue-consumer-node` and `product-search-drizzle` are done, and
-  ADR-0177, ADR-0181, ADR-0182, ADR-0183 and ADR-0186 hold what they found. Three more have the
-  contract and an argument about cost rather than about the contract, and they wait behind it:
-  `outbox-relay-node`, `idempotent-payments-express`, `rate-limit-express`. **The cost predictor is
-  how many times the clock has to move**, not whether there is a fake one: the two workouts that
-  script advances cost eight to ten times their other checkpoints, the two that move it only where a
-  scenario needs it cost four and a half, and the two that drive a database rather than a clock cost
-  a half and a quarter. The one that is left drives a database too, so it stays cheap. **And this row
-  no longer names the axis.** It
-  named the wrong one twice and named none once, and the time it named none was the only time it was
-  right, because the axis has never yet been a parameter of the problem: it is whatever the
-  hand-written examples happened to hold still (ADR-0182, and two such things at once in ADR-0183).
+- **Three generated checkpoints, and the question is whether any of them is worth its harness.**
+  ADR-0167's qualified list is empty: six were built, and ADR-0177, ADR-0181, ADR-0182, ADR-0183,
+  ADR-0186 and ADR-0187 hold what each one found. What is left is the three it deferred on cost
+  rather than on contract, and they are a different question from the six, because in all three the
+  invariant is driven over HTTP and the harness rather than the property decides the runtime:
+  `outbox-relay-node`, `idempotent-payments-express`, `rate-limit-express`. Decide each one on a
+  measurement rather than on the contract, which is already known to be real.
 
-  **`class-places-sqlite` left this queue by being refused rather than built (ADR-0184)**, which is
-  the first one to. Its contract is real and its cost prediction was right; what it does not have is
-  anywhere to stand. The only hook fires before any transaction opens, so every operation is atomic
-  against every other one and a generated interleaving is a serial order. A generator was written
-  and measured against eleven planted bugs before that was concluded, and it separated from the four
-  hand-written checkpoints on none of them.
+  **The cost predictor held on every workout it was applied to.** It is how many times the clock has
+  to move, not whether there is a fake one: the two that script advances cost eight to ten times
+  their other checkpoints, the two that move it only where a scenario needs it cost four and a half,
+  and the two that drive a database rather than a clock cost a quarter each. Twice now the ratio has
+  been the misleading half of that (ADR-0186, ADR-0187): where one checkpoint in a workout boots
+  something expensive, quote the absolute figure.
+
+  **The axis was never once a parameter of the problem.** This row named it wrong twice and named
+  none once, and the time it named none was the only time it was right. It is whatever the
+  hand-written examples happened to hold still: one thing in ADR-0182, two at once in ADR-0183 and
+  ADR-0186, four at once in ADR-0187.
+
+  **One left by being refused rather than built (ADR-0184).** `class-places-sqlite` has a real
+  contract and its cost prediction was right; what it does not have is anywhere to stand, because its
+  only hook fires before any transaction opens and a generated interleaving is therefore a serial
+  order. A generator was written and measured against eleven planted bugs before that was concluded,
+  and it separated from the four hand-written checkpoints on none of them.
 
 - **The rest of the AI-engineering track.** `tool-loop-node` is built, over a recorded in-process
   fixture rather than a fixture server: ADR-0174 records why the noun changed and what would reopen

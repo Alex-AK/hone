@@ -23,6 +23,21 @@ Add sorting to the employee list, backend and frontend.
 - The current sort column and direction are visible to the user.
 - Changing the sort goes back to page 1.
 
+## The last checkpoint
+
+The first four walk the pages once, and they do it in the one configuration where paging cannot go
+wrong: ascending, over a column whose twelve values are all different and never null, at a page size
+that divides twelve exactly. Two of the four sortable columns are never sorted on at all, and one of
+those is the nullable one. The last checkpoint generates the roster and the sort together: either
+direction, every column, ties, employees with no start date, and a page size chosen not to divide the
+roster.
+
+It adds no rules. Everything it checks is on this page already, and two things it deliberately does
+not check are the two this page calls optional: where the rows with no start date sit, and whether
+the tie-break is explicit. When it fails it leads with the rule that broke and then prints the
+shortest roster that still breaks it, which is a complete reproduction: those employees, that sort,
+that page size.
+
 ## Notes
 
 The data is seeded and deterministic: 12 employees across 3 departments, with deliberate ties in

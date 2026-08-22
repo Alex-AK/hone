@@ -1158,6 +1158,52 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   walk is refused rather than deferred: offset pagination cannot survive one, the brief never claims
   it can, and that lesson is `alert-feed-sqlite`'s, which is what keeps the two checkpoints disjoint.
 
+- **ADR-0187 — `records-sorting-drizzle`'s axis was that its one walk happens in the one configuration
+  where paging cannot go wrong, and it empties ADR-0167's qualified list.** The four hand-written
+  checkpoints walk the pages exactly once, ascending, over a column whose twelve values are all
+  different and never null, at a page size that divides twelve exactly, stopping on the last full
+  page. Four things pinned at the same time, none of them a parameter of the problem, which is
+  ADR-0183's shape a second time. Two of the four sortable columns are never sorted on at all, and
+  one of those is the nullable one `db.ts` calls nullable on purpose.
+
+  **Twelve planted bugs, ten caught, five caught by nothing else**: an allowlist keyed `started_at`
+  so a request for `startedAt` falls back to name without saying so, a copy-paste that maps
+  `startedAt` to the name column, a `WHERE` that drops the rows with no start date, sorting the whole
+  table in JavaScript with a comparator that calls null equal to everything, and descending
+  implemented as the ascending list read from the other end. That last one is the best of them: it is
+  correct on every page size that divides the roster, which is every page size the other four use.
+
+  **The tie-break cannot be observed, and the reference is the evidence.** ADR-0167 wrote this
+  workout's contract as "concatenating the pages gives a total order containing every row once", and
+  the total-order half is invisible: `employees.id` is the rowid, so a table scan visits in id order
+  and SQLite's sorter is stable, which makes `ORDER BY col` and `ORDER BY col, id` the same query for
+  any data this schema can hold. Measured over 61,248 comparisons. The reference ships
+  `asc(employees.id)` and the brief files making it explicit under "if you finish early", both
+  consistent with it being decoration. Every one of the five unique catches lives in the other half,
+  "every row once", and comes from partial last pages, columns nobody sorts on, and nulls.
+
+  **One reachable bug was refused.** Clamping a requested page to the last real page is a plausible
+  first draft, and a walk that asked for a page past the end would catch it. The walk follows the
+  total it was handed, because that is what a page control does with it, and the brief says nothing
+  about a page that does not exist. Catching it would have meant adding a rule rather than reading
+  the same one more strictly.
+
+  **Two things the brief calls optional are deliberately unchecked**, and one of them was written
+  before it was deleted. Rows with a null sort key are skipped by the ordering rule rather than
+  expected at one end, because `nullsLast` is an "if you finish early" item and either placement is
+  allowed. A rule about where they sit was written, measured to catch nothing the other rules already
+  caught, and removed.
+
+  **Cost is 104ms**, and the ratio is the misleading number here for the second time. It is 0.26x the
+  other four, but 371ms of their 398ms is the client checkpoint booting jsdom; against the three
+  server checkpoints it is nearly four times them. The absolute figure is the one worth quoting, and
+  ADR-0182's predictor has now been right on every workout it was applied to.
+
+  **This empties the list ADR-0167 qualified.** Six of its seven were built, one was refused on the
+  contract (ADR-0184), and what is left is the three it deferred on cost rather than on contract:
+  `outbox-relay-node`, `idempotent-payments-express`, `rate-limit-express`. Those are a different
+  question, because in all three the harness rather than the property decides the runtime.
+
 ## The handbook
 
 - **ADR-0067 — Pages are markdown that reads fine on GitHub.** The repo is public and that reach costs nothing.
