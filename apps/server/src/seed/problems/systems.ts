@@ -207,6 +207,63 @@ export const systemsProblems: ProblemDraft[] = [
   },
 
   {
+    slug: 'sys-l4-vs-l7-balancer',
+    title: 'The path it cannot see',
+    category: 'systems',
+    difficulty: 'medium',
+    relevance: 'foundational',
+    type: 'explain',
+    prompt: md(
+      'Your service sits behind a TCP load balancer that forwards connections without looking inside them. Two new requirements land: `/api` has to go to a different pool from everything else, and each request has to arrive carrying the client IP in a header.',
+      '',
+      'Name what the balancer has to start doing before either is possible, and the one thing that has to move to it as a result.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'parse',
+            'parsing',
+            'read the request',
+            'reading the request',
+            'read each request',
+            'inspect',
+            'layer 7',
+            'layer-7',
+            'l7',
+            'application layer',
+            'http-aware',
+            'http aware',
+            'understand http',
+            'understands http',
+            'reverse proxy',
+          ],
+          missingFeedback:
+            'It is forwarding bytes it never looks at. What does it have to start doing before a path or a header exists for it?',
+        },
+        {
+          synonyms: ['tls', 'ssl', 'certificate', 'decrypt'],
+          missingFeedback:
+            'It cannot read an encrypted stream. What has to move to the balancer before it can parse anything?',
+        },
+      ],
+      hints: [
+        'Routing on a path means knowing there is a path, and right now it only sees a TCP connection.',
+        'To match on `/api` it has to be the thing the client connects to, and open the envelope rather than forward it.',
+        'An encrypted stream is unreadable, so the decryption has to happen at the balancer.',
+      ],
+    },
+    canonicalAnswer:
+      'It has to start parsing the HTTP request rather than forwarding bytes, which is what layer 7 means: only then is there a path to match or a header to append. The cost is that TLS has to terminate there, because an encrypted stream is unreadable, so the certificate and the decryption move to the balancer and what reaches your instances is a fresh connection it opens itself.',
+    solution: md(
+      '- **What it starts doing**: parsing the HTTP request (layer 7). An L4 balancer forwards a TCP connection blind, so `/api` and `X-Forwarded-For` do not exist as far as it is concerned.',
+      '- **What moves to it**: TLS termination. It cannot parse an encrypted stream, so the certificate and the decryption live at the balancer, and it opens its own connection to the backend.'
+    ),
+    explanation:
+      'L4 and L7 is not a performance dial, it is a question of whether the balancer is allowed to look. An L4 balancer moves a TCP connection to a backend and never learns what is inside it, which is cheap and works for anything, TCP or otherwise, but leaves it unable to distinguish two requests on the same connection. Everything people actually want from a balancer, path and host routing, appending `X-Forwarded-For`, retrying a failed request somewhere else, is reading the request, and reading the request means holding the key. So the certificate moves to the balancer, and the leg to your instances becomes a separate connection that is commonly plain HTTP, which is why `req.protocol` starts lying and why the client IP survives only as a header somebody chose to add.',
+  },
+
+  {
     slug: 'sys-connection-level-balancing',
     title: 'Round robin, one hot pod',
     category: 'systems',

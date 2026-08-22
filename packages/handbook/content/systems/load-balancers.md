@@ -5,6 +5,7 @@ order: 4
 practise:
   - sys-xfp-redirect-loop
   - sys-load-balancer-basics
+  - sys-l4-vs-l7-balancer
   - sys-connection-level-balancing
   - security-xff-trust
 sources:
