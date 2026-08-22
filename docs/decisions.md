@@ -1958,3 +1958,35 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   routes and a file-upload path to be maintained for it. ADR-0154 describes export and import as part
   of the hosted build it declined; that was never built and this is not it — no round trip, no second
   runtime, no browser storage.
+
+- **ADR-0185 — The rung an answer was given at is recorded now, and reading the history back waits
+  for a ladder that has actually run.** The roadmap queued a report over the attempt history, and
+  reading that history in order to scope it is what settled it. It holds one sitting: 124 answers
+  inside 76 minutes, two problems with more than one attempt, and `review_count` at zero on all 128
+  rows, which means not a single review has ever been answered. Of the four questions the row wanted
+  to ask, one has two candidates, one has no data at all, one needs the ladder to have run, and only
+  "the wrong answers actually submitted" has anything behind it. A report written against that could
+  have been checked against nothing, which is the opposite of a row whose whole point is that the
+  library improves with use.
+
+  **What could not wait is the recording, and that is the whole finding.**
+  `problem_progress.review_step` holds the rung a problem is on now, and a wrong review sets it to
+  zero. So the fact the report needs, which interval a rep was missed at, is destroyed by the event
+  that creates it. Replaying the ladder over the attempt log does not recover it either: `reset`
+  deliberately keeps the attempts and throws the progress away, so a replay diverges on exactly the
+  reps somebody cared enough to reset.
+
+  **So `attempts.review_step` ships on its own.** Null on a first pass, and null on every row written
+  before the column existed, which under-counts reviews rather than inventing them. `ExportedAttempt`
+  carries it and a file without the field imports as null. The attempt identity key is untouched,
+  because a rung is a property of an answer rather than of which answer it is, so ADR-0169's union
+  still dedupes the way it did.
+
+  **The general shape is worth keeping.** A feature that reads accumulated data has two halves on
+  different deadlines. The reading half can wait indefinitely and is usually better for waiting. The
+  writing half has one moment, which is before the data starts accruing, and it does not come round
+  again. Splitting them is not a compromise between building and deferring; it is the only ordering
+  that leaves the deferred half possible.
+
+  Reopen once reviews have been answered. Nothing about the questions changes, and the UI half is
+  still one prop on `HandbookLinks`.

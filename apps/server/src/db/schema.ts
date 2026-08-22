@@ -57,6 +57,17 @@ export const attempts = sqliteTable(
       .references(() => problems.id),
     answer: text('answer').notNull(),
     verdict: text('verdict', { enum: VERDICTS }).notNull(),
+    /**
+     * The rung this answer was given at, when it was a review, and null when it
+     * was not one. `problem_progress` keeps only the rung a problem is on now,
+     * and a wrong review resets that to zero, so without this column nothing can
+     * ever say which interval a rep was missed at. It cannot be backfilled by
+     * replaying the ladder either: `reset` deliberately keeps the attempt rows
+     * and throws the progress away, so a replay diverges on exactly the reps
+     * somebody cared enough to reset. Null on every row written before it
+     * existed, which under-counts reviews rather than inventing them.
+     */
+    reviewStep: integer('review_step'),
     createdAt: text('created_at')
       .notNull()
       .default(sql`(CURRENT_TIMESTAMP)`),

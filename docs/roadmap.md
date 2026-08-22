@@ -56,9 +56,9 @@ it was counting a floor rather than a drift.
 
 **The content queue has run out and none of this is more content.** What is left is that a green tick
 is a weak claim. Every workout is entered cold, ends the moment its suites pass, and is never opened
-again, so what a run proves is "the examples somebody thought of came back right". These three rows
-are about making the same library ask for more, and they are ordered by what they return against
-what they cost.
+again, so what a run proves is "the examples somebody thought of came back right". These two rows are
+about making the same library ask for more, and they are ordered by what they return against what
+they cost.
 
 - **Two more generated checkpoints, and `product-search-drizzle` is next.** ADR-0167 holds the audit
   that produced the queue and what it refused; `alert-feed-sqlite`, `one-recompute-not-fifty`,
@@ -81,31 +81,6 @@ what they cost.
   against every other one and a generated interleaving is a serial order. A generator was written
   and measured against eleven planted bugs before that was concluded, and it separated from the four
   hand-written checkpoints on none of them.
-
-- **Read the attempt history back, which answers two questions rather than one.** 579 reps, a review
-  ladder, and nothing ever asks what the outcomes say. It is a local report over local data, so
-  ADR-0004 is untouched, and it is the only row here that makes the library improve with use rather
-  than with authoring.
-
-  **About the content**, three things are already in `app.db` and unread: a rep nobody misses twice is
-  dead weight in a morning, a rep missed at every interval is an `explanation` that is not carrying
-  its lesson, and the wrong answers actually submitted are the raw material for `nearMisses`, which is
-  authored by guessing today.
-
-  **About the reader**, which is the half that was missing until a study-skills course was read for
-  ideas and gave back exactly one. It opens by assessing habits before it teaches anything, and this
-  app has never asked what you are bad at despite holding the data to answer. Same query, second
-  question: not which reps are weak, but which postures are — reading unfamiliar code, types, the
-  debugging reps, whichever category the ladder keeps resetting. The tags line already exists to
-  enter a posture on purpose, and nothing points you at one.
-
-  **What that would change in the UI is one thing and it is small.** The two-way link is already
-  built: a page names what practises it and `HandbookLinks` reads that backwards, so every problem
-  already carries "Read about it". What it cannot do is weight itself. A rep you have missed at three
-  intervals wants its page escalated rather than listed beside the answer at the same size as
-  everything else, and that is the encoding half of this app finally being aimed by the retrieval
-  half. It waits on the same data, which is why it is here and not a row of its own. See ADR-0168 for
-  what else that course was read for and why almost none of it applies.
 
 - **The rest of the AI-engineering track.** `tool-loop-node` is built, over a recorded in-process
   fixture rather than a fixture server: ADR-0174 records why the noun changed and what would reopen
@@ -161,6 +136,17 @@ Listed so they are decisions rather than oversights. The arguments live in
 - **A weekly long-session preset**, superseded by the essentials path, which has shipped. The preset
   was a longer daily queue; a curated order is the better answer, and it does not wait on whether
   workouts fit a morning, because it is explicitly not a morning session.
+- **Reading the attempt history back**, which was a queued row until the history was read in order to
+  scope it. It holds one sitting: 124 answers inside 76 minutes, and `review_count` is zero on all 128
+  rows, so not one review has ever been answered. Two of the three content questions have no data at
+  all and the posture question needs a ladder that has run, so the report would have been written
+  against a table nothing could check it against. **The recording half shipped instead.**
+  `attempts.review_step` now keeps the rung an answer was given at, which is the one piece that had to
+  land before the data accrues rather than after: a wrong review throws that rung away, and `reset`
+  keeps the answers while dropping the progress, so it cannot be reconstructed later. ADR-0185 has the
+  argument, and ADR-0168 has what the study-skills course contributed to the reader half. Revisit once
+  reviews have been answered. The questions are unchanged, and the UI half is still one prop on
+  `HandbookLinks`.
 - **Progress tracking on modules**, including whether a failed prediction should schedule a review.
   That is a migration, and it waits for real data.
 - **A schedule on cards**, which is the same migration and a weaker signal, since a self-graded card

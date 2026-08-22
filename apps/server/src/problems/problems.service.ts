@@ -120,6 +120,9 @@ export class ProblemsService {
         problemId: problem.id,
         answer,
         verdict: result.verdict,
+        // Only a problem that was already solved is being reviewed, so a first
+        // pass records no rung rather than recording rung zero.
+        reviewStep: before.status === 'solved' ? before.reviewStep : null,
         createdAt: nowIso(),
       })
       .run();

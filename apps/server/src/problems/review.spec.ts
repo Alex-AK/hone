@@ -9,7 +9,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { CurrentUserService } from '../common/current-user.service';
 import { type AppDb, openAppDatabase, runMigrations } from '../db/client';
-import { problemProgress, problems } from '../db/schema';
+import { attempts, problemProgress, problems } from '../db/schema';
 import { ProgressService } from '../progress/progress.service';
 import { openPracticeDatabase } from '../seed/practice-db';
 import { problemSeeds } from '../seed/problems.seed';
@@ -52,6 +52,22 @@ function scheduleOf(slug: string): {
     .where(and(eq(problemProgress.problemId, problem?.id ?? 0), eq(problemProgress.userId, 1)))
     .all();
   return row ?? { dueAt: null, reviewStep: 0, reviewCount: 0 };
+}
+
+/** The rung recorded against each answer for a slug, oldest first. */
+function rungsOf(slug: string): (number | null)[] {
+  const [problem] = db
+    .select({ id: problems.id })
+    .from(problems)
+    .where(eq(problems.slug, slug))
+    .all();
+  return db
+    .select({ reviewStep: attempts.reviewStep })
+    .from(attempts)
+    .where(and(eq(attempts.problemId, problem?.id ?? 0), eq(attempts.userId, 1)))
+    .orderBy(attempts.id)
+    .all()
+    .map((row) => row.reviewStep);
 }
 
 /** Pull a problem's review date into the past so it is due now. */
@@ -134,6 +150,20 @@ describe('spaced repetition', () => {
     await service.submitAttempt(SLUG, 'filter');
     expect(scheduleOf(SLUG).reviewStep, 'a failed review resets the ladder').toBe(0);
     expect(daysFromNow(scheduleOf(SLUG).dueAt)).toBe(REVIEW_INTERVALS_DAYS[0]);
+  });
+
+  it('records the rung each answer was given at, and a first pass as no rung', async () => {
+    await service.submitAttempt(SLUG, 'filter');
+    await service.submitAttempt(SLUG, answerFor(SLUG));
+    makeDue(SLUG);
+    await service.submitAttempt(SLUG, answerFor(SLUG));
+    makeDue(SLUG);
+    await service.submitAttempt(SLUG, 'filter');
+
+    expect(rungsOf(SLUG)).toEqual([null, null, 0, 1]);
+    // The whole reason the column exists: the answer keeps the rung it was
+    // given at, where the ladder has already thrown that rung away.
+    expect(scheduleOf(SLUG).reviewStep).toBe(0);
   });
 
   it('keeps a problem solved even when a review is failed', async () => {

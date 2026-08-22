@@ -1,0 +1,1 @@
+ALTER TABLE `attempts` ADD `review_step` integer;

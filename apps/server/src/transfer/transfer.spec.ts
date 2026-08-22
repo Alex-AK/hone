@@ -16,7 +16,7 @@ import {
   users,
   workoutAttempts,
 } from '../db/schema';
-import { exportProgress, importProgress, parseExport } from './transfer';
+import { type ExportedAttempt, exportProgress, importProgress, parseExport } from './transfer';
 
 const dir = mkdtempSync(join(tmpdir(), 'hone-transfer-'));
 const USER = 1;
@@ -173,6 +173,25 @@ describe('progress transfer', () => {
     expect(attemptsOf(personal, 'js-find')).toHaveLength(2);
     // Neither side's own counter said 2; only the merged log does.
     expect(progressOf(personal, 'js-find')?.attemptsCount).toBe(2);
+  });
+
+  it('carries the rung each answer was given at, and reads a file without one as no rung', () => {
+    solve(work, 'js-find', '2026-08-01T09:00:00Z', 'from work');
+    work.db
+      .update(attempts)
+      .set({ reviewStep: 3 })
+      .where(eq(attempts.problemId, work.ids.get('js-find') ?? 0))
+      .run();
+    solve(work, 'react-keys', '2026-08-02T09:00:00Z', 'no rung on this one');
+
+    const file = exportProgress(work.db, USER, 'now');
+    // An export written before the column existed carries no such field.
+    const older: Partial<ExportedAttempt> | undefined = file.problems['react-keys']?.attempts[0];
+    delete older?.reviewStep;
+    importProgress(personal.db, USER, parseExport(JSON.stringify(file)));
+
+    expect(attemptsOf(personal, 'js-find')[0]?.reviewStep).toBe(3);
+    expect(attemptsOf(personal, 'react-keys')[0]?.reviewStep).toBeNull();
   });
 
   it('takes the review ladder from whichever machine saw it last', () => {
