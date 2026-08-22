@@ -1064,6 +1064,45 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   consumers: the brief puts that under "if you finish early", so generating it would be a new
   exercise rather than a stricter reading of this one.
 
+- **ADR-0184 — `class-places-sqlite`'s generated checkpoint is refused, because the workout has one
+  interleaving point and it sits outside every transaction.** ADR-0167 qualified it on the contract,
+  "places left equals capacity minus live bookings under any interleaving, and never goes negative",
+  which is a real invariant and clears the first two of that audit's four tests. It fails the third,
+  which is the one that matters: the generated version has to reach a case the hand-written examples
+  structurally cannot, and here it cannot.
+
+  **The reason is mechanical.** `runDuringNextCheck` is the only hook the workout has, it fires
+  inside `checkMembership`, and `checkMembership` runs before `book` opens its transaction.
+  better-sqlite3 is synchronous. So every `book` and every `cancel` is atomic with respect to every
+  other one, and what looks like a generated interleaving is a serial ordering of atomic operations.
+  The three orderings that carry the contract are the three the hand-written checkpoints already
+  are.
+
+  **Measured rather than argued.** Eleven planted bugs, and a throwaway generator running 240
+  scenarios across two seeds, nesting to depth three over all three classes and both connections,
+  auditing the invariant on every class after every operation and checking what each call reported
+  against what the class then held. It caught exactly the four the hand-written checkpoints catch,
+  and missed exactly the seven they miss. Not one bug separated them.
+
+  **The seven neither catches split two ways, and the split is the argument.** Two are not bugs at
+  all: a read-decide-write is correct here as long as the read is inside the transaction, and
+  recomputing the count from the bookings is correct as long as the guard stays. The other five all
+  need something to commit while a transaction is open, which is the one thing nothing can do: no
+  transaction at all in `book`, none in `cancel`, a deferred transaction that reads before it
+  writes, an exclusive lock held across the whole booking, and a `cancel` whose state guard exists
+  only in its early check. Five bugs, one reason, and it is the same reason the generator adds
+  nothing.
+
+  **What would reopen it is a second hook, inside the transaction, and that is refused separately.**
+  `db.ts` and `members.ts` are handed to the reader as the environment they are working in. ADR-0166
+  declined to make `clock.ts` cheaper for a suite's benefit on the grounds that it changes what the
+  reader is given, and widening a hook to make a checkpoint stronger is the same move.
+
+  **Cost was never what stopped it**, which is worth recording on its own. The throwaway generator
+  ran its 240 scenarios in 448ms against the other four's 74ms, so ADR-0182's prediction that the
+  database ones stay cheap held. A cost prediction can be right and the checkpoint still not be
+  worth having.
+
 ## The handbook
 
 - **ADR-0067 — Pages are markdown that reads fine on GitHub.** The repo is public and that reach costs nothing.
