@@ -1024,6 +1024,46 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   second client, which is why the wait rules are checked one gap at a time against what the trace
   says already happened.
 
+- **ADR-0183 — The axis was two things held still rather than one, and dropping the prediction from
+  the row is what made that findable.** ADR-0182 retired the roadmap's axis column on the grounds
+  that the axis has never been a parameter of the problem. `queue-consumer-node` is the first one
+  audited without a guess to defend, and it has two non-parameters rather than one. Every hand-written
+  checkpoint runs on the same `{ visibilityTimeoutMs: 30_000, heartbeatMs: 10_000, maxReceiveCount: 3 }`,
+  and the single delivery whose ack dies is the first delivery of a job with two more coming, which
+  is the one spot where getting the ack's neighbourhood wrong has somewhere to disappear to. Separately,
+  all four only read the queue between runs, so nothing ever asks what it is holding while a handler
+  is actually running.
+
+  **Ten planted bugs, nine caught by the fifth, four caught by nothing else**, and the four split
+  along those two seams exactly. Two are the ack: an implementation that puts `queue.ack` inside the
+  same `try` as the handler sends a document it successfully converted to the dead-letter store, and
+  one that swallows an ack failure answers `handled` for a job the queue still has. Both are invisible
+  at `maxReceiveCount: 3`, and both fall out of a single run once a job can be given one delivery.
+  Two are the heartbeat: extending by `heartbeatMs` instead of the visibility timeout, and beating
+  once per visibility timeout rather than per heartbeat, each leave the job grabbable at every beat
+  and each pass all four hand-written checkpoints.
+
+  **The handler is what does the looking, which is how the second seam became checkable at all.**
+  Nothing outside can observe the queue mid-`advance`, so the generated scenario hands in a handler
+  that reads `queue.inFlight()` at every step it wakes on. That is the brief's own "no second worker
+  gets a job that is still being worked on" read continuously instead of once, so it clears the
+  no-new-rules bar in `content.md` rather than bending it.
+
+  **Cost came in at 4.3x, and the reason is new.** 238ms against the other four's 56ms, which is the
+  retry client's number and not the breaker's, but arrived at differently: a handler that resolves
+  immediately settles in microtasks and moves the clock zero times, so only the deliveries that are
+  generated slow cost anything. ADR-0182's predictor therefore holds a third time and gains a
+  corollary, which is that scenarios can be made cheap by generating most of them not to need the
+  clock at all.
+
+  **Three blind spots are accepted rather than chased.** A dead-letter reason that ignores the error
+  is caught by the fourth checkpoint and not by this one, which is the right division of labour and
+  not a gap. A heartbeat late by a millisecond rather than by a whole interval exposes the job only
+  at the instant of the deadline, and whether the probe sees it depends on which timer the clock
+  fires first at a tie, so it is not something to build a rule on. And nothing here runs two
+  consumers: the brief puts that under "if you finish early", so generating it would be a new
+  exercise rather than a stricter reading of this one.
+
 ## The handbook
 
 - **ADR-0067 — Pages are markdown that reads fine on GitHub.** The repo is public and that reach costs nothing.

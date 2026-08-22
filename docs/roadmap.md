@@ -60,20 +60,20 @@ again, so what a run proves is "the examples somebody thought of came back right
 are about making the same library ask for more, and they are ordered by what they return against
 what they cost.
 
-- **Four more generated checkpoints, and `queue-consumer-node` is next.** ADR-0167 holds the audit
-  that produced the queue and what it refused; `alert-feed-sqlite`, `one-recompute-not-fifty` and
-  `retry-with-backoff-node` are done, and ADR-0177, ADR-0181 and ADR-0182 hold what they found. The
-  rest, in order: `queue-consumer-node`, `class-places-sqlite`, `product-search-drizzle`,
+- **Three more generated checkpoints, and `class-places-sqlite` is next.** ADR-0167 holds the audit
+  that produced the queue and what it refused; `alert-feed-sqlite`, `one-recompute-not-fifty`,
+  `retry-with-backoff-node` and `queue-consumer-node` are done, and ADR-0177, ADR-0181, ADR-0182 and
+  ADR-0183 hold what they found. The rest, in order: `class-places-sqlite`, `product-search-drizzle`,
   `records-sorting-drizzle`. Three more have the contract and an argument about cost rather than
-  about the contract, and they wait behind those four: `outbox-relay-node`,
+  about the contract, and they wait behind those: `outbox-relay-node`,
   `idempotent-payments-express`, `rate-limit-express`. **The cost predictor is how many times the
   clock has to move**, not whether there is a fake one: the two workouts that script advances cost
-  eight to ten times their other checkpoints, the one that drains what a single call asked for costs
-  four and a half, and the one that drives SQLite costs half. So `queue-consumer-node` gets costed on
-  its own schedule rather than on a multiplier, and the three database ones stay cheap. **And this
-  row no longer names the axis.** It named the wrong one twice and named none once, and the time it
-  named none was the only time it was right, because the axis has never yet been a parameter of the
-  problem: it is whatever the hand-written examples happened to hold still (ADR-0182).
+  eight to ten times their other checkpoints, the two that move it only where a scenario needs it
+  cost four and a half, and the one that drives SQLite costs half. All three that are left drive a
+  database rather than a clock, so they stay cheap. **And this row no longer names the axis.** It
+  named the wrong one twice and named none once, and the time it named none was the only time it was
+  right, because the axis has never yet been a parameter of the problem: it is whatever the
+  hand-written examples happened to hold still (ADR-0182, and two such things at once in ADR-0183).
 
 - **Read the attempt history back, which answers two questions rather than one.** 579 reps, a review
   ladder, and nothing ever asks what the outcomes say. It is a local report over local data, so

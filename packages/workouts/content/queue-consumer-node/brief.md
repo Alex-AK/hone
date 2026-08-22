@@ -49,6 +49,20 @@ the clock has moved that far, and nothing moves it except a checkpoint calling `
 reads its deadlines from it, so use it for anything that has to happen while a handler is running: a
 real `setTimeout` waits in real time, which the checkpoints do not.
 
+## The last checkpoint
+
+The first four run one worker over jobs somebody wrote, on one visibility timeout, one heartbeat and
+one `maxReceiveCount`. The last one generates the backlog: the three options, how many documents are
+waiting, what the handler does on each delivery, and which ack dies on the way. Two things about
+those backlogs are worth knowing. A job can be given a single delivery, so the delivery whose ack
+dies is sometimes also the last one that job had. And a slow handler is watched while it is running
+rather than only after it, so "no second worker gets a job that is still being worked on" is read at
+every step the handler wakes on.
+
+It adds no rules. Everything it checks is on this page already. When it fails it leads with the rule
+that broke and then prints the shortest backlog that still breaks it, which is a complete
+reproduction: those options, that many documents, those deliveries, in that order.
+
 ## Notes
 
 One checkpoint stands in for the worker dying between the work and the ack by making `ack` throw.

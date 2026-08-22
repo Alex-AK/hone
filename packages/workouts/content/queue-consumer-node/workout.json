@@ -35,6 +35,12 @@
       "title": "A job that keeps failing stops circulating",
       "testFile": "tests/checkpoints/04-a-job-that-keeps-failing-stops-circulating.test.ts",
       "hint": "`receiveCount` is 1 on the first delivery, so the attempt that just failed was the last one allowed when it already equals `maxReceiveCount`. Dead-letter it there, carrying the error's message as the reason, rather than leaving it for the deadline to redeliver."
+    },
+    {
+      "id": "rules-hold-on-any-backlog",
+      "title": "The rules hold on backlogs nobody wrote",
+      "testFile": "tests/checkpoints/05-the-rules-hold-on-any-backlog.test.ts",
+      "hint": "These backlogs vary the three options the other four hold fixed, and a job given one delivery reaches its limit on the first ack that dies. Read the first line of the report: it names the rule that broke, and the line under it is the whole backlog. If the rule is about the dead-letter store, look at where the ack sits relative to your `try`, because catching an ack failure alongside a handler failure sends a document that converted fine to the place people look for the ones that did not. If it is about the queue not hiding a running job, look at what you extend by rather than how often."
     }
   ]
 }
