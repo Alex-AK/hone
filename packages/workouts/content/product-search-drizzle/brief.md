@@ -21,6 +21,20 @@ Implement `searchProducts` in `src/server/products.ts`. It takes `{ q, page, lim
 - **`total` is the number of matches**, not the number of rows on this page.
 - **Order by name, ascending.** Walking the pages has to visit every product exactly once.
 
+## The last checkpoint
+
+The first four search one catalogue somebody wrote, and in it the two searchable columns always agree
+about which of them is doing the work: every awkward character is in a name, every SKU is bare
+uppercase, and every term that finds a SKU finds it from the front. The last one generates the
+catalogue and the search together, and pulls those apart. Two things about them are worth knowing. A
+term can match one product by its name and a different product by its SKU, so anything that treats
+the two columns differently shows up as a total that does not match the pages. And the products that
+share a name share a price too, which is what a line of one product in several sizes looks like.
+
+It adds no rules. Everything it checks is on this page already. When it fails it leads with the rule
+that broke and then prints the shortest catalogue that still breaks it, which is a complete
+reproduction: those products, that search, that page size.
+
 ## Notes
 
 Every statement is logged to `workspace.queries`, and the last checkpoint reads the `ORDER BY` out of

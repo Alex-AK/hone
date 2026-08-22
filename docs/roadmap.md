@@ -60,17 +60,17 @@ again, so what a run proves is "the examples somebody thought of came back right
 about making the same library ask for more, and they are ordered by what they return against what
 they cost.
 
-- **Two more generated checkpoints, and `product-search-drizzle` is next.** ADR-0167 holds the audit
+- **One more generated checkpoint, and it is `records-sorting-drizzle`.** ADR-0167 holds the audit
   that produced the queue and what it refused; `alert-feed-sqlite`, `one-recompute-not-fifty`,
-  `retry-with-backoff-node` and `queue-consumer-node` are done, and ADR-0177, ADR-0181, ADR-0182 and
-  ADR-0183 hold what they found. The rest, in order: `product-search-drizzle`,
-  `records-sorting-drizzle`. Three more have the contract and an argument about cost rather than
-  about the contract, and they wait behind those: `outbox-relay-node`,
-  `idempotent-payments-express`, `rate-limit-express`. **The cost predictor is how many times the
-  clock has to move**, not whether there is a fake one: the two workouts that script advances cost
-  eight to ten times their other checkpoints, the two that move it only where a scenario needs it
-  cost four and a half, and the one that drives SQLite costs half. Both that are left drive a
-  database rather than a clock, so they stay cheap. **And this row no longer names the axis.** It
+  `retry-with-backoff-node`, `queue-consumer-node` and `product-search-drizzle` are done, and
+  ADR-0177, ADR-0181, ADR-0182, ADR-0183 and ADR-0186 hold what they found. Three more have the
+  contract and an argument about cost rather than about the contract, and they wait behind it:
+  `outbox-relay-node`, `idempotent-payments-express`, `rate-limit-express`. **The cost predictor is
+  how many times the clock has to move**, not whether there is a fake one: the two workouts that
+  script advances cost eight to ten times their other checkpoints, the two that move it only where a
+  scenario needs it cost four and a half, and the two that drive a database rather than a clock cost
+  a half and a quarter. The one that is left drives a database too, so it stays cheap. **And this row
+  no longer names the axis.** It
   named the wrong one twice and named none once, and the time it named none was the only time it was
   right, because the axis has never yet been a parameter of the problem: it is whatever the
   hand-written examples happened to hold still (ADR-0182, and two such things at once in ADR-0183).

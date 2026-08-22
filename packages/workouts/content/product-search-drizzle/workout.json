@@ -36,6 +36,12 @@
       "title": "The pages line up with the total",
       "testFile": "tests/checkpoints/04-pages-line-up-with-the-total.test.ts",
       "hint": "Total counts matches, so the count query needs the same filter as the page. Twelve products share a name, so ordering by name alone lets rows move between pages: order by something unique as well."
+    },
+    {
+      "id": "rules-hold-on-any-catalogue",
+      "title": "The rules hold on catalogues nobody wrote",
+      "testFile": "tests/checkpoints/05-the-rules-hold-on-any-catalogue.test.ts",
+      "hint": "These catalogues stop the two searchable columns agreeing with each other: the awkward characters are in the SKU, SKUs carry mixed case with the searchable part in the middle rather than at the front, and a term can find one product by its name and a different one by its SKU. Read the first line of the report, because it names the rule that broke. If the rule is about the total, check that the count query filters on the same thing the page query does. If it is about a product on no page at all, check that one condition searches both columns rather than two queries being paged separately and merged."
     }
   ]
 }

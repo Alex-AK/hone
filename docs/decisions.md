@@ -1103,6 +1103,61 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   database ones stay cheap held. A cost prediction can be right and the checkpoint still not be
   worth having.
 
+- **ADR-0186 — `product-search-drizzle`'s axis was the two searchable columns agreeing with each
+  other, and it is the first generated checkpoint whose oracle covers only half of what it checks.**
+  Every term the four hand-written checkpoints use finds names or SKUs but never a *different* row
+  through each, every SKU match is a prefix, every SKU is bare uppercase, and both characters that
+  mean something to LIKE sit in a name. So an implementation that treats the two columns differently
+  in its escaping, its case folding, its anchoring or its counting is invisible. Several things held
+  still at once, none of them a parameter of the problem, which is ADR-0183's shape again.
+
+  **Twelve planted bugs, twelve caught, eight caught by nothing else**: escaping only the first
+  metacharacter, searching a term that was trimmed for the blank test and not for the query, counting
+  on one column while paging on two, upper-casing the term before matching the SKU, tie-breaking on a
+  price the tied rows share, paging two queries separately and merging them, anchoring the SKU match
+  to the front, and splitting the term into words and requiring all of them. Two *correct*
+  alternatives pass, which is the check that matters in the other direction: tie-breaking on
+  `(name, sku, id)` and on `(name, sku)` are both fine and the rules say so.
+
+  **The oracle is half of one.** ADR-0167 named this the other workout with a real oracle after
+  `json-parser`, and that is right but narrower than it sounds. Whether a row matches is a substring
+  test JavaScript can answer, so the match set is computed. Paging, ordering and counting have no
+  oracle and are read off a trace of the walk, exactly as everywhere else. The split is worth
+  recording because "no second implementation" is otherwise the rule, and here it holds for three of
+  the four things being checked.
+
+  **Two fences make the oracle sound, and one of them turned into the axis.** Everything generated is
+  ASCII, because Postgres and `toLowerCase()` disagree on `'İstanbul'`. And names are lowercase
+  alphanumeric with no spaces, so comparing them in JavaScript agrees with `ORDER BY name` under any
+  collation the database was built with. That second fence forced the metacharacters out of the name
+  column and into the SKU, which is precisely the decorrelation the four never do: a constraint
+  arrived at for soundness turned out to be the thing worth generating.
+
+  **No forced prefix, which is the first time.** Measured: a term that finds one product by name and
+  a different one by SKU costs one catalogue to reach on one seed and four on the other, because
+  terms are cut out of the rows themselves and the two columns are built from different spellings of
+  the same words. Where the other generated checkpoints put the bias in a block of scenarios at the
+  front, this one has it in how a term is made, and a prefix was written, measured, and deleted.
+
+  **Duplicate SKUs were available and refused.** A catalogue with two rows under one stock code fails
+  an implementation that tie-broke on `sku`, and the schema declares no unique constraint, so it is
+  legal data. It is also a data fault rather than something a search has to survive, and accusing a
+  submission over one would be a gotcha. The tied block shares a name and a price instead, which is
+  what one product in several sizes looks like, and the price tie-break is still caught.
+
+  **Cost is 0.27x and the ratio is misleading**, which is worth recording once. 2281ms against the
+  other four's 8446ms, but roughly 2.1 seconds of each of those five is PGlite booting, paid once per
+  test file; the generated work is about 180ms of it. ADR-0182's predictor reads here as pages walked
+  per scenario rather than clock movements, so the knob is the floor on the page size and not the
+  scenario count.
+
+  **Four blind spots are accepted.** A blank term filtering with `undefined` rather than with a `%%`
+  pattern is behaviourally identical and no rule can see it. Which column matched is invisible
+  wherever both would land on the same rows. Query count and index use belong to checkpoint 04 and to
+  "if you finish early", so a second read of the SQL text would be duplication. And a write during a
+  walk is refused rather than deferred: offset pagination cannot survive one, the brief never claims
+  it can, and that lesson is `alert-feed-sqlite`'s, which is what keeps the two checkpoints disjoint.
+
 ## The handbook
 
 - **ADR-0067 — Pages are markdown that reads fine on GitHub.** The repo is public and that reach costs nothing.
