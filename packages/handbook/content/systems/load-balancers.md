@@ -5,6 +5,7 @@ order: 4
 practise:
   - sys-xfp-redirect-loop
   - sys-load-balancer-basics
+  - sys-connection-level-balancing
   - security-xff-trust
 sources:
   - author: Donne Martin
@@ -25,7 +26,13 @@ sources:
   - author: MDN
     title: X-Forwarded-Proto
     url: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Forwarded-Proto
-verified: 2026-08-01
+  - author: William Morgan
+    title: gRPC Load Balancing on Kubernetes without Tears
+    url: https://kubernetes.io/blog/2018/11/07/grpc-load-balancing-on-kubernetes-without-tears/
+  - author: gRPC
+    title: gRPC Load Balancing
+    url: https://grpc.io/blog/grpc-load-balancing/
+verified: 2026-08-22
 ---
 
 ## The model
@@ -53,7 +60,9 @@ container gets restarted.
 **L4 or L7.** An L4 balancer forwards TCP connections without reading what is inside them, which is
 what nginx's `stream` module does. An L7 balancer parses the HTTP request, and that is what buys
 routing on path or host, and rewriting headers on the way through. Wanting `/api` on a different
-pool from `/` is wanting L7.
+pool from `/` is wanting L7. It also decides how often a choice gets made at all: an L4 balancer
+picks once, when the connection opens, because a connection is the only thing it can see, while an
+L7 balancer reads each request and can pick again for every one.
 
 Then the part that lands in your code. The socket now tells you the balancer's address, identically,
 for every request in the world, so the client's address survives only in `X-Forwarded-For` or
@@ -114,3 +123,14 @@ and the traffic stops being evenly spread.
 was alive, which it was. The database connection was the thing that died. Have the check touch a
 dependency the request path actually needs, and keep it cheap and narrow, or one slow database takes
 every instance out of rotation in the same second.
+
+**Four healthy pods behind round robin, and one of them is taking 90% of the traffic.** Round robin
+picks a backend per connection, and a client speaking HTTP/2 or gRPC holds one connection open and
+multiplexes every request over it, so the choice is made once at connect time and never revisited.
+William Morgan's write-up on the Kubernetes blog is blunt about it: "Once the connection is
+established, there's no more balancing to be done. All requests will get pinned to a single
+destination pod." HTTP/1.1 hid this rather than fixing it, because it cannot multiplex: clients open
+several connections and let them expire, and that churn is what makes connection-level balancing
+pass for request-level. Move the decision to where the requests are visible, an L7 proxy or mesh
+sidecar that routes each stream, a client that resolves every pod and balances itself, or a cap on
+connection age so the choice gets made again.

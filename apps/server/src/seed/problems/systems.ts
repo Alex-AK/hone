@@ -207,6 +207,83 @@ export const systemsProblems: ProblemDraft[] = [
   },
 
   {
+    slug: 'sys-connection-level-balancing',
+    title: 'Round robin, one hot pod',
+    category: 'systems',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'Four pods sit behind a round-robin load balancer. All four pass their health checks, the balancer is configured the way you meant, and one pod is serving 90% of the requests. Scaling to five pods changed nothing.',
+      '',
+      'Explain why round robin is not spreading the load, and name one change that would.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'per connection',
+            'per-connection',
+            'connection level',
+            'connection-level',
+            'each connection',
+            'new connection',
+            'long-lived',
+            'long lived',
+            'persistent connection',
+            'keep-alive',
+            'keepalive',
+            'http/2',
+            'http2',
+            'grpc',
+            'multiplex',
+            'pinned',
+          ],
+          missingFeedback:
+            'Nothing here is misconfigured. What is round robin actually counting out in turn?',
+        },
+        {
+          synonyms: [
+            'l7',
+            'layer 7',
+            'layer-7',
+            'service mesh',
+            'sidecar',
+            'envoy',
+            'linkerd',
+            'client-side load balancing',
+            'client side load balancing',
+            'balance in the client',
+            'balancing in the client',
+            'headless',
+            'max requests',
+            'connection lifetime',
+            'connection age',
+            'recycle',
+            'rotate',
+            'reconnect',
+          ],
+          missingFeedback:
+            'What change would make the balancer choose again, instead of choosing once?',
+        },
+      ],
+      hints: [
+        'Nothing is misconfigured, and the fifth pod told you capacity was never the problem.',
+        'The balancer picks a backend when a connection arrives, and the client is holding one connection open.',
+        'Either route each request at layer 7, or make connections short enough that the client keeps getting balanced again.',
+      ],
+    },
+    canonicalAnswer:
+      'Round robin picks a backend per connection, not per request. The client is holding one long-lived connection, an HTTP/2 or gRPC channel or a keep-alive pool that never expires, so it was balanced once when it connected and every request since has been pinned to the pod that choice landed on. To spread it, balance at layer 7 with a proxy or a service mesh sidecar that routes each stream separately, or cap connection age so the client reconnects and gets balanced again.',
+    solution: md(
+      '- **Why**: round robin chooses per connection, not per request. One long-lived HTTP/2, gRPC or keep-alive connection is balanced once, at connect time, and every request on it lands on the pod that choice picked.',
+      '- **A fix**: route each request at layer 7 (a proxy or mesh sidecar that spreads streams), balance in the client against every pod address, or cap connection age so connections turn over and get balanced again.'
+    ),
+    explanation:
+      "Round robin is doing exactly what it says: it deals out connections, and a connection is the only thing an L4 balancer can see. HTTP/2 and gRPC are built to hold one connection open and multiplex every request over it, so the balancing happens once, at connect time, and then never again. William Morgan's write-up on the Kubernetes blog puts it as bluntly as it can be put: once the connection is established there is no more balancing to be done, and all requests get pinned to a single pod. HTTP/1.1 hid this rather than solving it, because it cannot multiplex, so clients open several connections and let them expire, and that churn is what made connection-level balancing look like request-level balancing. Adding pods does not help either: a horizontal autoscaler divides the metric by the pod count, so the idle pods drag the average below the target and the new one sits there with nothing connected to it.",
+  },
+
+  {
     slug: 'sys-xfp-redirect-loop',
     title: 'Every link comes out as http',
     category: 'systems',
