@@ -23,6 +23,20 @@ with no key is a client too, not an error.
 **Once the allowance is gone**, answer `429` with a `Retry-After` in whole seconds, and do not let the
 request reach the handler.
 
+## The last checkpoint
+
+The first four run every test at five requests per sixty seconds. The last one generates the burst
+and the limiter together: the allowance, the window, how many clients are spending, and where in the
+window each request lands. Two things about those bursts are worth knowing. The limit and the window
+are drawn per burst, so a limiter that has those two numbers written into it rather than read from
+its options is the one thing they catch that nothing else can. And `Retry-After` is obeyed rather
+than inspected: whatever a refusal says to wait, a client comes back after exactly that and is
+expected in, and comes back a second earlier and is expected to be turned away again.
+
+It adds no rules. Everything it checks is on this page already. When it fails it leads with the rule
+that broke and then prints the shortest burst that still breaks it, which is a complete reproduction:
+that limit, that window, those requests and waits, in that order.
+
 ## Notes
 
 `FakeRedis` is a real enough Redis for this: `incr`, `expire`, `ttl`, `get`, `set`, `del`, with the

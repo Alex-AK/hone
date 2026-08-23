@@ -1276,6 +1276,44 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   and one case has none at all. A recording that gave one answer per case would have taught the test
   suite this workout exists not to be.
 
+- **ADR-0190 — `rate-limit-express` was deferred on a harness cost of 0.4ms a request, and it is
+  built.** ADR-0167 held it and two others back because the invariant is driven over HTTP, "where the
+  harness rather than the property decides the runtime". Measured, a supertest request against a
+  listening server is 0.23 to 0.70ms in steady state, and the same middleware driven as a plain
+  function with mock request and response objects is 0.001ms. So the audit was right about the
+  proportion, and wrong about what it implied: HTTP is 99.7% of the cost and the cost is still small.
+  The checkpoint runs 28 bursts on each of two seeds in **550ms** against the other four's 187ms,
+  which is under `circuit-breaker-node`'s 600ms in absolute terms.
+
+  **The axis is the two numbers the workout is configured with.** Every one of the four hand-written
+  checkpoints runs at five requests per sixty seconds, so a limiter that ignores its own options and
+  writes both into the code passes all of them. Two of the four bugs only this checkpoint catches are
+  exactly that, and they are the cheapest kind of hole to leave: nothing about them is subtle, and no
+  suite that never varies a parameter can see them at all.
+
+  **The other two are `Retry-After`, and reaching them needed the checkpoint to obey it.** The four
+  assert it is a whole number inside the window and never come back when it says to, so a header that
+  always says the whole window and one that always says one second both pass. Checking it means
+  replaying the burst up to the refusal with a wait on the end, twice: once at the moment the client
+  was told, which has to be let in, and once a second earlier, which has to be refused. A probe
+  request cannot do it, because a probe spends the allowance it is asking about. That is the thing an
+  example-based test cannot do without becoming a generator, and it is the strongest argument in this
+  whole queue for why the fifth checkpoint is a different kind of test rather than more of the same.
+
+  **A window model is not the reimplementation ADR-0166 refused.** The rules track when each client's
+  window opened and how much it has spent, which looks like a second limiter and is not: what is
+  modelled is the contract, from the brief's own definition and the ops the burst emitted, and
+  nothing in it knows what a Redis key or a TTL is. This is the move ADR-0182 already sanctioned when
+  the retry client's expected waits were computed from the formula on its page rather than by running
+  a second client. The test that keeps it honest is the failure message, and these name rules.
+
+  **Eleven planted bugs, eleven caught, four caught by nothing else.** Two blind spots stay: the
+  solution's `Math.max(1, resetIn)` and its `ttl >= 0 ? ttl : windowSeconds` fallback are both
+  unreachable against this `FakeRedis`, because `expire` always runs on the first request, so a
+  variant that returns the raw TTL is indistinguishable from the reference. That is dead code in
+  shipped content rather than a gap in the checkpoint, and it is recorded rather than removed: the
+  fallback is right against a real Redis, where a key can lose its deadline.
+
 ## The handbook
 
 - **ADR-0067 — Pages are markdown that reads fine on GitHub.** The repo is public and that reach costs nothing.

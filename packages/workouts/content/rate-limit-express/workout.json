@@ -36,6 +36,12 @@
       "title": "Each client has its own allowance",
       "testFile": "tests/checkpoints/04-each-client-has-its-own-allowance.test.ts",
       "hint": "The counter key has to carry who the request came from. Fall back to something rather than throwing when there is no API key."
+    },
+    {
+      "id": "rules-hold-on-any-burst",
+      "title": "The rules hold on bursts nobody wrote",
+      "testFile": "tests/checkpoints/05-the-rules-hold-on-any-burst.test.ts",
+      "hint": "These bursts move the limit and the window, which the other four never do, and they take `Retry-After` at its word: a client that waits exactly as long as it was told gets in, and one that comes back a second early does not. Read the first line of the report, because it names the rule that broke. If the rule is about the allowance or the window length, check that both numbers come from `options` rather than from the code. If it is about `Retry-After`, note that it is what is left of this window and not how long a window is."
     }
   ]
 }
