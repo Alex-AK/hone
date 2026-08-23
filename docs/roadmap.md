@@ -86,15 +86,14 @@ they cost.
   order. A generator was written and measured against eleven planted bugs before that was concluded,
   and it separated from the four hand-written checkpoints on none of them.
 
-- **The rest of the AI-engineering track.** `tool-loop-node` is built, over a recorded in-process
-  fixture rather than a fixture server: ADR-0174 records why the noun changed and what would reopen
-  it. Two workouts are left and they are ordered. **Structured output and its repair path** comes
-  next, and the fixture grows a `stopReason` of `max_tokens` with a truncated body and a
-  schema-invalid response the model can be told about; the 429 carrying `retry-after` belongs here
-  rather than in the loop, because resending a conversation without re-running the tools that already
-  ran is its own lesson. **An eval harness** comes last, and needs recorded outputs over a fixed case
-  set and nothing else new. What still holds either of them to a bar is ADR-0048: a fixture that only
-  does the happy path teaches nothing a mock object would not.
+- **The last of the AI-engineering track.** `tool-loop-node` and `structured-output-node` are built,
+  over a recorded in-process fixture rather than a fixture server: ADR-0174 records why the noun
+  changed and what would reopen it, and ADR-0188 records what the second one cost to make checkable.
+  **An eval harness** is what is left, and it needs recorded outputs over a fixed case set and
+  nothing else new. What holds it to a bar is ADR-0048: a fixture that only does the happy path
+  teaches nothing a mock object would not. The question it has to answer before it is worth writing
+  is what a case set is graded on that a checkpoint is not already, since a workout whose lesson is
+  "compare output to expected" is a test suite with a different name on it.
 
 ## Deferred
 

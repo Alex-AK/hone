@@ -1,0 +1,40 @@
+{
+  "slug": "structured-output-node",
+  "title": "Getting an object back, from a model that sometimes does not send one",
+  "kind": "feature",
+  "minutes": 30,
+  "difficulty": "medium",
+  "relevance": "daily",
+  "stack": {
+    "server": "node, zod"
+  },
+  "summary": "Refund triage runs off the model. Some tickets reach the queue with a reason that stops mid-sentence, some emails produce no ticket at all, and on Monday morning one order was looked up eleven times. Make the answer something the refund queue can accept, and make the ways it goes wrong cost one request each.",
+  "focus": ["structured output", "schema repair", "rate limits", "retries and side effects"],
+  "editable": ["src/lib/triage.ts"],
+  "checkpoints": [
+    {
+      "id": "the-answer-is-a-decision",
+      "title": "The answer is a decision, not a paragraph",
+      "testFile": "tests/checkpoints/01-the-answer-is-a-decision.test.ts",
+      "hint": "The turn that stops asking for tool calls is the one carrying the decision, and its text is JSON rather than prose. Parse it and put it through `decisionSchema` before it goes anywhere: the schema is what the refund queue accepts, so nothing that has not been through it is a decision."
+    },
+    {
+      "id": "a-decision-that-does-not-fit",
+      "title": "A decision that does not fit is sent back",
+      "testFile": "tests/checkpoints/02-a-decision-that-does-not-fit.test.ts",
+      "hint": "An answer that does not fit the schema is a repairable answer, so push a user message carrying the reason and go round again rather than throwing. `z.prettifyError` turns the parse failure into something that names the field. Count the attempts: `maxRepairs` is how many extra ones there are, and running out is a `NoUsableDecisionError` carrying the last reason."
+    },
+    {
+      "id": "a-reply-that-ran-out-of-room",
+      "title": "A reply that ran out of room is not an answer",
+      "testFile": "tests/checkpoints/03-a-reply-that-ran-out-of-room.test.ts",
+      "hint": "Read `stopReason` before you read the text. `max_tokens` means the reply is the front of an answer that was still being written, so parsing it tells you it is malformed and telling the model that is an accusation it cannot act on: nothing it wrote was wrong. Say it was cut off and ask for the object on its own."
+    },
+    {
+      "id": "a-rate-limit-is-a-wait",
+      "title": "A rate limit is a wait, not a start again",
+      "testFile": "tests/checkpoints/04-a-rate-limit-is-a-wait.test.ts",
+      "hint": "A `RateLimitedError` means nothing was read, so the conversation you built is still the one to send. Sleep for `retryAfterMs` on `deps.clock` and send the same `messages` again from where you are, bounded by `maxWaits`. Catching this outside the loop instead is what makes a lookup happen twice: the tools that already ran have their results in the conversation, and getting back to that point runs them again."
+    }
+  ]
+}

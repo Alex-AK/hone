@@ -1204,6 +1204,45 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   `outbox-relay-node`, `idempotent-payments-express`, `rate-limit-express`. Those are a different
   question, because in all three the harness rather than the property decides the runtime.
 
+- **ADR-0188 — The structured-output workout is a second visit, and its fixture reads what the
+  submission says back to it.** `structured-output-node` starts from `tool-loop-node`'s solution and
+  adds the three things the roadmap named: a `stopReason` of `max_tokens` carrying a truncated body,
+  an answer that parses and does not fit the schema, and a 429 carrying `retryAfterMs`. It is the
+  second second-visit workout after `outbox-per-order-node` and the first in this track, and the
+  pattern held: the loop is handed over working, and what is editable is only what the new
+  requirements touch.
+
+  **The fixture reading the submission's own words is new, and it is the only way one of the three
+  lessons is checkable at all.** A reply cut off at the completion limit is not a mistake, so a model
+  told "that field is missing" sends the same fragment again, and a model told "you were cut off"
+  sends a short one. Nothing structural separates those two complaints; only what they say does. So
+  `RecordedTurn` grew a `told` hook and the transcript branches on it. The cost is that a checkpoint
+  now depends on the reader's phrasing, and it is paid twice over: the brief states the requirement
+  in as many words rather than leaving it to be guessed, and the hook accepts ten ordinary ways of
+  saying it rather than one form. **A brief may state a requirement precisely; what it may not do is
+  state the diagnosis**, and "tell it the answer was cut off" is the first, not the second.
+
+  **The sharper version of that lesson was looked for and is not reachable.** A truncated body that
+  still parsed as JSON would make a naive implementation produce a confident, specific and wrong
+  complaint ("reason is missing"), which is a better lesson than "malformed". It cannot happen: an
+  object cut off mid-value has no closing brace, so a truncation is essentially never valid JSON. The
+  checkpoint teaches the reachable version, and the transcript's fragment is the front of a real
+  sentence rather than something contrived to parse.
+
+  **The clock records waits instead of taking them**, which is the opposite of `queue-consumer-node`
+  and `one-recompute-not-fifty`, where a checkpoint drives the clock forward and pays a macrotask
+  each time. Nothing here needs to observe anything while a wait is in progress: what is being
+  checked is the number the code decided to wait and what it did afterwards, and both are readable
+  once it is over. The whole workout runs in 19ms of test time because of it, and the rule that falls
+  out is that a driven clock is for observing an interleaving, not for representing a delay.
+
+  **Where the retry sits is the whole of the third lesson.** A `RateLimitedError` read nothing and
+  charged nothing, so the conversation already built is still the one to send, and waiting inside the
+  turn loop is what keeps the tools that already ran from running again. Catching it around `decide`
+  instead is the plausible first draft and is what the brief's third symptom describes: one order
+  looked up eleven times on a busy morning. `store.ran` was already the probe that makes it
+  observable, inherited from part one without changing it.
+
 ## The handbook
 
 - **ADR-0067 — Pages are markdown that reads fine on GitHub.** The repo is public and that reach costs nothing.
