@@ -72,6 +72,33 @@ describe('two submissions at the same moment', () => {
     expect(second.body.id, 'it was answered as though it had paid').toBeUndefined();
   });
 
+  it('does not hold up a different payment while one is in progress', async () => {
+    gateway.hold();
+
+    const charging = gateway.nextCharge();
+    const first = send('pay_1');
+    await Promise.race([charging, sleep(1000)]);
+    expect(gateway.charges).toHaveLength(1);
+
+    // A different key is a different payment, and nothing about the first one
+    // sitting in the gateway says anything about it. A guard that lets one
+    // charge happen at a time keeps this one waiting for a stranger.
+    const other = gateway.nextCharge();
+    const second = send('pay_2');
+    await Promise.race([other, sleep(1000)]);
+    expect(
+      gateway.charges,
+      'a payment on one key waited for a payment on another to come back'
+    ).toHaveLength(2);
+
+    gateway.release();
+    const [one, two] = await Promise.all([first, second]);
+
+    expect(one.status).toBe(201);
+    expect(two.status).toBe(201);
+    expect(one.body.id).not.toBe(two.body.id);
+  });
+
   it('replays the one payment to everything that comes afterwards', async () => {
     const [first] = await doubleSubmit();
 

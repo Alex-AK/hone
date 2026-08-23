@@ -1314,6 +1314,119 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   shipped content rather than a gap in the checkpoint, and it is recorded rather than removed: the
   fallback is right against a real Redis, where a key can lose its deadline.
 
+- **ADR-0191 — `outbox-relay-node` was deferred on a premise that was never true of it, and it is
+  built.** ADR-0167 held it back with the other two as "a real invariant driven over HTTP, where the
+  harness rather than the property decides the runtime". There is no HTTP in this workout at all:
+  `db.ts` is in-memory better-sqlite3 and `broker.ts` is a fake in the same process. The audit read
+  three workouts as one and one of the three was not what the sentence said. Worth recording as a
+  process finding rather than a technical one: a deferral that groups things is a deferral nobody
+  re-reads per item.
+
+  **The axis was sitting in the tree with a name on it.** `db.failNextWrite(fragment, skip)` is
+  documented in `db.ts` as "how a checkpoint breaks the middle of a batch rather than the start of
+  one", and no checkpoint in this workout passes the second argument: the write that records a
+  publish is killed exactly once, on a backlog of one row. The sibling `approval-log-sqlite` does
+  pass it. So the affordance for the gap was built, shipped, and never used, which is the clearest
+  signal any of these seven had.
+
+  **Fourteen planted variants, twelve of them real, twelve caught, two caught by nothing else**, and
+  both of the two live in that seam: a recording write that dies mid-batch and is swallowed so the
+  pass carries on, and one that is swallowed and counted as a publish. Two is the same count
+  `circuit-breaker-node` shipped on, and it is low for a reason worth stating: this workout's four
+  are unusually strong, and eight of the twelve are caught by more than one of them.
+
+  **Two variants that look like bugs are not, and are recorded so nobody plants them again.**
+  Counting a row before marking it rather than after, and guarding the mark with
+  `AND published_at IS NULL`, are both indistinguishable from the reference here: the mark either
+  lands or throws out of the pass, so there is no state in which the count and the mark disagree.
+
+  **Cost is 495ms against the other four's 62ms.** Eight times by ratio and under
+  `circuit-breaker-node` in absolute terms, which is the third time the ratio has been the misleading
+  half (ADR-0186, ADR-0187). What costs here is `broker.publish`, whose `setTimeout(0)` is 1.5ms, so
+  ADR-0182's predictor holds with a different noun: publishes per scenario rather than clock
+  movements.
+
+- **ADR-0192 — `idempotent-payments-express` gets a fifth case rather than a fifth checkpoint, and
+  its headline lesson turns out to be uncheckable by anything.** Cost was not what refused it: a
+  charging POST measures at 1.7ms and a replay at 0.3ms, 40 scenarios on two seeds come to 170ms,
+  and the 1.7ms is the gateway's own `setTimeout(0)` rather than the transport. So ADR-0167's HTTP
+  sentence was wrong about this one too, just less dramatically than about `outbox-relay-node`.
+
+  **The contract half is what refuses it.** Ten variants, four missed by the four hand-written
+  checkpoints, and only one of the four is both a real bug and reachable by generation. Of the other
+  three: checking a 409 before a 422 needs a rule about which wins for an in-flight key carrying a
+  changed body, and `brief.md` states both rules and never settles their overlap, so asserting it
+  invents a requirement. Caching the loser's 409 as the key's answer needs a gateway that can fail,
+  and `FakeGateway` has no failure mode, so reaching it means editing a file that is not `editable` —
+  the move ADR-0166 refused over `clock.ts`. And the third is below.
+
+  **The one real catch is one case, so it is written as one case.** A single in-memory "one charge at
+  a time" guard makes a payment on one key wait for a payment on another, and unforced generation
+  needs 200 scenarios to find it reliably on one of two seeds. Hand-written it is fifteen lines in
+  `03-two-submissions-at-the-same-moment`, and it is now there: hold the gateway, start `pay_1`, wait
+  for its charge, start `pay_2`, and require the second charge to reach the gateway without the first
+  being released. Confirmed red against that variant and green against the reference, and it is the
+  only test in the workout that fails it. This is ADR-0184's shape with a different ending: the
+  contract is real, the runtime is fine, generation does not reach a case the examples cannot, and
+  what was missing was an example.
+
+  **Separately, and worse: the workout's headline lesson cannot be failed by any suite here.** A
+  submission that does `SELECT` then `INSERT` instead of claiming with `INSERT OR IGNORE` is the bug
+  the whole exercise is about, and in one Node process there is no `await` between those two
+  statements, so nothing can interleave there. `gateway.hold()` fires inside `charge()`, by which
+  time the row is already written. No hand-written checkpoint fails it and no generated one could.
+  That is a hole in the workout rather than in this decision, and closing it needs a second process
+  or a database that can be made to yield mid-statement, neither of which this workout has. Recorded
+  rather than left to be rediscovered.
+
+- **ADR-0193 — What ten generated checkpoints taught, now that the queue ADR-0167 opened is empty.**
+  Seven were qualified and three more deferred on cost. Eight were built and two refused, every
+  refusal after a generator had been written and measured rather than argued. These are the findings
+  that belong to the exercise rather than to any one workout, and they are here because the roadmap
+  row that held them is gone: a section with nothing unbuilt in it is not a queue.
+
+  **The axis was never once a parameter of the problem, and predicting it was worse than not.** The
+  roadmap named it wrong twice and named none once, and the time it named none was the only time it
+  was right, which is why ADR-0182 stopped it naming one at all. What it always turns out to be is
+  whatever the hand-written examples happened to hold still: one thing in ADR-0182, two at once in
+  ADR-0183 and ADR-0186, four at once in ADR-0187. In ADR-0191 it was an unused argument on a test
+  helper, documented in the workout's own file as the thing it was for, that no checkpoint ever
+  passed.
+
+  **A constraint taken for soundness can turn out to be the thing worth generating.** ADR-0186's
+  names had to be lowercase and unpunctuated so that comparing them in JavaScript agreed with the
+  database's collation, which forced the LIKE metacharacters out of the name column and into the SKU.
+  That was the decorrelation the four hand-written checkpoints never did. Worth knowing because it
+  runs against the instinct to treat a fence as a cost.
+
+  **The cost predictor held every time, and the ratio misled half the time.** It is how many times
+  the expensive thing has to happen, and only sometimes is that a clock: publishes per scenario in
+  ADR-0191, pages walked per scenario in ADR-0186. Where one checkpoint in a workout boots something
+  expensive, PGlite or jsdom, the multiple is meaningless and the absolute figure is the one to
+  quote.
+
+  **A deferral that groups things is a deferral nobody re-reads per item.** Three workouts were held
+  back on one sentence about being driven over HTTP. `outbox-relay-node` has no HTTP in it at all,
+  `idempotent-payments-express`'s cost was its gateway's own timer rather than the transport, and
+  `rate-limit-express` genuinely was 99.7% harness and the harness was 0.4ms a request. The sentence
+  was defensible about none of the three once each was measured, and grouping them is what stopped
+  each being measured.
+
+  **The two refusals are not the same refusal, and both were worth the generator.**
+  `class-places-sqlite` has nowhere to stand: its only hook fires before any transaction opens, so
+  every operation is atomic against every other one and a generated interleaving is a serial order
+  (ADR-0184). `idempotent-payments-express` had exactly one reachable catch, and one catch is an
+  example rather than a generator, so it was written as an example (ADR-0192). In both cases the
+  generator was built and run before the refusal, and in both cases that is what turned an opinion
+  into a number.
+
+  **The sharpest thing the exercise found is not about generated checkpoints at all.**
+  `idempotent-payments-express` teaches that a claim must be an `INSERT OR IGNORE` rather than a
+  `SELECT` then an `INSERT`, and in one Node process nothing can interleave between those two
+  statements. No suite this workout could have will fail a submission that gets its headline lesson
+  wrong. Looking for what a generated checkpoint could not reach is how that surfaced, which is an
+  argument for the audit independent of anything it shipped.
+
 ## The handbook
 
 - **ADR-0067 — Pages are markdown that reads fine on GitHub.** The repo is public and that reach costs nothing.

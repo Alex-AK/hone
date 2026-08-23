@@ -27,6 +27,19 @@ returns what it did.
 - **`batchSize` is a limit on one pass**, not a target. A pass that finds fewer rows sends fewer.
 - **No new tables, no new columns.** `published_at` is the only state the relay keeps.
 
+## The last checkpoint
+
+The first four place every order before the first pass and break the write that records a publish
+exactly once, at the start of a one-row backlog. The last one generates the backlog: the batch size,
+how many orders there are, when they arrive, which rows the broker is refusing, and where in a batch
+the recording write dies. Two things about those are worth knowing. Orders turn up between passes as
+well as before them. And a batch of five whose third mark dies is the case the other four never
+reach, which is what `failNextWrite`'s second argument is for.
+
+It adds no rules. Everything it checks is on this page already. When it fails it leads with the rule
+that broke and then prints the shortest backlog that still breaks it, which is a complete
+reproduction: that batch size, those orders, those passes, in that order.
+
 ## About the environment
 
 - `src/lib/db.ts` is better-sqlite3 and **every call on it is synchronous**. There is no `await` on a

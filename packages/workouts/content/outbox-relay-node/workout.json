@@ -35,6 +35,12 @@
       "title": "The database is free while the broker is slow",
       "testFile": "tests/checkpoints/04-the-database-is-free-while-the-broker-is-slow.test.ts",
       "hint": "`BEGIN` before the loop means the transaction stays open across every `await` in it, and a transaction is held until it is committed whatever the connection is waiting on. The relay does not need one at all: each `UPDATE` is its own transaction, and there is nothing here that has to be undone as a group."
+    },
+    {
+      "id": "rules-hold-on-any-backlog",
+      "title": "The rules hold on backlogs nobody wrote",
+      "testFile": "tests/checkpoints/05-the-rules-hold-on-any-backlog.test.ts",
+      "hint": "These backlogs kill the write that records a publish part-way through a batch rather than at the start of one, and orders arrive between passes as well as before the first. Read the first line of the report, because it names the rule that broke. If the rule is about the broker getting rows out of order, look at what the pass does after a write fails: carrying on to the next row leaves the failed one to be picked up by a later pass, behind rows that were sent after it. Letting that write throw is a correct answer, and the next pass resending is the duplicate this design already agreed to."
     }
   ]
 }

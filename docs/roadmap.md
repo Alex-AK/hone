@@ -52,42 +52,11 @@ records what it found, including why the count the pass was built around is reti
 carried forward: it had not moved a single slug across four sections and sixty-five new reps, because
 it was counting a floor rather than a drift.
 
-## Depth per challenge
-
-**The content queue has run out and none of this is more content.** What is left is that a green tick
-is a weak claim. Every workout is entered cold, ends the moment its suites pass, and is never opened
-again, so what a run proves is "the examples somebody thought of came back right". What is below is
-about making the same library ask for more.
-
-- **Two generated checkpoints, and the question is whether either is worth its harness.**
-  ADR-0167's qualified list is empty: six were built, and ADR-0177, ADR-0181, ADR-0182, ADR-0183,
-  ADR-0186 and ADR-0187 hold what each one found. What is left is what it deferred on cost rather
-  than on contract: `outbox-relay-node` and `idempotent-payments-express`. Decide each on a
-  measurement rather than on the contract, which is already known to be real.
-
-  **The cost that deferred all three of those turned out to be small (ADR-0190).** A supertest
-  request against a listening server is under a millisecond, so `rate-limit-express` runs 56 bursts
-  in 550ms, under the breaker's absolute figure. What that row got right was the proportion and not
-  the consequence, so measure the other two rather than inheriting either the deferral or the
-  reversal.
-
-  **The cost predictor held on every workout it was applied to.** It is how many times the clock has
-  to move, not whether there is a fake one: the two that script advances cost eight to ten times
-  their other checkpoints, the two that move it only where a scenario needs it cost four and a half,
-  and the two that drive a database rather than a clock cost a quarter each. Twice now the ratio has
-  been the misleading half of that (ADR-0186, ADR-0187): where one checkpoint in a workout boots
-  something expensive, quote the absolute figure.
-
-  **The axis was never once a parameter of the problem.** This row named it wrong twice and named
-  none once, and the time it named none was the only time it was right. It is whatever the
-  hand-written examples happened to hold still: one thing in ADR-0182, two at once in ADR-0183 and
-  ADR-0186, four at once in ADR-0187.
-
-  **One left by being refused rather than built (ADR-0184).** `class-places-sqlite` has a real
-  contract and its cost prediction was right; what it does not have is anywhere to stand, because its
-  only hook fires before any transaction opens and a generated interleaving is therefore a serial
-  order. A generator was written and measured against eleven planted bugs before that was concluded,
-  and it separated from the four hand-written checkpoints on none of them.
+**The generated-checkpoint queue is empty and the section is gone.** ADR-0167 audited every workout,
+qualified seven and deferred three more on cost. Eight are built and two were refused after a
+generator was written and measured against planted bugs; ADR-0193 collects what the exercise turned
+up across all ten, and the per-workout arguments are ADR-0177, ADR-0181 to ADR-0184 and ADR-0186 to
+ADR-0192.
 
 ## Deferred
 
