@@ -14,7 +14,7 @@ neither has one. No page owns the redirect codes, 301 against 302 against 307 ag
 formats are a module rather than a page, because there was no model there to write down. A deck is
 not on its own a reason to write a page, so both wait until something else asks for one.
 
-**That wait is how a deck is meant to arrive, and there are six worked examples now.**
+**That wait is how a deck is meant to arrive, and there are seven worked examples now.**
 `four-ways-to-run-it-later` could not be written yesterday and needed no argument today, because a
 page about `nextTick` and `setImmediate` was written for reps that wanted it, and the contrast set
 was sitting inside the page once it existed. `three-promises-that-sound-alike` and
@@ -27,13 +27,6 @@ rule paying out.** `the-signal-family`, `kill-switch-or-traffic-switch` and `thr
 cite pages written for reps, none of which was written with a deck in mind. A fourth candidate was
 refused rather than written, and the reason is recorded rather than left as a gap. That read is done
 and is not owed again until the next section ships.
-
-**A third candidate arrived with `react/where-rendering-happens.md`**, unplanned, which is the way
-the rule above says a deck is supposed to arrive. The contrast set is what React does when the two
-passes disagree: loud (a text mismatch, every node up to the nearest boundary discarded), silent (an
-attribute mismatch, never repaired, the server's value left on screen) and silent by request
-(`suppressHydrationWarning`, which localises nothing). Unlike the two above it has a `page` to cite,
-and every claim on that page was measured rather than read.
 
 `packages/decks/content/` is the inventory, and a deck named there and not on disk is a name that
 changed, not a deck that is missing.

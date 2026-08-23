@@ -1,0 +1,73 @@
+{
+  "slug": "what-hydration-does-about-it",
+  "title": "What hydration does about a disagreement",
+  "summary": "The two renders disagree. Whether that costs you the whole page, a wrong attribute nobody logs, or a timestamp frozen in the wrong zone depends on where the difference is and what you did about it. Getting the three backwards is why the loud one gets fixed and the silent one ships.",
+  "order": 13,
+  "minutes": 5,
+  "page": "react/where-rendering-happens",
+  "practise": [
+    "react-hydration-mismatch-cost",
+    "react-suppress-hydration-warning",
+    "react-typeof-window-guard"
+  ],
+  "sources": [
+    {
+      "author": "React",
+      "title": "hydrateRoot",
+      "url": "https://react.dev/reference/react-dom/client/hydrateRoot"
+    },
+    {
+      "author": "React",
+      "title": "useId",
+      "url": "https://react.dev/reference/react/useId"
+    },
+    {
+      "author": "React",
+      "title": "Server Components",
+      "url": "https://react.dev/reference/rsc/server-components"
+    },
+    {
+      "author": "Next.js",
+      "title": "Text content does not match server-rendered HTML",
+      "url": "https://nextjs.org/docs/messages/react-hydration-error"
+    }
+  ],
+  "verified": "2026-08-23",
+  "cards": [
+    {
+      "id": "what-the-dom-keeps",
+      "front": "A text mismatch and an attribute mismatch, same tree. Which nodes does React keep?",
+      "back": "Text: none, up to the nearest boundary. Attribute: all of them, and the wrong value stays. Measured on a five-node tree with the mismatch three levels down, a text mismatch discarded all five and an attribute-only mismatch discarded none and repaired none."
+    },
+    {
+      "id": "what-production-says",
+      "front": "The same two mismatches, in a production build. Which of them do you hear about?",
+      "back": "Neither usefully. A text mismatch is `Minified React error #418` and names no element; an attribute mismatch logs nothing at all. Development gives you one line for each. The loud failure is the cheap one to find, and the silent one is the one that ships."
+    },
+    {
+      "id": "what-a-boundary-buys",
+      "front": "One text mismatch, with a `<Suspense>` boundary around the region and without one. What changes?",
+      "back": "How much gets thrown away. Measured on `<div><header/><section><p/></section><footer/></div>` with the mismatch in the `<p>`: no boundary discards all five nodes, and a boundary around the section keeps the div, header and footer and rebuilds only the section and its p."
+    },
+    {
+      "id": "whose-text-survives",
+      "front": "A timestamp mismatches. With `suppressHydrationWarning` and without it, whose text is on screen afterwards?",
+      "back": "Opposite ones. Without it the node is discarded and rebuilt from the client render, so the browser's value wins. With it the node is kept, so the server's value stays, and it was still there after a later re-render of the same component. The prop silences the report and localises nothing."
+    },
+    {
+      "id": "which-id-mismatches",
+      "front": "An id from `Math.random()` and an id from `useId`, same tree, two passes. Which one mismatches?",
+      "back": "Only the random one. `useId` is generated from the calling component's parent path, so the same tree gives the same id on both machines without a counter that depends on render order. Measured: the `Math.random()` id mismatched and the `useId` one did not."
+    },
+    {
+      "id": "what-the-guard-cost",
+      "front": "Reading `window` during render throws on the server, so you guard it with `typeof window !== 'undefined'`. What did you trade?",
+      "back": "A crash on every request, in your own terminal, for a wrong render in a browser you do not have. The guard is false where there is no `window` and true where there is, so the two passes take different branches by construction. React's hydration error lists it as the first cause."
+    },
+    {
+      "id": "what-is-hydrated",
+      "front": "A Server Component and a component under `\"use client\"`. Which of the two is hydrated?",
+      "back": "Only the client one. Server Components render ahead of time in an environment separate from the client app and are not sent to the browser, so their output is never compared against a second render. Below the boundary there are still two passes and the same contract."
+    }
+  ]
+}
