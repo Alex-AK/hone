@@ -1,0 +1,40 @@
+{
+  "slug": "eval-harness-node",
+  "title": "Settle the argument about Tuesday",
+  "kind": "feature",
+  "minutes": 25,
+  "difficulty": "medium",
+  "relevance": "occasional",
+  "stack": {
+    "server": "node, zod"
+  },
+  "summary": "Somebody changed the assistant's prompt on Tuesday. Half the team says it got worse and half says it is the same, and after two days nobody has produced a number either side will accept. There is a folder of recorded answers and a case set. Build the thing that reads them and says.",
+  "focus": ["evals", "non-determinism", "regression gates", "grading"],
+  "editable": ["src/lib/harness.ts"],
+  "checkpoints": [
+    {
+      "id": "a-case-is-a-rate",
+      "title": "A case is a rate, not a verdict",
+      "testFile": "tests/checkpoints/01-a-case-is-a-rate.test.ts",
+      "hint": "`samples.outputs(id)` hands back every answer recorded for a case, not one. Grade all of them and the result is passes over samples, which is a fraction. The overall figure is the mean of the case rates rather than of the answers, because sampling one case more is not a reason for it to weigh more. A case with no answers has no rate: leave it out of the mean rather than dividing by nothing."
+    },
+    {
+      "id": "the-grader-belongs-to-the-case",
+      "title": "The grader belongs to the case",
+      "testFile": "tests/checkpoints/02-the-grader-belongs-to-the-case.test.ts",
+      "hint": "`grade(testCase.check, output)` is already written and already picks the right one of the four. What this checkpoint is really asking is that you call it per answer rather than per case, and that you keep its `ok` and its `why` apart: the first is the rate and the second is the report."
+    },
+    {
+      "id": "a-failure-keeps-what-came-back",
+      "title": "A failure keeps what came back",
+      "testFile": "tests/checkpoints/03-a-failure-keeps-what-came-back.test.ts",
+      "hint": "Push `{ output, why }` for every answer that did not pass. A rate says something got worse and nothing else, and the answer is the only part anybody can act on: it is gone the moment it has been counted, and rerunning to get it back is a different run."
+    },
+    {
+      "id": "a-rate-is-read-against-the-last-one",
+      "title": "A rate is read against the last one",
+      "testFile": "tests/checkpoints/04-a-rate-is-read-against-the-last-one.test.ts",
+      "hint": "A regression is `baseline - rate > tolerance`, not `rate !== baseline`: a case set this size moves on its own, and a gate that fails on that is a gate somebody turns off. Three things are not regressions and are not passes either, so give each its own list: a case with no baseline, a baseline entry the set no longer has, and a case nobody ran."
+    }
+  ]
+}

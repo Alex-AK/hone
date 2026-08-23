@@ -1243,6 +1243,39 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   looked up eleven times on a busy morning. `store.ran` was already the probe that makes it
   observable, inherited from part one without changing it.
 
+- **ADR-0189 — The eval harness earns its place on the two things that are not a test suite, and it
+  had to be checked before it was written.** The roadmap queued it with a bar attached: a workout
+  whose lesson is "compare output to expected" is a test suite with a different name on it, and the
+  AI-engineering track does not need one of those. Two things survive that test and the workout is
+  built on them. **A case is a rate rather than a verdict**, because the same input has more than one
+  answer and one answer was never a measurement. And **a rate means nothing except against the last
+  one**, so the gate is a fall past a tolerance and not a number on its own. Neither is a thing a test
+  suite does, and everything else the workout touches follows from them.
+
+  **Three states are neither a regression nor a pass, and each got its own list.** A case with no
+  baseline entry, a baseline entry the set no longer has, and a case nobody ran. Folding any of them
+  into the rate is the bug the workout exists to teach: a case that vanished quietly takes its score
+  out of the total, and a case with no answers is not a case that got everything wrong. That last one
+  is also the arithmetic trap, since zero over zero is `NaN` and `NaN` propagates into the total
+  without failing anything.
+
+  **The overall figure is the mean of the case rates rather than of the answers**, and it is a real
+  choice rather than an obvious one. Averaging the answers would let a case somebody ran six times
+  outweigh the one beside it that ran four, which measures how much anybody sampled rather than how
+  well anything did. The brief states it rather than leaving it to be inferred, because both are
+  defensible and only one is checkable.
+
+  **One recorded answer calls a furious customer pleased, and it passes.** The JSON grader checks the
+  shape and never the values, so a confident wrong classification is invisible to it. That is kept
+  rather than fixed: it is the sharpest thing in the workout about what a grader is worth, it is
+  named in the file that defines the graders, and it is one of the three questions the brief leaves
+  at the end. ADR-0048's rule about fakes keeping awkward semantics applies to graders too.
+
+  **The recordings are what make it a fixture rather than a mock.** The same input has several
+  answers, the number of them differs between cases because the ones nobody trusted were run more,
+  and one case has none at all. A recording that gave one answer per case would have taught the test
+  suite this workout exists not to be.
+
 ## The handbook
 
 - **ADR-0067 — Pages are markdown that reads fine on GitHub.** The repo is public and that reach costs nothing.

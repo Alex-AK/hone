@@ -56,9 +56,8 @@ it was counting a floor rather than a drift.
 
 **The content queue has run out and none of this is more content.** What is left is that a green tick
 is a weak claim. Every workout is entered cold, ends the moment its suites pass, and is never opened
-again, so what a run proves is "the examples somebody thought of came back right". These two rows are
-about making the same library ask for more, and they are ordered by what they return against what
-they cost.
+again, so what a run proves is "the examples somebody thought of came back right". What is below is
+about making the same library ask for more.
 
 - **Three generated checkpoints, and the question is whether any of them is worth its harness.**
   ADR-0167's qualified list is empty: six were built, and ADR-0177, ADR-0181, ADR-0182, ADR-0183,
@@ -85,15 +84,6 @@ they cost.
   only hook fires before any transaction opens and a generated interleaving is therefore a serial
   order. A generator was written and measured against eleven planted bugs before that was concluded,
   and it separated from the four hand-written checkpoints on none of them.
-
-- **The last of the AI-engineering track.** `tool-loop-node` and `structured-output-node` are built,
-  over a recorded in-process fixture rather than a fixture server: ADR-0174 records why the noun
-  changed and what would reopen it, and ADR-0188 records what the second one cost to make checkable.
-  **An eval harness** is what is left, and it needs recorded outputs over a fixed case set and
-  nothing else new. What holds it to a bar is ADR-0048: a fixture that only does the happy path
-  teaches nothing a mock object would not. The question it has to answer before it is worth writing
-  is what a case set is graded on that a checkpoint is not already, since a workout whose lesson is
-  "compare output to expected" is a test suite with a different name on it.
 
 ## Deferred
 
