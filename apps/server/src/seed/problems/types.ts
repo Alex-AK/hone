@@ -57,6 +57,14 @@ export const md = (...lines: string[]): string => lines.join('\n');
 export const code = (language: string, ...lines: string[]): string =>
   md(`\`\`\`${language}`, ...lines, '```');
 
+/**
+ * An ASCII diagram: a fenced block with no language, so nothing tries to
+ * highlight it as code. Keep a diagram under about 70 columns, which is what
+ * the reading measure a problem and a handbook page share will hold without
+ * scrolling sideways.
+ */
+export const diagram = (...lines: string[]): string => code('', ...lines);
+
 /** A SQL problem. Solution SQL doubles as the canonical answer. */
 export function sqlProblem(draft: {
   slug: string;

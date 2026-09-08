@@ -2314,3 +2314,24 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
 
   Reopen once reviews have been answered. Nothing about the questions changes, and the UI half is
   still one prop on `HandbookLinks`.
+
+- **ADR-0194 — The pattern diagrams live in the rep that traces them, one to a wave.** A stepped picture
+  of a pointer moving is the one thing the prose in an `explanation` cannot carry, and the eleven
+  waves in `dsa-patterns` are each built on a mechanic that is spatial. The obvious home was a
+  handbook page per pattern, and ADR-0081 already refuses that: a page about sliding window teaches
+  less than three of those. So the diagram goes where the lesson already lives, in the `explanation`
+  of the single rep it traces, and the other two reps in the wave get nothing. Repeating it three
+  times would say the diagram is about the pattern rather than about the run.
+
+  **Each diagram traces that rep's own first test, and every value in it came out of running the
+  rep's own reference.** They were generated from an instrumented run rather than written from
+  memory, which is the same discipline ADR-0071 applies to the SQL pages: a diagram that disagrees
+  with the code is now a diagram that disagrees with a test. Two of them carry measured numbers that
+  no reader would take on trust otherwise, the plain-against-memoised call counts on
+  `dsa-fewest-coins` being the sharpest.
+
+  **ADR-0069 stays closed, and this is evidence for it rather than against it.** The question was
+  put again as a stepping widget, one frame to a click, and the ASCII answered it: a trace with four
+  rows shows a pointer converging as well as an animation does, at no cost in application code.
+  `diagram()` in `seed/problems/types.ts` is the whole mechanism, and it caps a block at about
+  seventy columns because the explanation renders inside the same 68ch measure a page does.

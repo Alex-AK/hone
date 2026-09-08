@@ -1,4 +1,4 @@
-import { codeProblem, md, type ProblemDraft } from './types';
+import { codeProblem, diagram, md, type ProblemDraft } from './types';
 
 /**
  * The heap wave's last two reps are about using a heap rather than writing one,
@@ -157,8 +157,19 @@ export const dsaPatternProblems: ProblemDraft[] = [
       'Start with the widest pair: one index at each end.',
       'A sum that is too big means the right value is too big; too small means the left one is.',
     ],
-    explanation:
-      'Sorting is the information the hash-map solution throws away. Once the array is ordered, the sum tells you which pointer to move: raising the left index is the only way to increase it and lowering the right index is the only way to decrease it, so neither pointer ever needs to go back and every index is visited once. That is O(n) time in O(1) space, against the map at O(n) space. The loop runs while `left < right` rather than `<=`, which is what stops one value being counted twice.',
+    explanation: md(
+      diagram(
+        '[1, 3, 4, 7, 11], target 11',
+        '',
+        '  1   3   4   7  11',
+        '  L               R   1 + 11 = 12   over  -> only R can lower it',
+        '  L           R       1 +  7 =  8   under -> only L can raise it',
+        '      L       R       3 +  7 = 10   under -> only L can raise it',
+        '          L   R       4 +  7 = 11   -> [2, 3]'
+      ),
+      '',
+      'Sorting is the information the hash-map solution throws away. Once the array is ordered, the sum tells you which pointer to move: raising the left index is the only way to increase it and lowering the right index is the only way to decrease it, so neither pointer ever needs to go back and every index is visited once. That is O(n) time in O(1) space, against the map at O(n) space. The loop runs while `left < right` rather than `<=`, which is what stops one value being counted twice.'
+    ),
   }),
 
   codeProblem({
@@ -256,8 +267,19 @@ export const dsaPatternProblems: ProblemDraft[] = [
       'Sum the first k values, then add the value entering the window and subtract the one leaving.',
       'Seed `best` with the first window rather than 0, or an all-negative array answers 0.',
     ],
-    explanation:
-      'The window moves one step at a time, so consecutive sums differ by exactly two values: adding the one that entered and subtracting the one that left makes each step O(1) and the whole pass O(n). Summing each window in an inner loop is the version that reads fine and costs O(n * k), and it redoes k - 1 additions it already did. Starting `best` at 0 is the bug worth remembering here, because it only shows up when every value is negative and the answer comes back as a window that does not exist.',
+    explanation: md(
+      diagram(
+        '[1, 2, 5, 2, 8, 1, 5], k = 3',
+        '',
+        '  [1  2  5] 2  8  1  5    8     the whole window, added up once',
+        '   1 [2  5  2] 8  1  5    9     + 2  - 1',
+        '   1  2 [5  2  8] 1  5   15     + 8  - 2    best',
+        '   1  2  5 [2  8  1] 5   11     + 1  - 5',
+        '   1  2  5  2 [8  1  5]  14     + 5  - 2'
+      ),
+      '',
+      'The window moves one step at a time, so consecutive sums differ by exactly two values: adding the one that entered and subtracting the one that left makes each step O(1) and the whole pass O(n). Summing each window in an inner loop is the version that reads fine and costs O(n * k), and it redoes k - 1 additions it already did. Starting `best` at 0 is the bug worth remembering here, because it only shows up when every value is negative and the answer comes back as a window that does not exist.'
+    ),
   }),
 
   codeProblem({
@@ -447,8 +469,21 @@ export const dsaPatternProblems: ProblemDraft[] = [
       'Build the running totals once, before you look at the queries.',
       'Put a 0 at the front of the totals, and the answer is `prefix[to + 1] - prefix[from]`.',
     ],
-    explanation:
-      'A range sum is the difference of two running totals, so building the totals once turns q scans into q subtractions: O(n + q) against O(n * q) for a loop per query, and the gap widens with every query. The leading 0 is what makes it uniform, because without it `from === 0` needs its own branch and that is exactly where the off-by-one lives. The cost is an extra O(n) of memory and totals that go stale the moment a value changes, which is the trade every precomputed aggregate makes, in an array or in a materialised view.',
+    explanation: md(
+      diagram(
+        '[2, 4, 6, 8]',
+        '',
+        '  values        2    4    6    8',
+        '  prefix   0    2    6   12   20',
+        '  index    0    1    2    3    4',
+        '',
+        '  query [1, 2]  =  prefix[3] - prefix[1]  =  12 - 2  =  10',
+        '                   ^^^^^^^^^   ^^^^^^^^^',
+        '                   2 + 4 + 6   2, taken back off'
+      ),
+      '',
+      'A range sum is the difference of two running totals, so building the totals once turns q scans into q subtractions: O(n + q) against O(n * q) for a loop per query, and the gap widens with every query. The leading 0 is what makes it uniform, because without it `from === 0` needs its own branch and that is exactly where the off-by-one lives. The cost is an extra O(n) of memory and totals that go stale the moment a value changes, which is the trade every precomputed aggregate makes, in an array or in a materialised view.'
+    ),
   }),
 
   codeProblem({
@@ -562,8 +597,23 @@ export const dsaPatternProblems: ProblemDraft[] = [
       'On a loop the fast one laps the slow one; on a list that ends it falls off the end first.',
       'Check both `fast` and `fast.next` before stepping twice, or a list that ends throws.',
     ],
-    explanation:
-      'The fast pointer gains exactly one node a step, so inside a loop the gap between them closes by one each time and they have to land on the same node: a gap that shrinks by one can never be stepped over. A Set of visited nodes answers the same question and costs O(n) memory, which is the thing to avoid when the list is what does not fit in memory. Guarding on both `fast` and `fast.next` is what stops a list that ends from throwing, since the two-step move reads through a node that may be the last. Compare the pointers by identity, not by value: two nodes can hold the same value without being the same node.',
+    explanation: md(
+      diagram(
+        'buildList([1, 2, 3, 4], 1)',
+        '',
+        '  1 -> 2 -> 3 -> 4',
+        '       ^         |',
+        '       +---------+',
+        '',
+        '  step   slow   fast',
+        '     0      1      1',
+        '     1      2      3',
+        '     2      3      2    fast has been round the loop once',
+        '     3      4      4    same node, so it loops'
+      ),
+      '',
+      'The fast pointer gains exactly one node a step, so inside a loop the gap between them closes by one each time and they have to land on the same node: a gap that shrinks by one can never be stepped over. A Set of visited nodes answers the same question and costs O(n) memory, which is the thing to avoid when the list is what does not fit in memory. Guarding on both `fast` and `fast.next` is what stops a list that ends from throwing, since the two-step move reads through a node that may be the last. Compare the pointers by identity, not by value: two nodes can hold the same value without being the same node.'
+    ),
   }),
 
   codeProblem({
@@ -711,8 +761,25 @@ export const dsaPatternProblems: ProblemDraft[] = [
       'Look for a boundary rather than a value: the first index that is at least the target, and the first that is past it.',
       'Start `high` at `sorted.length` and move it to `mid`, never `mid - 1`, since `mid` is still a candidate.',
     ],
-    explanation:
-      '`indexOf` answers a different question: with duplicates it lands on an arbitrary copy, and when the target is missing it tells you nothing about where the value belongs. Both bounds are the same loop with one comparison changed, `>=` for the left edge and `>` for the right, which is why `high - low` counts the copies for free. `high` starts at `length` rather than `length - 1` because the answer can be one past the end, and it moves to `mid` rather than `mid - 1` because `mid` has not been ruled out. Scanning is O(n) per lookup and fine once; it is the wrong shape the moment you do it per row of a batch, which is exactly the descent a B-tree index does for you.',
+    explanation: md(
+      diagram(
+        '[1, 2, 2, 2, 5], target 2',
+        '',
+        '  index    0  1  2  3  4  5',
+        '  value    1  2  2  2  5  .   . is one past the end, where high starts',
+        '',
+        '  first index whose value is >= 2',
+        '    low 0  high 5   mid 2   2 >= 2    -> high = mid',
+        '    low 0  high 2   mid 1   2 >= 2    -> high = mid',
+        '    low 0  high 1   mid 0   1 <  2    -> low = mid + 1',
+        '    low 1  high 1                     -> 1',
+        '',
+        '  high moves to mid, never mid - 1: mid has not been ruled out.',
+        '  The same loop with >= changed to > lands on 4, so [1, 4]: 3 copies.'
+      ),
+      '',
+      '`indexOf` answers a different question: with duplicates it lands on an arbitrary copy, and when the target is missing it tells you nothing about where the value belongs. Both bounds are the same loop with one comparison changed, `>=` for the left edge and `>` for the right, which is why `high - low` counts the copies for free. `high` starts at `length` rather than `length - 1` because the answer can be one past the end, and it moves to `mid` rather than `mid - 1` because `mid` has not been ruled out. Scanning is O(n) per lookup and fine once; it is the wrong shape the moment you do it per row of a batch, which is exactly the descent a B-tree index does for you.'
+    ),
   }),
 
   codeProblem({
@@ -908,8 +975,23 @@ export const dsaPatternProblems: ProblemDraft[] = [
       'Sort by start. Then the only range that can overlap the one in your hand is the one you kept last.',
       'Extend the kept range to the larger of the two ends, because the later range can finish before the earlier one does.',
     ],
-    explanation:
-      'Sorting by start is what makes one comparison enough: once the starts are in order, anything overlapping the range in your hand must have started earlier, so the only candidate is the range you kept last. Without the sort you compare every pair at O(n^2) and then have to merge the merges, because two ranges can become one that overlaps a third. Taking the larger of the two ends is the case people drop, since a range sitting entirely inside an earlier one has a smaller end and would otherwise shrink it. Whether touching counts as overlapping is a product decision rather than a mathematical one, and `<=` against `<` is the whole of it: a calendar that shows a free slot from 2 to 2 has picked wrong.',
+    explanation: md(
+      diagram(
+        '[[1, 3], [2, 6], [8, 10]]',
+        '',
+        '             1  2  3  4  5  6  7  8  9 10',
+        '    [1, 3]   =======',
+        '    [2, 6]      =============',
+        '   [8, 10]                        =======',
+        '',
+        '  hold [1, 3]',
+        '  [2, 6]  starts on or before 3   overlap  -> end = max(3, 6) = 6',
+        '  [8, 10] starts after 6          no touch -> settle [1, 6], hold it',
+        '  input ends                               -> settle [8, 10]'
+      ),
+      '',
+      'Sorting by start is what makes one comparison enough: once the starts are in order, anything overlapping the range in your hand must have started earlier, so the only candidate is the range you kept last. Without the sort you compare every pair at O(n^2) and then have to merge the merges, because two ranges can become one that overlaps a third. Taking the larger of the two ends is the case people drop, since a range sitting entirely inside an earlier one has a smaller end and would otherwise shrink it. Whether touching counts as overlapping is a product decision rather than a mathematical one, and `<=` against `<` is the whole of it: a calendar that shows a free slot from 2 to 2 has picked wrong.'
+    ),
   }),
 
   codeProblem({
@@ -1130,8 +1212,18 @@ export const dsaPatternProblems: ProblemDraft[] = [
       'Take nodes in the order you reach them, so everything one hop away is done before anything two hops away.',
       'A link back to an earlier node runs forever without a set of the nodes you have already queued.',
     ],
-    explanation:
-      'A queue is what makes the answer the shortest one: everything one hop out comes off before anything two hops out, so the first time you meet the target you are already on a shortest route and can stop. Going depth-first hands you the length of whichever route it happened to walk, which here is 3 rather than 2, so it has to walk every route and take the smallest. The visited set is not a speed-up: `api` links back to `home`, and without it the walk never ends. This argument dies the moment edges have weights, because a two-hop route can then be cheaper than a one-hop one, and that is where Dijkstra starts.',
+    explanation: md(
+      diagram(
+        "hops(site, 'home', 'api')",
+        '',
+        '  breadth first, a layer at a time    depth first, a route at a time',
+        '    0   home                          home -> blog -> archive -> api    3',
+        '    1   blog, docs                    home -> docs -> api               2',
+        '    2   archive, api    <- found, 2   both walked, then take the smaller'
+      ),
+      '',
+      'A queue is what makes the answer the shortest one: everything one hop out comes off before anything two hops out, so the first time you meet the target you are already on a shortest route and can stop. Going depth-first hands you the length of whichever route it happened to walk, which here is 3 rather than 2, so it has to walk every route and take the smallest. The visited set is not a speed-up: `api` links back to `home`, and without it the walk never ends. This argument dies the moment edges have weights, because a two-hop route can then be cheaper than a one-hop one, and that is where Dijkstra starts.'
+    ),
   }),
 
   codeProblem({
@@ -1331,8 +1423,22 @@ export const dsaPatternProblems: ProblemDraft[] = [
       'Keep the values still waiting for an answer, and notice they are always in descending order.',
       'Store indices rather than values, so you know where to write an answer when one is settled.',
     ],
-    explanation:
-      'The stack holds exactly the values still waiting for an answer, and they come out in descending order for free, because anything smaller than a value to its left would already have been settled by it. A new value settles every waiting value it beats, and each of those pops once and never returns, which is why the inner loop does not make this O(n^2) the way it looks like it should. Comparing every pair is the O(n^2) version and re-reads the same tail for every value. Popping on `<` rather than `<=` is what keeps "larger" strict: with `<=` an equal value settles the one before it, and the answer comes back as the duplicate instead of the next genuinely larger value.',
+    explanation: md(
+      diagram(
+        '[5, 4, 3, 6]',
+        '',
+        '  read   stack, top on the right   answered',
+        '     5   5                         -',
+        '     4   5 4                       -',
+        '     3   5 4 3                     -',
+        '     6   6                         3, 4 and 5, all on one read',
+        '   end   6                         nothing is larger than 6 -> null',
+        '',
+        '  [6, 6, 6, null]'
+      ),
+      '',
+      'The stack holds exactly the values still waiting for an answer, and they come out in descending order for free, because anything smaller than a value to its left would already have been settled by it. A new value settles every waiting value it beats, and each of those pops once and never returns, which is why the inner loop does not make this O(n^2) the way it looks like it should. Comparing every pair is the O(n^2) version and re-reads the same tail for every value. Popping on `<` rather than `<=` is what keeps "larger" strict: with `<=` an equal value settles the one before it, and the answer comes back as the duplicate instead of the next genuinely larger value.'
+    ),
   }),
 
   codeProblem({
@@ -1585,8 +1691,23 @@ export const dsaPatternProblems: ProblemDraft[] = [
       'Keep the k best seen so far. The one to throw away is the smallest of them.',
       'A min-heap hands you that smallest without looking at the rest: push every value, and pop as soon as the heap holds more than k.',
     ],
-    explanation:
-      'The smallest of the k best is the only value you ever compare against, and a min-heap hands it over without touching the rest, so each value costs O(log k) and the pass is O(n log k) in O(k) space. Sorting the whole array is O(n log n) and holds all of it, which is the wrong shape when k is 10 and n is a million, and impossible when the values arrive one at a time and there is no array to sort. `sort()` with no comparator is the other cost of that route: it compares as strings, so 10 sorts before 9. Popping only once the heap is over k is what pins the memory at k rather than n, and it is the line that gets dropped.',
+    explanation: md(
+      diagram(
+        '[3, 1, 5, 12, 2, 11], k = 3',
+        '',
+        '  arrives   holding       smallest held   dropped',
+        '        3   {3}           3',
+        '        1   {1, 3}        1',
+        '        5   {1, 3, 5}     1',
+        '       12   {3, 5, 12}    3             1',
+        '        2   {3, 5, 12}    3             2    in and straight back out',
+        '       11   {5, 11, 12}   5             3',
+        '',
+        '  [12, 11, 5]'
+      ),
+      '',
+      'The smallest of the k best is the only value you ever compare against, and a min-heap hands it over without touching the rest, so each value costs O(log k) and the pass is O(n log k) in O(k) space. Sorting the whole array is O(n log n) and holds all of it, which is the wrong shape when k is 10 and n is a million, and impossible when the values arrive one at a time and there is no array to sort. `sort()` with no comparator is the other cost of that route: it compares as strings, so 10 sorts before 9. Popping only once the heap is over k is what pins the memory at k rather than n, and it is the line that gets dropped.'
+    ),
   }),
 
   codeProblem({
@@ -1696,8 +1817,25 @@ export const dsaPatternProblems: ProblemDraft[] = [
       'Keep one list of what you have taken so far, and record a copy of it at every step.',
       'Take the last value back off that list before trying the next one, or it leaks into the branch beside it.',
     ],
-    explanation:
-      'Three lines carry the pattern: take a value, recurse on what is left, put it back. Putting it back is the one that gets dropped, and dropping it does not make the answer slow, it makes it wrong, because the list you are building leaks into the branch beside it. Recording `[...path]` rather than `path` matters for the same reason, since `path` keeps changing after you push it and every entry ends up holding whatever it held last. Doubling a list instead, starting from `[[]]` and extending everything by each value in turn, is shorter and just as correct here, and it stops being available the moment a constraint means a branch has to be abandoned part way down.',
+    explanation: md(
+      diagram(
+        'subsets([1, 2, 3])',
+        '',
+        '  path        action        recorded',
+        '  []          -             []',
+        '  [1]         take 1        [1]',
+        '  [1, 2]      take 2        [1, 2]',
+        '  [1, 2, 3]   take 3        [1, 2, 3]',
+        '  [1, 2]      put 3 back',
+        '  [1]         put 2 back',
+        '  [1, 3]      take 3        [1, 3]      right only because 2 went back',
+        '  [1]         put 3 back',
+        '  []          put 1 back',
+        '  [2]         take 2        [2]         and on, to eight in all'
+      ),
+      '',
+      'Three lines carry the pattern: take a value, recurse on what is left, put it back. Putting it back is the one that gets dropped, and dropping it does not make the answer slow, it makes it wrong, because the list you are building leaks into the branch beside it. Recording `[...path]` rather than `path` matters for the same reason, since `path` keeps changing after you push it and every entry ends up holding whatever it held last. Doubling a list instead, starting from `[[]]` and extending everything by each value in turn, is shorter and just as correct here, and it stops being available the moment a constraint means a branch has to be abandoned part way down.'
+    ),
   }),
 
   codeProblem({
@@ -1886,8 +2024,24 @@ export const dsaPatternProblems: ProblemDraft[] = [
       'Write that recursion straight, then count how many times it asks about the same remaining amount.',
       'Keep a map from remaining amount to answer: read it before doing any work, write to it before returning.',
     ],
-    explanation:
-      'The recursion is the answer and it is already right: the fewest coins for `rest` is one more than the fewest for `rest - coin`, over every coin that fits. What it is not is finishable, because the same `rest` is reached down thousands of different routes and recomputed from scratch each time; at a target of 200 over 7, 11 and 13 that is 34 seconds against under a millisecond. Memoising is two lines and changes nothing else: return the stored answer for `rest` before doing any work, and store the answer under `rest` before returning it. That collapses the call tree to one piece of work per distinct `rest`, so the cost becomes the target times the number of coins. Taking the largest coin that fits each time is the other tempting answer, and it is wrong rather than slow: from 1, 3 and 4 it makes 6 as 4 + 1 + 1 instead of 3 + 3.',
+    explanation: md(
+      diagram(
+        'fewestCoins([1, 3, 4], 6), where every call branches on 1, 3 and 4',
+        '',
+        '  f(6) -> f(5)  f(3)  f(2)',
+        '  f(5) -> f(4)  f(2)  f(1)      f(2) is reached from f(6), f(5) and f(3)',
+        '  f(4) -> f(3)  f(1)  f(0)      f(3) is reached from f(6) and f(4)',
+        '  f(3) -> f(2)  f(0)            f(1) is reached from f(5), f(4) and f(2)',
+        '  f(2) -> f(1)',
+        '',
+        '  target      plain calls   with the map',
+        '       6               24             14',
+        '      20           20,736             56',
+        '      30        2,550,408             86'
+      ),
+      '',
+      'The recursion is the answer and it is already right: the fewest coins for `rest` is one more than the fewest for `rest - coin`, over every coin that fits. What it is not is finishable, because the same `rest` is reached down thousands of different routes and recomputed from scratch each time; at a target of 200 over 7, 11 and 13 that is 34 seconds against under a millisecond. Memoising is two lines and changes nothing else: return the stored answer for `rest` before doing any work, and store the answer under `rest` before returning it. That collapses the call tree to one piece of work per distinct `rest`, so the cost becomes the target times the number of coins. Taking the largest coin that fits each time is the other tempting answer, and it is wrong rather than slow: from 1, 3 and 4 it makes 6 as 4 + 1 + 1 instead of 3 + 3.'
+    ),
   }),
 
   codeProblem({
