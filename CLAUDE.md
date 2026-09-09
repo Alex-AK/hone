@@ -171,7 +171,7 @@ apps/web/src/
   prompts, hints, explanations, grader feedback, briefs, handbook pages, UI strings and repo docs.
   The em-dash rules are the ones that bite, and never bulk-regex dashes out of prose: it mangles
   dual-dash asides. Rewrite by hand and diff sentences that contained a pair.
-- Commit in meaningful increments with plain descriptive messages.
+- Commit in meaningful increments. Message format is `~/.claude/rules/commits.md`.
 - Prettier owns formatting: single quotes, 100 columns, semicolons. Never hand-format to fight it.
 - ESLint runs type-aware. When a rule fires on something deliberate, prefer an inline disable with a
   one-line reason over widening the config; only add a config override when a whole directory shares
