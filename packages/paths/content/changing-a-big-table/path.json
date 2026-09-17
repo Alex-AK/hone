@@ -1,0 +1,27 @@
+{
+  "slug": "changing-a-big-table",
+  "title": "Changing a big table without an outage",
+  "question": "The table has millions of rows and the API is still reading it. How do you change it?",
+  "summary": "Why a migration that has not started yet can already be the outage, the scan a constraint runs without saying so, and the backfill that finishes cleanly with half the rows untouched. Ends with rewriting a migration that took the API down for two minutes. The workout needs a real Postgres running.",
+  "order": 8,
+  "minutes": 60,
+  "steps": [
+    { "kind": "page", "ref": "orms/migrations" },
+    {
+      "kind": "page",
+      "ref": "databases/backfilling-a-large-table",
+      "note": "The data half. It locks almost nothing and spends what the whole database shares instead."
+    },
+    { "kind": "problem", "ref": "orm-not-null-on-a-full-table" },
+    { "kind": "problem", "ref": "orm-ddl-lock-queue" },
+    { "kind": "problem", "ref": "orm-add-foreign-key-scan" },
+    { "kind": "problem", "ref": "orm-expand-then-contract" },
+    { "kind": "problem", "ref": "sqlperf-backfill-offset-skips" },
+    { "kind": "problem", "ref": "sqlperf-backfill-open-transaction" },
+    {
+      "kind": "workout",
+      "ref": "orders-migration-postgres",
+      "note": "One column that needs both halves: the schema change around it and the backfill in the middle."
+    }
+  ]
+}
