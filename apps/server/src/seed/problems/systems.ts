@@ -3170,4 +3170,397 @@ export const systemsProblems: ProblemDraft[] = [
     explanation:
       'The order of the branches is the lesson. Written the natural way round, `ttlReply <= refreshWithinSeconds` is true for both sentinels, so a key that does not exist and a key that never expires both get scheduled for a background refresh, and the two actually want opposite things. Sentinels sort like numbers and are not quantities, which is why they reach code that treats them as data. What a port is for is that this translation happens once: every caller above it gets `populate`, `refresh` or `serve`, and no caller has to remember which of the two negatives it is looking at. A wrapper that passed the raw reply through would have renamed the client and moved nothing, since the same mistake stays available at every call site.',
   }),
+
+  // Locks, leases and fencing. All five are read at `systems/locks-leases-and-fencing.md`.
+
+  {
+    slug: 'sys-lease-outlived-the-work',
+    title: 'The job that ran twice with the lock',
+    category: 'systems',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    type: 'explain',
+    prompt: md(
+      'A nightly billing job runs on three instances. Each takes a Redis lock before starting:',
+      '',
+      code(
+        'js',
+        "const ok = await redis.set('lock:billing', workerId, 'PX', 60_000, 'NX');",
+        'if (!ok) return;'
+      ),
+      '',
+      "Last night's run took four minutes, and two customers were charged twice. The logs show two instances starting the job about a minute apart, and both logged that they had acquired the lock.",
+      '',
+      'Explain how both got the lock, and what would actually stop the double charge.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'expired',
+            'expires',
+            'expiry',
+            'ttl',
+            'timed out',
+            'ran out',
+            'longer than',
+            'outlived',
+            '60 seconds',
+            'sixty seconds',
+            'one minute',
+            'a minute',
+          ],
+          missingFeedback:
+            'The lock has a 60-second life and the job took four minutes. Say what happened at the one-minute mark.',
+        },
+        {
+          synonyms: [
+            'does not know',
+            "doesn't know",
+            'did not know',
+            "didn't know",
+            'still thinks',
+            'still believed',
+            'still believes',
+            'unaware',
+            'cannot tell',
+            "can't tell",
+            'no way to know',
+            'kept going',
+            'kept running',
+          ],
+          missingFeedback: 'Say what the first instance knew about its lock once it had expired.',
+        },
+        {
+          synonyms: [
+            'fencing',
+            'fence',
+            'token',
+            'idempotent',
+            'idempotency',
+            'already charged',
+            'charge once',
+            'unique constraint',
+            'unique key',
+            'reject',
+            'refuse',
+          ],
+          missingFeedback:
+            'A longer TTL only moves the problem. Say what has to check, at the point where the charge is written.',
+        },
+      ],
+      hints: [
+        'Compare the lock expiry with how long the job ran.',
+        'At the one-minute mark the key disappeared, and nothing told the first instance, which was still charging.',
+        'The lock cannot prevent this on its own. The thing being written has to refuse the second charge.',
+      ],
+    },
+    canonicalAnswer:
+      'The lock expired after 60 seconds while the first instance was still running, so the key vanished and a second instance acquired it fairly. The first instance had no way to know its lease was gone and kept charging, so for three minutes two instances each believed they held the lock. A longer TTL or a renewal loop shrinks that window without closing it. What stops the double charge is making the write itself refuse it: carry a fencing token that increases on every acquisition and have the store reject a lower one, or make the charge idempotent, for example a unique key per customer per billing period so the second charge fails.',
+    solution: md(
+      'The lease expired while the work was still running.',
+      '',
+      '- **How both got it**: the key lives 60 seconds, the job took four minutes. At one minute the key expired and the second instance acquired it legitimately.',
+      '- **Why the first kept going**: nothing tells a holder its lease ran out. It still believed it held the lock.',
+      '- **The fix**: make the write refuse a duplicate. A fencing token the store checks, or an idempotency key per customer and period. A longer TTL only makes this rarer.'
+    ),
+    explanation:
+      'This is the distributed-lock failure, and it is built into how these locks work: they have to expire so that a crashed holder cannot keep them forever, and the moment they can expire, a slow holder and a new holder can overlap. The holder cannot detect it, because checking the lease and then writing leaves a gap for the same pause to land in. So the lock is good for efficiency, stopping most duplicate runs, and not enough for correctness. Where a duplicate costs money the protection has to live at the write: a fencing token the store checks, or an idempotency key the database enforces with a unique constraint. Either one makes the second charge fail however many instances believe they hold the lock.',
+  },
+
+  codeProblem({
+    slug: 'sys-fencing-token',
+    title: 'Refuse the writer who lost the lock',
+    category: 'systems',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    prompt: md(
+      'A lock service hands out a fencing token with every lease, and the token increases every time anyone acquires the lock.',
+      '',
+      'Write `createFencedStore()`, which returns an object with two methods:',
+      '',
+      '- `write(token, value)` stores `value` and returns `true`, unless a write with a higher token has already been accepted, in which case it stores nothing and returns `false`.',
+      '- `read()` returns the last accepted value, or `null` before any write.',
+      '',
+      'The current holder may write more than once with the same token.'
+    ),
+    starter: 'function createFencedStore() {\n  \n}',
+    tests: [
+      {
+        name: 'accepts a first write',
+        expression:
+          "(() => { const s = createFencedStore(); return [s.write(33, 'a'), s.read()]; })()",
+        expected: [true, 'a'],
+      },
+      {
+        name: 'refuses a write with an older token',
+        expression:
+          "(() => { const s = createFencedStore(); s.write(34, 'new'); return [s.write(33, 'stale'), s.read()]; })()",
+        expected: [false, 'new'],
+      },
+      {
+        name: 'lets the current holder write again with the same token',
+        expression:
+          "(() => { const s = createFencedStore(); s.write(34, 'one'); return [s.write(34, 'two'), s.read()]; })()",
+        expected: [true, 'two'],
+      },
+      {
+        name: 'a refused write does not lower the bar',
+        expression:
+          "(() => { const s = createFencedStore(); s.write(34, 'x'); s.write(33, 'y'); return s.write(33, 'z'); })()",
+        expected: false,
+      },
+      {
+        name: 'a newer token is accepted after an older one',
+        expression:
+          "(() => { const s = createFencedStore(); s.write(33, 'old'); return [s.write(35, 'newer'), s.read()]; })()",
+        expected: [true, 'newer'],
+      },
+      {
+        name: 'reads null before any write',
+        expression: 'createFencedStore().read()',
+        expectedCode: 'null',
+      },
+      {
+        name: 'two stores do not share a bar',
+        expression:
+          "(() => { const a = createFencedStore(); const b = createFencedStore(); a.write(40, 'x'); return b.write(1, 'y'); })()",
+        expected: true,
+      },
+    ],
+    reference: [
+      'function createFencedStore() {',
+      '  let highest = -Infinity;',
+      '  let value = null;',
+      '  return {',
+      '    write(token, next) {',
+      '      if (token < highest) return false;',
+      '      highest = token;',
+      '      value = next;',
+      '      return true;',
+      '    },',
+      '    read() {',
+      '      return value;',
+      '    },',
+      '  };',
+      '}',
+    ].join('\n'),
+    hints: [
+      'The store has to remember something besides the value.',
+      'Keep the highest token accepted so far, and compare every incoming token against it.',
+      'Refuse only a token lower than the highest. An equal one is the current holder writing again.',
+    ],
+    explanation:
+      'The store is the only party in a position to know who holds the lock, because it is the only one that sees every writer. A worker that paused past its lease cannot tell its token is stale, and the lock service has already moved on, but the store has seen 34 and can refuse 33 with nothing more than a number and a comparison. Equal has to pass or the holder cannot make a second write, which is why the check is `<` rather than `<=`. In a database this is one clause, `WHERE fence <= ?`, with zero rows affected meaning a newer holder got there first. Chubby calls the same thing a sequencer, and Raft does it with terms: a server that sees a stale term rejects the request.',
+  }),
+
+  {
+    slug: 'sys-lock-release-deletes-another',
+    title: 'The release that freed someone else',
+    category: 'systems',
+    difficulty: 'easy',
+    relevance: 'daily',
+    type: 'explain',
+    prompt: md(
+      'Workers take a Redis lock with an expiry and release it when they finish:',
+      '',
+      code(
+        'js',
+        "await redis.set('lock:import', '1', 'PX', 30_000, 'NX');",
+        'try {',
+        '  await runImport();',
+        '} finally {',
+        "  await redis.del('lock:import');",
+        '}'
+      ),
+      '',
+      'After one slow import, three workers ended up running at once. Explain how the release caused it, and how to release safely.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'expired',
+            'expiry',
+            'ttl',
+            'already gone',
+            'someone else',
+            'somebody else',
+            'another worker',
+            'other worker',
+            'second worker',
+            "another's",
+            'not its own',
+            'not their own',
+            "wasn't theirs",
+            'was not theirs',
+          ],
+          missingFeedback:
+            'By the time the slow worker reached `del`, whose lock was stored under that key?',
+        },
+        {
+          synonyms: [
+            'unique',
+            'random',
+            'token',
+            'worker id',
+            'owner',
+            'its own value',
+            'own value',
+            'identifier',
+            'uuid',
+          ],
+          missingFeedback: "Every worker stores '1'. Say what the value needs to be instead.",
+        },
+        {
+          synonyms: [
+            'compare',
+            'only if',
+            'only when',
+            'if the value',
+            'matches',
+            'lua',
+            'script',
+            'delex',
+            'ifeq',
+            'atomic',
+          ],
+          missingFeedback: 'Say what the delete has to check first, and why it has to be one step.',
+        },
+      ],
+      hints: [
+        'The slow worker ran past 30 seconds. Work out who held the key by the time it finished.',
+        'The first worker deleted a lock the second worker had acquired after the first one expired, which let a third in.',
+        'Store a value unique to each acquisition, and delete the key only if it still holds that value, in one atomic step.',
+      ],
+    },
+    canonicalAnswer:
+      "The slow worker's lock expired at 30 seconds and a second worker acquired it. When the first worker finished, its `del` removed the key regardless of who owned it, so it deleted the second worker's lock and a third worker could take it while the second was still running. Every worker writes '1', so nothing distinguishes one holder from another. Release safely by setting the key to a value unique to this acquisition, like a random id, and deleting it only if it still holds that value, in one atomic step: a Lua script that compares then deletes, or `DELEX key IFEQ value` on Redis 8.4.",
+    solution: md(
+      'A plain `DEL` releases whoever holds the lock now, not the lock you took.',
+      '',
+      "- **What happened**: the slow worker's lock expired, a second worker took it, and the first worker's `del` then deleted the second worker's lock.",
+      '- **The fix**: store a value unique to each acquisition and delete only if the key still holds it, atomically. A compare-and-delete Lua script, or `DELEX key IFEQ value` on Redis 8.4.'
+    ),
+    explanation:
+      'Redis\'s own guidance calls this out: using just `DEL` "is not safe as a client may remove another client\'s lock", which happens precisely when a holder runs past its expiry. The unique value is what turns the key into a signature, so a release can ask whether this is still my lock rather than whether any lock exists. The check and the delete have to be one step, since a separate `GET` then `DEL` leaves a gap for the key to expire and be taken between them. Note what this does not fix: the slow worker still ran past its lease while another held the lock. A safe release stops the damage from compounding, and only a fencing check at the resource stops the overlap itself.',
+  },
+
+  {
+    slug: 'sys-two-primaries-after-a-blip',
+    title: 'Two primaries after a network blip',
+    category: 'systems',
+    difficulty: 'hard',
+    relevance: 'foundational',
+    type: 'explain',
+    prompt: md(
+      'A two-node database pair watches each other with heartbeats. If a node misses its peer for five seconds, it promotes itself to primary.',
+      '',
+      'The network between them dropped for eight seconds. When it came back, both nodes had been accepting writes and the two copies disagreed.',
+      '',
+      'Explain why two nodes cannot get this right, and what a correct setup needs.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'cannot tell',
+            "can't tell",
+            'cannot distinguish',
+            "can't distinguish",
+            'dead or',
+            'down or',
+            'crashed or',
+            'unreachable',
+            'partition',
+            'looks the same',
+            'same as dead',
+            'no way to know',
+          ],
+          missingFeedback:
+            "From one node's side, what does a partition look like compared with a dead peer?",
+        },
+        {
+          synonyms: [
+            'majority',
+            'quorum',
+            'three nodes',
+            '3 nodes',
+            'odd number',
+            'third node',
+            'witness',
+            'tiebreaker',
+            'tie-breaker',
+            'more than half',
+            'consensus',
+          ],
+          missingFeedback: 'Say what a node should need before it may act as primary.',
+        },
+        {
+          synonyms: [
+            'term',
+            'epoch',
+            'generation',
+            'fencing',
+            'fence',
+            'token',
+            'step down',
+            'steps down',
+            'demote',
+            'reject',
+            'stale',
+          ],
+          missingFeedback: 'Say what stops the old primary once a new one exists.',
+        },
+      ],
+      hints: [
+        'Put yourself inside one node during the eight seconds. What could it observe?',
+        'A crashed peer and an unreachable peer look identical from the inside, so both nodes made the reasonable call, and it was wrong.',
+        'Require a majority of voters to become primary, which needs at least three, and number each leadership term so the old primary is refused.',
+      ],
+    },
+    canonicalAnswer:
+      'From inside one node, a dead peer and an unreachable peer look identical: heartbeats stop either way. So during the partition each node concluded the other was down and promoted itself, and that is split brain. Two nodes cannot fix this with a better heartbeat, because neither side can outvote the other. A correct setup requires a majority to act as primary, which needs at least three voters, so only the side of a partition holding more than half can elect one and the minority side stays read-only. Each leadership term also gets a number that only increases, and writes carry it, so anything that has seen a newer term rejects the old primary instead of letting it keep writing.',
+    solution: md(
+      'Split brain: a partition looks exactly like a crash from both sides.',
+      '',
+      '- **Why two cannot work**: each node sees silence and cannot tell a dead peer from an unreachable one, and neither can outvote the other.',
+      '- **What is needed**: a majority of at least three voters to elect a primary, so only one side of a partition can.',
+      '- **The old primary**: numbered terms carried on writes, so a stale term is rejected. This is what Raft does.'
+    ),
+    explanation:
+      'Every node in a partition makes a reasonable decision from what it can see, and two reasonable decisions produce two primaries. The fix is to require agreement from a majority, because two majorities of the same group always overlap, so two sides of a partition cannot both have one. That is why consensus systems use odd sizes: Raft describes five servers as able to "tolerate the failure of any two", and a sixth server raises the majority to four without surviving any more failures. The majority stops a second leader being elected. It does not stop an old leader that has not heard the news, which is what the term is for: Raft has servers reject any request carrying a stale term, the same idea as a fencing token.',
+  },
+
+  {
+    slug: 'sys-majority-of-six',
+    title: 'The sixth node',
+    category: 'systems',
+    difficulty: 'easy',
+    relevance: 'foundational',
+    type: 'short-text',
+    prompt: md(
+      'A cluster elects its leader by majority vote, and keeps working as long as a majority of its nodes are up. With five nodes, it survives two failures.',
+      '',
+      'You add a sixth node. How many node failures can it now survive? Answer with a number.'
+    ),
+    graderConfig: {
+      accept: ['2', 'two', 'still 2', 'still two'],
+      acceptPatterns: ['^(still )?(2|two)\\b'],
+      nearMisses: {
+        '3': 'With six nodes a majority is four, so three failures leave three up, which is not more than half. It survives two, the same as five nodes.',
+        three:
+          'With six nodes a majority is four, so three failures leave three up, which is not more than half. It survives two, the same as five nodes.',
+      },
+      hints: [
+        'Work out what a majority of six is first.',
+        'A majority is more than half, so for six nodes it is four.',
+        'Six nodes minus the four that must stay up leaves two that may fail.',
+      ],
+    },
+    canonicalAnswer: '2',
+    solution: md('Two. A majority of six is four, so only two may fail, the same as with five.'),
+    explanation:
+      'A majority is more than half, so going from five nodes to six raises it from three to four and the number of failures you can survive stays at two. The sixth node adds a machine to every vote and survives nothing extra. It also makes a clean split worse: three against three leaves neither side with a majority, so the whole cluster stops. This is why consensus clusters come in odd sizes, three to survive one failure and five to survive two.',
+  },
 ];
