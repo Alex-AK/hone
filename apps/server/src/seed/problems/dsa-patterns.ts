@@ -1372,6 +1372,209 @@ export const dsaPatternProblems: ProblemDraft[] = [
       'A visited set answers "have I been here", and a cycle asks "am I here right now", which are different questions: `auth` and `billing` both import `config`, so treating any second visit as a cycle reports one on a graph that has none. Two sets is the fix, one for the modules on the route you are walking and one for the modules you have finished with, and the line that decides it is removing a module from the first when its imports are done. Drop the finished set and the answer stays right while the walk re-explores every shared subtree, which goes exponential on a chain of diamonds. Start from every module, not just the first: a cycle that nothing imports is still a cycle, and it is the one a bundler finds after you have convinced yourself the entry point is clean.',
   }),
 
+  /* Trees: `{ value, children }`, walked without a visited set, because nothing leads back. */
+  codeProblem({
+    slug: 'dsa-tree-depth',
+    title: 'The deepest reply in a thread',
+    category: 'dsa-patterns',
+    difficulty: 'easy',
+    relevance: 'occasional',
+    prompt: md(
+      'A comment thread is a tree: each comment is `{ value, children }`, and `children` is the',
+      'replies to it, possibly empty. `thread` above is one.',
+      '',
+      'Return how many levels deep the thread goes, counting the top comment as 1. Return 0 for',
+      '`null`, which is a post with no comments.'
+    ),
+    starter: 'function depth(root) {\n  \n}',
+    setup: md(
+      '// A comment and its replies, each reply a comment of the same shape.',
+      'const thread = {',
+      "  value: 'c1',",
+      '  children: [',
+      "    { value: 'c2', children: [] },",
+      '    {',
+      "      value: 'c3',",
+      "      children: [{ value: 'c4', children: [{ value: 'c5', children: [] }] }],",
+      '    },',
+      '  ],',
+      '};'
+    ),
+    tests: [
+      { name: 'follows the deepest branch', expression: 'depth(thread)', expected: 4 },
+      {
+        name: 'counts a comment with no replies as 1',
+        expression: "depth({ value: 'c1', children: [] })",
+        expected: 1,
+      },
+      { name: 'returns 0 for no thread at all', expression: 'depth(null)', expected: 0 },
+      {
+        name: 'takes the deepest branch even when it is the last one',
+        expression:
+          "depth({ value: 'a', children: [{ value: 'b', children: [] }, { value: 'c', children: [{ value: 'd', children: [] }] }] })",
+        expected: 3,
+      },
+    ],
+    reference:
+      'function depth(root) {\n  if (root === null) return 0;\n  return 1 + Math.max(0, ...root.children.map(depth));\n}',
+    hints: [
+      'The depth of a comment depends only on the depths of its replies.',
+      'A comment is one level plus the deepest of its replies.',
+      'A comment with no replies still counts, so seed the maximum with 0 rather than taking the max of an empty list.',
+    ],
+    explanation:
+      '`Math.max()` of nothing is `-Infinity`, which is why the reference passes a 0 in front of the spread: a comment with no replies would otherwise come out as negative infinity plus one. There is no visited set because a tree has no way back up, and that is the whole difference from the graph reps. The recursion is also the limit of this version. On Node 24.21 it ran fine on a chain 1,000 replies deep and threw a `RangeError` at 5,000, because every level holds a stack frame. A thread that deep is a bot, but code that walks untrusted input should use an explicit stack or queue, which is where the next rep starts.',
+  }),
+
+  codeProblem({
+    slug: 'dsa-tree-levels',
+    title: 'An org chart, one level at a time',
+    category: 'dsa-patterns',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    prompt: md(
+      '`org` above is a tree of `{ value, children }`, children listed left to right.',
+      '',
+      'Return the values grouped by level, top first, each level in left-to-right order. Return `[]`',
+      'for `null`.'
+    ),
+    starter: 'function levels(root) {\n  \n}',
+    setup: md(
+      '// Who reports to whom, left to right.',
+      'const org = {',
+      "  value: 'ceo',",
+      '  children: [',
+      '    {',
+      "      value: 'cto',",
+      '      children: [',
+      "        { value: 'platform', children: [] },",
+      "        { value: 'product', children: [] },",
+      '      ],',
+      '    },',
+      "    { value: 'cfo', children: [{ value: 'payroll', children: [] }] },",
+      '  ],',
+      '};'
+    ),
+    tests: [
+      {
+        name: 'groups each level left to right',
+        expression: 'levels(org)',
+        expected: [['ceo'], ['cto', 'cfo'], ['platform', 'product', 'payroll']],
+      },
+      {
+        name: 'keeps cousins in one level, not grouped by parent',
+        expression:
+          "levels({ value: 'a', children: [{ value: 'b', children: [{ value: 'd', children: [] }] }, { value: 'c', children: [{ value: 'e', children: [] }] }] })",
+        expected: [['a'], ['b', 'c'], ['d', 'e']],
+      },
+      {
+        name: 'handles a single node',
+        expression: "levels({ value: 'solo', children: [] })",
+        expected: [['solo']],
+      },
+      { name: 'returns an empty list for null', expression: 'levels(null)', expected: [] },
+    ],
+    reference:
+      'function levels(root) {\n  if (root === null) return [];\n  const result = [];\n  let layer = [root];\n  while (layer.length > 0) {\n    result.push(layer.map((node) => node.value));\n    layer = layer.flatMap((node) => node.children);\n  }\n  return result;\n}',
+    hints: [
+      "Walking down one branch at a time finishes `cto`'s reports before it ever reaches `cfo`.",
+      'Hold every node on the current level together, and build the next level from all of their children.',
+      'A level is `layer.map(node => node.value)`, and the next one is every child of every node in it, in order.',
+    ],
+    explanation: md(
+      diagram(
+        'levels(org)',
+        '',
+        '  layer                        next layer',
+        '  ceo                          cto, cfo',
+        '  cto, cfo                     platform, product, payroll',
+        '  platform, product, payroll   (none, so stop)'
+      ),
+      '',
+      'This is breadth-first search with the queue taken a whole layer at a time, which is what makes the grouping free: everything in `layer` is the same distance from the top, so it is one row of the answer. A plain queue gets the same order but loses the boundaries between levels, and putting them back means counting how many nodes were on the queue when the level began. Depth-first gets every value and none of the grouping, since it finishes one branch before looking at the next. There is still no visited set, because a node in a tree is reached exactly once.'
+    ),
+  }),
+
+  codeProblem({
+    slug: 'dsa-tree-path',
+    title: 'The breadcrumb to a category',
+    category: 'dsa-patterns',
+    difficulty: 'medium',
+    relevance: 'occasional',
+    prompt: md(
+      '`categories` above is a tree of `{ value, children }`, and every value is unique.',
+      '',
+      'Return the values on the route from the root down to `target`, root first, which is the',
+      'breadcrumb a shop shows above a product. Return `null` when `target` is not in the tree, or',
+      'when the tree is `null`.'
+    ),
+    starter: 'function breadcrumb(root, target) {\n  \n}',
+    setup: md(
+      '// A shop and its categories.',
+      'const categories = {',
+      "  value: 'shop',",
+      '  children: [',
+      '    {',
+      "      value: 'garden',",
+      '      children: [',
+      "        { value: 'seeds', children: [] },",
+      "        { value: 'tools', children: [] },",
+      '      ],',
+      '    },',
+      "    { value: 'kitchen', children: [{ value: 'knives', children: [] }] },",
+      '  ],',
+      '};'
+    ),
+    tests: [
+      {
+        name: 'leaves out the branch it tried first',
+        expression: "breadcrumb(categories, 'knives')",
+        expected: ['shop', 'kitchen', 'knives'],
+      },
+      {
+        name: 'finds a leaf in the first branch',
+        expression: "breadcrumb(categories, 'tools')",
+        expected: ['shop', 'garden', 'tools'],
+      },
+      {
+        name: 'returns just the root for the root',
+        expression: "breadcrumb(categories, 'shop')",
+        expected: ['shop'],
+      },
+      {
+        name: 'returns null for a category that is not there',
+        expression: "breadcrumb(categories, 'toys')",
+        expectedCode: 'null',
+      },
+      {
+        name: 'returns null for no tree',
+        expression: "breadcrumb(null, 'shop')",
+        expectedCode: 'null',
+      },
+    ],
+    reference:
+      'function breadcrumb(root, target) {\n  const path = [];\n  const walk = (node) => {\n    path.push(node.value);\n    if (node.value === target) return true;\n    for (const child of node.children) {\n      if (walk(child)) return true;\n    }\n    path.pop();\n    return false;\n  };\n  return root !== null && walk(root) ? path : null;\n}',
+    hints: [
+      'Build the route as you go down, since you only know it was right once you arrive.',
+      'Keep one array for the route. Add a node when you enter it.',
+      'When a node and everything under it turn out not to contain the target, take it back off the route before trying its sibling.',
+    ],
+    explanation: md(
+      diagram(
+        "breadcrumb(categories, 'knives')",
+        '',
+        '  shop',
+        '  shop > garden',
+        '  shop > garden > seeds       back out of seeds',
+        '  shop > garden > tools       back out of tools, then garden',
+        '  shop > kitchen',
+        '  shop > kitchen > knives     found'
+      ),
+      '',
+      'The `pop` is the line that decides it. The walk has to go into `garden` to find out that `knives` is not there, and without taking `garden` back off the route the answer comes out as `shop > garden > seeds > tools > kitchen > knives`, every node visited rather than the route to the one you wanted. Adding on the way in and removing on the way out is the backtracking shape, and it is why one array serves the whole walk instead of a copy per branch. Returning `true` up the recursion is what stops it the moment the target is found, so the path is still intact when it gets back to the top.'
+    ),
+  }),
+
   /* Monotonic stack: hold what is still waiting for an answer, and pop it when the answer lands. */
   codeProblem({
     slug: 'dsa-next-greater',
