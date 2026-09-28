@@ -2177,4 +2177,82 @@ export const sqlProblems: ProblemDraft[] = [
     explanation:
       'Isolation levels are named after the anomalies they forbid, and the strong ones forbid them by refusing transactions rather than by making conflicts impossible. The Postgres documentation says the same thing about both levels above Read Committed: applications using them "must be prepared to retry transactions due to serialization failures". Shipping the level without that retry converts a rare wrong answer into a rare 500, which is exactly the trade made here and not usually the one intended. The unit of retry is the whole transaction, because a serialization failure invalidates everything the transaction read, not only the statement that reported it. That is also why an email or a charge inside the transaction has to come out first: the retry does it again.',
   },
+
+  {
+    slug: 'sql-upsert-not-check-then-insert',
+    title: 'Insert it, or count it if it is there',
+    category: 'sql',
+    difficulty: 'easy',
+    relevance: 'daily',
+    type: 'explain',
+    prompt: md(
+      'A page-view counter keeps one row per page per day, with a unique index on `(page, day)`. The handler:',
+      '',
+      code(
+        'js',
+        "const row = await db.get('SELECT views FROM daily_views WHERE page = ? AND day = ?', [page, day]);",
+        'if (row) {',
+        "  await db.run('UPDATE daily_views SET views = views + 1 WHERE page = ? AND day = ?', [page, day]);",
+        '} else {',
+        "  await db.run('INSERT INTO daily_views (page, day, views) VALUES (?, ?, 1)', [page, day]);",
+        '}'
+      ),
+      '',
+      'A few times a day, the first view of a page fails with `UNIQUE constraint failed: daily_views.page, daily_views.day`.',
+      '',
+      'Say what happened, and write the one statement that replaces all of this.'
+    ),
+    graderConfig: {
+      groups: [
+        {
+          synonyms: [
+            'both',
+            'two requests',
+            'at the same time',
+            'concurrent',
+            'simultaneous',
+            'race',
+            'in between',
+            'between the select',
+            'found nothing',
+            'no row',
+          ],
+          missingFeedback:
+            'It only fails on the first view. Say what two requests for the same new page each saw.',
+        },
+        {
+          synonyms: ['on conflict'],
+          missingFeedback:
+            'Name the clause that lets an INSERT handle the row already being there.',
+        },
+        {
+          synonyms: ['do update', 'views + 1', 'views+1'],
+          missingFeedback: 'Say what the statement does when the row exists.',
+        },
+      ],
+      hints: [
+        'It only fails on a page that has no row yet today, and only sometimes.',
+        'Two requests can both run the SELECT, both find nothing, and both INSERT. The second one hits the unique index.',
+        'Ask the database to insert, and to update instead if the unique key is taken: `INSERT ... ON CONFLICT (page, day) DO UPDATE ...`.',
+      ],
+    },
+    canonicalAnswer:
+      'Two requests for the same page arrived together, both ran the SELECT, both found no row, and both went down the INSERT branch, so the second hit the unique index. The read and the write are separate statements with a gap between them. Replace all of it with one statement: INSERT INTO daily_views (page, day, views) VALUES (?, ?, 1) ON CONFLICT (page, day) DO UPDATE SET views = daily_views.views + 1. The database makes the insert-or-update decision itself, so there is no gap left to race in.',
+    solution: md(
+      'Check-then-insert races on the first view.',
+      '',
+      '- **What happened**: two requests both read no row, both inserted, and the unique index refused the second.',
+      '- **The fix**: one statement, so the decision happens inside the database.',
+      '',
+      code(
+        'sql',
+        'INSERT INTO daily_views (page, day, views)',
+        'VALUES (?, ?, 1)',
+        'ON CONFLICT (page, day)',
+        'DO UPDATE SET views = daily_views.views + 1;'
+      )
+    ),
+    explanation:
+      'The handler reads to decide which write to send, and the decision is stale by the time the write lands. Postgres documents that `ON CONFLICT DO UPDATE` "guarantees an atomic INSERT or UPDATE outcome", "even under high concurrency", and SQLite has had the same clause since 3.24. It needs the unique index to decide what counts as a conflict: without one, SQLite 3.53 refuses the statement with "ON CONFLICT clause does not match any PRIMARY KEY or UNIQUE constraint", and Postgres 18 with "there is no unique or exclusion constraint matching the ON CONFLICT specification". Inside `DO UPDATE`, the existing row goes by the table name and the row you tried to insert goes by `excluded`, which is how an upsert that overwrites rather than counts is written: `SET title = excluded.title`.',
+  },
 ];

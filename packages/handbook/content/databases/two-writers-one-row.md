@@ -3,6 +3,7 @@ title: Two writers, one row
 question: Two people saved the same record and one of the edits is gone. Where do I stop that?
 order: 9
 practise:
+  - sql-upsert-not-check-then-insert
   - sql-optimistic-update-zero-rows
   - sql-for-update-across-requests
   - sql-serializable-needs-retry
