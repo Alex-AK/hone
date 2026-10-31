@@ -33,42 +33,42 @@
     {
       "id": "inner-against-left",
       "front": "`INNER JOIN` and `LEFT JOIN`, same `ON` condition. What is in one result and not the other?",
-      "back": "The left rows that matched nothing. `INNER` keeps only the matching pairs; `LEFT` keeps those and adds one row for every unmatched left row, NULL in every right-hand column. An inner self-join of `employees` on `manager_id` returns 11 rows for 12 people, because the CEO has no manager. `LEFT JOIN` returns 12, `manager_name` NULL. Those padded rows are the entire difference."
+      "back": "The left rows that matched nothing, which `LEFT` keeps with NULL in every right-hand column. A self-join of 12 `employees` on `manager_id` gives 11 rows inner and 12 left, because the CEO has no manager."
     },
     {
       "id": "the-fan-out",
       "front": "Two orders, one with two line items and one with three. How many rows does `orders JOIN order_items` return?",
-      "back": "Five. A join produces pairs, so a left row repeats once per matching right row. A duplicated name, an inflated `SUM` and a `COUNT` that is too big are one bug, not three. Over those same five rows `COUNT(*)` is 5, `COUNT(DISTINCT o.id)` is 2 and `SUM(oi.quantity)` is 7: all correct, all answering different questions. `GROUP BY` collapses the fan."
+      "back": "Five: a join produces pairs, so a left row repeats once per matching right row. A duplicated name, an inflated `SUM` and a `COUNT` that is too big are this one bug."
     },
     {
       "id": "where-undoes-a-left-join",
       "front": "The customers with no completed orders vanished from the report, and the `LEFT JOIN` is still in the source. What happened?",
-      "back": "A condition on the right-hand table went into `WHERE` instead of `ON`. The padded rows hold NULL there, a comparison against NULL is not true, and `WHERE` drops it. `ON o.customer_id = c.id AND o.status = 'completed'` returns all 10 customers, 2 counting zero; the same test in `WHERE` returns 8. `ON` is processed before the join, `WHERE` after."
+      "back": "A condition on the right-hand table went into `WHERE` instead of `ON`. The padded rows hold NULL there, the comparison is not true, and `WHERE` drops them: 8 customers instead of 10."
     },
     {
       "id": "is-null-is-the-anti-join",
       "front": "Which test on a right-hand column survives a `LEFT JOIN`, and what does it get you?",
-      "back": "`IS NULL`, and it gets you the anti-join: the left rows that matched nothing. Every other `WHERE` test on that side deletes the padded rows the `LEFT` was for. Test a column that is never NULL in a real row, meaning the primary key. On the practice database `WHERE r.id IS NULL` finds the 3 never-reviewed books; `WHERE r.comment IS NULL` returns 13, the 3 plus 10 reviews that have no comment."
+      "back": "`IS NULL`, which gets you the anti-join: the left rows that matched nothing. Test the primary key, since `WHERE r.comment IS NULL` also catches the 10 real reviews with no comment."
     },
     {
       "id": "full-outer-join",
       "front": "What does `FULL OUTER JOIN` add that `LEFT JOIN` does not?",
-      "back": "The unmatched rows from the right-hand table too. `LEFT` pads only for left rows with no match; `FULL OUTER` pads in both directions, so an order whose customer row is missing comes back with NULL in every customer column. SQLite gained `RIGHT JOIN` and `FULL OUTER JOIN` in release 3.39.0, on 2022-06-25. Postgres has all three."
+      "back": "The unmatched rows from the right-hand table too, so an order whose customer row is missing comes back with NULL in every customer column."
     },
     {
       "id": "cross-join-is-the-product",
       "front": "What is a `CROSS JOIN`, and what does every other join have to do with it?",
-      "back": "It is the cartesian product: every left row paired with every right row, so 10 customers and 20 orders give 200 rows. Every join starts there, and the `ON` expression is a filter over that product, keeping only the pairs it evaluates true for. `JOIN ... ON true` and the comma form `FROM customers, orders` give the same 200 rows."
+      "back": "The cartesian product: 10 customers and 20 orders give 200 rows. Every join starts there, and `ON` is a filter keeping only the pairs it evaluates true for."
     },
     {
       "id": "not-in-with-a-null",
       "front": "`WHERE id NOT IN (SELECT manager_id FROM employees)` came back empty, with no error. Why?",
-      "back": "One `manager_id` is NULL. `NOT IN` compares against every value in the set, and a comparison against NULL is neither true nor false but unknown, so the condition can never be true for anybody. The same question written as `NOT EXISTS` returns all 9 employees who manage nobody. Filtering the NULLs out of the subquery works too."
+      "back": "One `manager_id` is NULL, and a comparison against NULL is unknown, so `NOT IN` can never be true for anybody. The same question as `NOT EXISTS` returns all 9 employees who manage nobody."
     },
     {
       "id": "not-exists-against-left-join-is-null",
       "front": "`LEFT JOIN ... WHERE r.id IS NULL` and `NOT EXISTS (SELECT 1 ...)` return the same rows. Which do you reach for?",
-      "back": "`NOT EXISTS`, whenever the right-hand table contributes no columns to the output, which is most of the time. It builds no pairs and stops at the first match, which is why its select list is `1`. The `LEFT JOIN` spelling builds every pair and then keeps the rows where the padding shows through, so it rests on picking a never-NULL column."
+      "back": "`NOT EXISTS`, whenever the right-hand table contributes no columns to the output, which is most of the time. It builds no pairs and stops at the first match."
     }
   ]
 }

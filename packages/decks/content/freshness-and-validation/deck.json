@@ -38,42 +38,42 @@
     {
       "id": "freshness-against-validation",
       "front": "`max-age` and an `ETag` are on the same response. Which of them saves the round trip?",
-      "back": "`max-age`. Freshness and validation are two mechanisms, not one. While the copy is fresh it is used without asking anybody, so there is no request at all; validation is what happens afterwards, and a 304 saves the body while still paying for the trip. If the round trip is the cost you care about, a validator is the wrong tool."
+      "back": "`max-age`. While the copy is fresh it is used with no request at all; a 304 saves the body but still pays for the trip."
     },
     {
       "id": "etag-against-last-modified",
       "front": "`ETag` or `Last-Modified`? Both are validators, and one of them cannot express something.",
-      "back": "`ETag`. `Last-Modified` is a date at one-second resolution, so it cannot express two changes inside the same second. An `ETag` is an opaque string the server picks, and MDN notes there are no restrictions on how it is generated, so a content hash or a revision number are both fine. RFC 9110 would rather you sent both when you can."
+      "back": "`ETag`. `Last-Modified` is a date at one-second resolution, so it cannot express two changes inside the same second."
     },
     {
       "id": "the-w-prefix-on-an-etag",
       "front": "What does the `W/` on an `ETag` cost you, and what does it not?",
-      "back": "It costs you range requests, which need a strong validator to stay cacheable. It costs you nothing on a 304, because RFC 9110 requires `If-None-Match` to use the weak comparison function: two tags match if their opaque parts match character by character, whether or not either is marked weak. Weak is the honest label for same content, different bytes."
+      "back": "It costs you range requests, which need a strong validator to stay cacheable. It costs nothing on a 304, because `If-None-Match` uses weak comparison, which ignores `W/` on either tag."
     },
     {
       "id": "the-304-that-never-fires",
       "front": "The 304 never fires and the header looks right on both sides. What is doing the comparing?",
-      "back": "`===`, against a value with a `W/` on one side. The spec requires weak comparison for `If-None-Match`, which ignores the prefix on either or both tags; string equality does not. The header can also carry a comma-separated list, or `*`. Parse it rather than matching it."
+      "back": "`===`, against a value with a `W/` on one side. `If-None-Match` requires weak comparison, which ignores the prefix; string equality does not."
     },
     {
       "id": "every-request-is-a-304-and-the-server-is-on-fire",
       "front": "Every request comes back 304 and the server is still on fire. What did the ETag cost to produce?",
-      "back": "The whole response. The validator was computed by building the body first, so you saved the bandwidth and none of the work. A 304 is only cheap if the ETag is cheap: a version column, an `updated_at`, a counter bumped on write. Hashing the rendered body means you rendered the body."
+      "back": "The whole response: the ETag was computed by building the body, so you saved the bandwidth and none of the work. A 304 is only cheap if the ETag is, like a version column."
     },
     {
       "id": "the-etag-that-changes-on-deploy",
       "front": "Nothing is a hit after a deploy and the bytes did not change. What was the ETag a function of?",
-      "back": "Something that is not the content: the build, the instance, the process that served it. A validator has to be a function of the representation, or every release invents a new tag for bytes nobody touched, and two servers behind a load balancer disagree about a file they both hold identical copies of."
+      "back": "Something that is not the content: the build, the instance or the process that served it. Then every release invents a new tag for bytes nobody touched."
     },
     {
       "id": "stale-while-revalidate",
       "front": "`max-age=60, stale-while-revalidate=600`. What happens at second 30, second 300 and second 700?",
-      "back": "At 30 it is fresh and served with no request at all. At 300 it is stale, and a cache may serve the stored copy immediately and revalidate behind it, so the request that discovered the staleness does not pay for it. At 700 staleness is real again and the next request waits. RFC 5861's other extension, `stale-if-error`, does the same for a 500, 502, 503 or 504 upstream."
+      "back": "At 30 it is fresh and served with no request. At 300 a cache may serve the stale copy immediately and revalidate behind it; at 700 the next request waits."
     },
     {
       "id": "the-stale-render-replaced-by-an-older-one",
       "front": "React Query showed the stored value, refetched, and then replaced it with an older one. What happened?",
-      "back": "Two fetches were in flight and the slower, older one landed last. Client caches implement this whole idea in JavaScript: show what is stored, refetch in the background, swap in the result. The swap has no idea which request it belongs to, so ignore or abort any response that is not for the request you last made."
+      "back": "Two fetches were in flight and the slower, older one landed last. Ignore or abort any response that is not for the request you last made."
     }
   ]
 }

@@ -32,37 +32,37 @@
     {
       "id": "json-mode-against-structured-outputs",
       "front": "JSON mode and structured outputs, same schema in the request. What does each one actually promise?",
-      "back": "JSON mode promises the output parses. Only structured outputs promise it matches your schema, and OpenAI draws the line in those words. The mechanism behind the second is constrained decoding: the sampler is restricted to tokens the grammar allows, so the document is well formed as it is written rather than checked afterwards."
+      "back": "JSON mode promises the output parses; only structured outputs promise it matches your schema. The sampler is restricted to tokens the grammar allows, so it is well formed as it is written."
     },
     {
       "id": "strict-true-is-which-promise",
       "front": "`strict: true` on a tool definition. Which of the three promises is that, and what is it applied to?",
-      "back": "The schema promise, applied to the tool's arguments rather than to the reply. Same machinery: the sampler is constrained to your input schema, so an integer field arrives as `2` and never as `\"two\"`. It says nothing about whether the caller is allowed to touch the id it typed correctly."
+      "back": "The schema promise, applied to the tool's arguments rather than to the reply. An integer field arrives as `2` and never as `\"two\"`."
     },
     {
       "id": "what-still-fails-a-compiled-schema",
       "front": "The provider compiled your schema and the mode is on. Which two stop conditions still hand you something that fails it?",
-      "back": "The output cap, which truncates mid-token and leaves a fragment, and a refusal, which is under no obligation to match the schema at all. Both arrive as a 200, so the handler reads the stop condition before it reads the content and treats an early stop as a failed call rather than as data."
+      "back": "The output cap, which truncates mid-token, and a refusal, which need not match the schema. Both arrive as a 200, so read the stop condition before the content."
     },
     {
       "id": "the-keywords-that-do-not-survive",
       "front": "Your schema carries `minLength: 3` and `maximum: 99`. What do Anthropic and OpenAI each do with them?",
-      "back": "Anthropic rejects them outright with a 400: numerical constraints, string constraints and recursive schemas are all unsupported there. OpenAI takes them on its standard models and supports recursion. The same schema file is therefore not the same guarantee at two providers."
+      "back": "Anthropic rejects them with a 400, since numerical and string constraints are unsupported there. OpenAI takes them on its standard models."
     },
     {
       "id": "the-optional-field",
       "front": "One property is optional in your validator. What has to change before OpenAI will accept that schema?",
-      "back": "Every property has to appear in `required`, so optionality is expressed as a union with `null` instead. Both providers also want `additionalProperties: false` on every object. Derive the provider's copy from yours rather than sending the same object to both."
+      "back": "Every property has to appear in `required`, so optionality is expressed as a union with `null` instead."
     },
     {
       "id": "what-no-provider-checks",
       "front": "The response matched the schema exactly, field for field. Which class of wrong is still in front of you?",
-      "back": "Everything semantic. The SKU that does not exist, lines that do not add up to the total, a delivery date in 1970. The provider is checking shape; the contract is yours, which is why the response is still validated against your own schema after it parses."
+      "back": "Everything semantic, like a SKU that does not exist. The provider checks shape; the contract is yours, so the response is still validated against your own schema."
     },
     {
       "id": "which-failure-must-not-be-retried",
       "front": "Three ways the call failed: it stopped early, it did not parse, it parsed and failed validation. Which one must not be retried unchanged?",
-      "back": "The last one. It produced a document and got a field wrong, so an identical request is the same dice roll; the validation issues are what makes the second attempt different. Stopping early wants a bigger cap or a smaller ask, and an unparseable reply is worth one more sample."
+      "back": "The last one: it got a field wrong, so an identical request is the same dice roll. The validation issues are what make the second attempt different."
     }
   ]
 }

@@ -38,42 +38,42 @@
     {
       "id": "find-the-nexttick-queue-on-the-diagram",
       "front": "Point to the nextTick queue on the phase diagram: timers, pending callbacks, poll, check, close. Which one is it?",
-      "back": "None of them. It is not a phase, so the loop never travels to it: the nextTick queue and the microtask queue are both drained to empty after every callback and between every phase. Of the four, only `setTimeout` and `setImmediate` are phases the loop schedules, which is the timers phase and the check phase."
+      "back": "None of them: it is not a phase, so the loop never travels to it. It is drained to empty after every callback and between every phase."
     },
     {
       "id": "nexttick-against-promise-callbacks",
       "front": "`process.nextTick` and a `.then` callback, both queued inside the same I/O callback. Which one runs first?",
-      "back": "The `nextTick`. They are two queues rather than one: Node drains the nextTick queue to empty, then the microtask queue immediately after, and alternates until both are empty. So neither preempts the other's drain. A `nextTick` queued from inside a promise callback waits for the rest of those promise callbacks first."
+      "back": "The `nextTick`. Node drains the nextTick queue to empty, then the microtask queue, and alternates until both are empty."
     },
     {
       "id": "cjs-against-esm-at-the-top-level",
       "front": "The same four lines log `sync tick promise timeout` as `.cjs` and something else as `.mjs`. What, and why?",
-      "back": "`sync promise tick timeout`. ESM evaluation is itself running inside the microtask drain, so a `nextTick` scheduled during it lands behind the promise callbacks. Node states both halves: in CJS `nextTick` callbacks always run before `queueMicrotask` ones, and in ESM always after. Module evaluation is the only place it happens."
+      "back": "`sync promise tick timeout`. ESM evaluation is itself running inside the microtask drain, so a `nextTick` scheduled during it lands behind the promise callbacks."
     },
     {
       "id": "immediate-against-timeout-zero",
       "front": "`setImmediate` and `setTimeout(fn, 0)` inside an I/O callback: which runs first, and why is that not true at the top level?",
-      "back": "`setImmediate`, 200 out of 200 runs. The loop is already in the poll phase and check is the next phase it reaches. From the top of the main module the loop has not started, so the winner turns on how long startup took: Node documents that race as non-deterministic, and the page's own 200 fresh processes had `setTimeout` first 27 times."
+      "back": "`setImmediate`, because the loop is in the poll phase and check is the next phase it reaches. At the top level the loop has not started, so the order turns on startup time and Node documents it as non-deterministic."
     },
     {
       "id": "the-fastest-sounding-one",
       "front": "Which of the four has the most urgent name and the latest execution, and what does that buy you?",
-      "back": "`setImmediate`. It is the check phase, so it costs a whole turn of the loop: the loop goes round to read its sockets and fire its timers before your callback runs. That lateness is the feature. Reach for it when you want the loop to get a turn, not when you want something to happen sooner."
+      "back": "`setImmediate`. It is the check phase, so it costs a whole turn of the loop, and that is the feature: reach for it to give the loop a turn, not to run something sooner."
     },
     {
       "id": "the-recursion-that-stops-the-server",
       "front": "A 200-job queue recurses with `process.nextTick`. Each job takes about a millisecond, and the server answers nothing the whole time. What is starved?",
-      "back": "Everything else in the process. The nextTick queue is drained to exhaustion before the loop is allowed to continue, so it never reaches the poll phase and no socket is read. Node names the risk outright: recursive `process.nextTick()` calls can make an infinite loop. `setImmediate(drainNext)` costs a turn of the loop per job and answers every request."
+      "back": "Everything else in the process: the nextTick queue drains to exhaustion before the loop continues, so no socket is read. `setImmediate(drainNext)` costs a turn of the loop per job and answers every request."
     },
     {
       "id": "async-is-not-a-yield",
       "front": "Marking a slow parse `async` and awaiting it freed nothing. Which boundary did that `await` actually cross?",
-      "back": "A microtask boundary, not a turn of the loop, so no socket gets read in it. `async` decides how a result is delivered, not which thread computes it, and with nothing inside to suspend on the body runs straight through. Yield deliberately with `setImmediate` between chunks, or move the work off the thread."
+      "back": "A microtask boundary, not a turn of the loop, so no socket gets read in it. Yield deliberately with `setImmediate` between chunks, or move the work off the thread."
     },
     {
       "id": "nexttick-or-queuemicrotask-in-new-code",
       "front": "New code needs a callback to run before the loop moves on. `process.nextTick` or `queueMicrotask`?",
-      "back": "`queueMicrotask`. `process.nextTick` has been Legacy since Node 22.7.0 and 20.18.0, and the docs recommend `queueMicrotask()` in its place. Reading its ordering is still required, because the runtime and the libraries under you are full of it. Writing new calls to it is not."
+      "back": "`queueMicrotask`. `process.nextTick` has been Legacy since Node 22.7.0 and 20.18.0, and the docs recommend `queueMicrotask()` in its place."
     }
   ]
 }

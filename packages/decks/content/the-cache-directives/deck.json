@@ -33,42 +33,42 @@
     {
       "id": "no-store-against-no-cache",
       "front": "Which of `no-store` and `no-cache` keeps the response off the disk, and what does the other one do instead?",
-      "back": "`no-store`. RFC 9111: a cache \"MUST NOT store any part of either the immediate request or the response\", private and shared alike. `no-cache` stores it and revalidates before each reuse, even when the cache is disconnected from the origin, so a copy on disk is the expected state. One of the two names is a lie, and it is `no-cache`."
+      "back": "`no-store`: a cache must not store any part of the request or the response. `no-cache` stores it and revalidates before each reuse, so a copy on disk is expected."
     },
     {
       "id": "no-cache-against-max-age-zero",
       "front": "`no-cache` and `max-age=0`. What is the difference, and which one used to be spelled as the other?",
-      "back": "`max-age=0` is stale on arrival; `no-cache` may never be reused without asking first. Stale is not forbidden, which is why `no-cache` was once written `max-age=0, must-revalidate`. MDN calls that pairing \"a remnant\" of implementations predating HTTP/1.1 and says there is \"no reason to ever use\" it now. Write `no-cache`."
+      "back": "`max-age=0` is stale on arrival; `no-cache` may never be reused without asking first. `no-cache` was once written `max-age=0, must-revalidate`, which MDN calls \"a remnant\"."
     },
     {
       "id": "private-against-no-store",
       "front": "The dashboard is personalised. Which directive keeps it out of a shared cache, and does that keep it off the laptop?",
-      "back": "`private`, and no. It narrows storage to the browser rather than preventing it, so the copy still lands on disk. `no-cache` will not save you either: it is a freshness control, not a privacy one. If the requirement is that these bytes must not survive on this machine, the directive is `no-store`."
+      "back": "`private`, and no: it narrows storage to the browser, so the copy still lands on disk. Keeping it off this machine takes `no-store`."
     },
     {
       "id": "no-store-does-not-evict",
       "front": "You shipped `no-store` and the old value keeps coming back. What did the header not do?",
-      "back": "Evict. MDN: \"if there is an old response already stored for a particular URL, returning `no-store` will not prevent the old response from being reused.\" The directive stops a response being written and says nothing about what is already written, so it fixes the future and not the present. A new URL does, and so does a revalidation the stored copy has to pass."
+      "back": "Evict: `no-store` stops a response being written and says nothing about one already stored. A new URL gets past it."
     },
     {
       "id": "three-lines-that-cover-an-app",
       "front": "A hashed bundle, the HTML that names it, and a bank statement. One `Cache-Control` line each.",
-      "back": "`public, max-age=31536000, immutable`, then `no-cache`, then `no-store`. The asset's name changes when its bytes do, so it can never be wrong. The HTML is cheap to check and must never be a version behind. web.dev recommends the first two directly: a year for URLs carrying a fingerprint, `no-cache` with a validator for the ones that do not."
+      "back": "`public, max-age=31536000, immutable`, then `no-cache`, then `no-store`. The asset's name changes when its bytes do, so it can never be wrong."
     },
     {
       "id": "no-store-on-everything",
       "front": "What does `no-store` on every response cost you, and what does MDN recommend as the default instead?",
-      "back": "The 304 that would have cost nothing. Nothing is stored, so the hashed bundle is downloaded again on every navigation. MDN's advice runs the other way: \"prefer the use of `no-cache` in combination with `private`\", which keeps the copy and checks it rather than throwing it away and refetching it in full."
+      "back": "The 304 that would have cost nothing, so the hashed bundle downloads again on every navigation. MDN recommends `no-cache` with `private` instead."
     },
     {
       "id": "reload-against-hard-reload",
       "front": "A reload and a hard reload. What does the browser send for each, and which one can come back as a 304?",
-      "back": "A reload sends `Cache-Control: max-age=0` with `If-None-Match` and `If-Modified-Since`, so a 304 is a successful reload that transferred nothing. A hard reload sends `Cache-Control: no-cache` and `Pragma: no-cache` with no conditions, so it is a 200 from the origin, body and all. MDN documents those headers for Chrome, Edge and Firefox; Safari differs a little."
+      "back": "A reload sends `Cache-Control: max-age=0` with `If-None-Match` and `If-Modified-Since`, so it can come back 304. A hard reload sends `no-cache` and no conditions, so it gets a 200. That is Chrome, Edge and Firefox; Safari differs."
     },
     {
       "id": "it-works-when-i-hard-reload",
       "front": "\"It works when I hard reload.\" What has that told you, and why does it not close the ticket?",
-      "back": "It tells you the stale copy was above the network line, which is worth knowing and takes one keystroke. It is not a fix, because it is you sending `Cache-Control: no-cache` for one navigation in one browser, and nobody else visiting the site is going to do it."
+      "back": "That the stale copy was above the network line. It is not a fix, because only you sent `Cache-Control: no-cache`, for one navigation in one browser."
     }
   ]
 }

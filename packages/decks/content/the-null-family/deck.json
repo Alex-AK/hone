@@ -43,42 +43,42 @@
     {
       "id": "equals-null-against-is-null",
       "front": "`WHERE comment = NULL` returns 0 rows against `reviews`, where 10 of the 32 comments really are NULL. Which comparison did you want?",
-      "back": "`IS NULL`. NULL means unknown, so comparing anything against it is unknown rather than true or false, including for the NULL rows themselves. `IS NULL` and `IS NOT NULL` are the only tests that ask about NULL-ness and answer. `= NULL`, `!= NULL` and `<> NULL` are unknown whatever sits on the other side, and two NULLs are not equal to each other either."
+      "back": "`IS NULL`. Comparing anything against NULL is unknown rather than true or false, even for the NULL rows themselves, so `= NULL` matches nothing."
     },
     {
       "id": "where-keeps-only-true",
       "front": "SQL has three truth values. Which of them does `WHERE` keep, and what does that do to the other two?",
-      "back": "It keeps only **true**. False and unknown are discarded together, which is why a NULL bug removes rows rather than raising an error. `NOT unknown` is unknown, so you cannot negate your way out. Two escape hatches exist in the truth table: `false AND unknown` is false, and `true OR unknown` is true. Everywhere else the unknown wins and takes the row with it."
+      "back": "It keeps only **true**. False and unknown are discarded together, which is why a NULL bug removes rows rather than raising an error."
     },
     {
       "id": "not-equal-drops-the-nulls",
       "front": "`WHERE comment != 'x'` over 32 reviews returns 22, not 32. Where did the other 10 go?",
-      "back": "They hold NULL, and a NULL answers \"unknown\", not \"yes, different\". `WHERE` keeps only true, so the unknown rows are dropped alongside the genuine matches for 'x'. This is the same rule as `= NULL` wearing a different operator: `!=` looks like it should be the complement of `=`, and over a nullable column it is not. Add `OR comment IS NULL` when you meant \"or has none\"."
+      "back": "They hold NULL, and a NULL answers \"unknown\", not \"yes, different\", so `WHERE` drops them. Add `OR comment IS NULL` when you meant \"or has none\"."
     },
     {
       "id": "in-survives-what-not-in-cannot",
       "front": "A NULL in the subquery results empties a `NOT IN`. Why does plain `IN` over the same subquery still work?",
-      "back": "`IN` is an `OR` chain and `NOT IN` is an `AND` chain of inequalities, and the truth table treats the two differently. One genuine match makes `IN` true, because `true OR unknown` is true. `NOT IN` needs every term true, and `AND` containing an unknown is false or unknown, never true. So the NULL is survivable in one direction and fatal in the other."
+      "back": "`IN` is an `OR` chain and `NOT IN` an `AND` chain. One match makes `IN` true, because `true OR unknown` is true, while an `AND` containing an unknown is never true."
     },
     {
       "id": "count-star-against-count-column",
       "front": "`COUNT(*)` on `reviews` is 32 and `COUNT(comment)` is 22. Which is wrong?",
-      "back": "Neither. They answer different questions: how many rows, against how many rows have a comment. `COUNT(*)` counts rows; `COUNT(column)` counts the rows where that column is not NULL, so the two differ by exactly the number of NULLs. Pick deliberately. After a `LEFT JOIN`, count the right-hand key so an unmatched row scores 0 rather than 1."
+      "back": "Neither: `COUNT(*)` counts rows and `COUNT(comment)` counts rows where `comment` is not NULL. They differ by exactly the number of NULLs."
     },
     {
       "id": "avg-skips-rather-than-zeroes",
       "front": "Three of 15 books have no inventory row. `AVG(i.stock)` is 12.33 and `AVG(COALESCE(i.stock, 0))` is 9.87. What separates them?",
-      "back": "The divisor. Aggregates skip NULLs, so the first is 148/12: a missing value is absent from both the sum and the count. `COALESCE` supplies a default first, making it 148/15. Skipping a book and treating it as out of stock are different claims and the query has to make one. The same trap hits arithmetic: `stock - 1` is NULL when `stock` is."
+      "back": "The divisor. Aggregates skip NULLs, so the first is 148/12, while `COALESCE` supplies a default first and makes it 148/15."
     },
     {
       "id": "where-nulls-sort",
       "front": "`ORDER BY score ASC` with NULLs in the column. Where do they land on SQLite, and where on Postgres?",
-      "back": "First on SQLite, last on Postgres. SQLite treats NULL as less than every other value, so it sorts first ascending and last descending. Postgres treats it as larger than every non-null value, making `NULLS LAST` the default for `ASC` and `NULLS FIRST` for `DESC`. Both accept an explicit `NULLS FIRST`/`NULLS LAST`, SQLite since 3.30.0, and writing it out is the only portable spelling."
+      "back": "First on SQLite, last on Postgres. Writing `NULLS FIRST` or `NULLS LAST` out is the only portable spelling."
     },
     {
       "id": "unique-against-distinct",
       "front": "A `UNIQUE` column accepts any number of NULLs, but `DISTINCT` collapses them into one row. How are both right?",
-      "back": "They ask different questions of the same rule. `UNIQUE` asks whether two values are equal, and two unknowns are not, so they cannot collide. `DISTINCT` and `GROUP BY` are grouping rather than comparing, and they treat NULLs as one another's equals. Postgres can opt out of the first with `UNIQUE NULLS NOT DISTINCT`."
+      "back": "They ask different questions: `UNIQUE` asks whether two values are equal, and two unknowns are not. `DISTINCT` groups rather than compares, and grouping treats NULLs as one another's equals."
     }
   ]
 }

@@ -40,42 +40,42 @@
     {
       "id": "loose-against-strict",
       "front": "`==` and `===`. Name every question the two of them answer differently.",
-      "back": "One: whether to convert types before comparing. They agree on the rest, including the two that catch people out. Both say `NaN` is not equal to `NaN`, and both say `-0` equals `0`, because MDN notes they \"handle `NaN`, `-0`, and `+0` specially to conform to IEEE 754\". The default is `===`, and the reason is readability rather than behaviour."
+      "back": "One: whether to convert types before comparing. Both still say `NaN` is not equal to `NaN` and `-0` equals `0`."
     },
     {
       "id": "which-comparison-finds-nan",
       "front": "An array definitely holds a `NaN`. `indexOf` returns -1 and `includes` returns true, one line apart. Which one is wrong?",
-      "back": "Neither. They were specified against different algorithms: `indexOf` compares with `===`, which never matches `NaN`, and `includes` uses `SameValueZero`, which does. `findIndex((x) => Number.isNaN(x))` gets you the position when you need it. A `Set` deduplicates `NaN` for the same reason `includes` can find one."
+      "back": "Neither: `indexOf` compares with `===`, which never matches `NaN`, and `includes` uses `SameValueZero`, which does."
     },
     {
       "id": "the-branch-that-never-runs",
       "front": "`if (n === NaN)` never runs, for any `n`. What is the check, and which older one would you avoid?",
-      "back": "`Number.isNaN(n)`. `NaN` is not equal to itself under `==` or `===`, so no comparison can locate it. Avoid the global `isNaN`, which converts first: `isNaN('hello')` is true and `isNaN('')` is false, which is rarely what anyone meant. `Number.isFinite(n)` is usually the better validation, since it rejects the infinities too."
+      "back": "`Number.isNaN(n)`, since `NaN` is not equal to itself. Avoid the global `isNaN`, which converts first: `isNaN('hello')` is true."
     },
     {
       "id": "the-total-that-divides-as-negative-infinity",
       "front": "A total prints as `0`, survives `===`, and then divides as `-Infinity`. What is it, and what finds it?",
-      "back": "`-0`, and `Object.is(total, -0)` is the only direct check. It compares equal to `0` under `===`, prints as `0` through `String()` and serialises as `0` through `JSON.stringify`, so a division coming out `-Infinity` is usually how you meet it. `SameValueZero` treats it as `0` as well, so a `Set` will not separate the two either."
+      "back": "`-0`, and `Object.is(total, -0)` is the only direct check. It equals `0` under `===` and prints as `0`, so a division coming out `-Infinity` is usually how you meet it."
     },
     {
       "id": "object-is-against-strict",
       "front": "When is `Object.is` the right operator rather than `===`?",
-      "back": "When `NaN` or `-0` is the actual question, which is the whole of what it decides differently. That is also why it turns up inside framework internals rather than in application code: React skips a re-render when the next state is `Object.is`-equal to the current one. Everywhere else, reach for `===`."
+      "back": "When `NaN` or `-0` is the actual question, which is all it decides differently. React uses it to skip a re-render when the next state is `Object.is`-equal to the current one."
     },
     {
       "id": "no-equality-looks-inside-an-object",
       "front": "Two objects with identical fields. Which of the four equalities returns true for them?",
-      "back": "None. For objects all four ask one question, which is whether these are the same reference, and none of them looks inside. So no choice of operator will make two identical-looking objects equal, and a deep comparison is a function you write rather than an operator you pick."
+      "back": "None: for objects all four ask only whether these are the same reference. A deep comparison is a function you write, not an operator you pick."
     },
     {
       "id": "loose-equality-against-truthiness",
       "front": "`'0' == false` is true, and `if ('0')` runs. Which of the two is wrong?",
-      "back": "Neither, and that is the argument against `==`. Loose equality converts both sides to numbers, so `'0'` and `false` both become `0`. Truthiness is a different question with a different answer, because a non-empty string is truthy. Asking one while thinking of the other is what makes `==` worth avoiding."
+      "back": "Neither: loose equality converts both sides to numbers, so `'0'` and `false` both become `0`. Truthiness is a different question, and a non-empty string is truthy."
     },
     {
       "id": "the-one-loose-equality-worth-keeping",
       "front": "One use of `==` is worth keeping. Which is it, and what exactly does it match?",
-      "back": "`x == null`, which matches `null` and `undefined` and nothing else. Not `0`, not `''`, not `false`, not `NaN`. It is the test for \"there is nothing here\" as opposed to a truthiness check, which throws away every falsy value alongside the two you meant to catch."
+      "back": "`x == null`, which matches `null` and `undefined` and nothing else: not `0`, `''`, `false` or `NaN`."
     }
   ]
 }

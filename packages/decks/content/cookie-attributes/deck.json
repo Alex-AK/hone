@@ -38,42 +38,42 @@
     {
       "id": "strict-against-lax",
       "front": "`SameSite=Strict` and `SameSite=Lax`. What does `Lax` add back, and what does it still refuse?",
-      "back": "`Lax` adds back cross-site requests meeting two criteria at once: a top-level navigation, and a safe method, which excludes `POST`, `PUT` and `DELETE`. A link click from another site carries the cookie; a `fetch`, an `<img>` and an `<iframe>` navigation do not. `Strict` sends it only for requests originating from the site that set it, so that same link lands you logged out."
+      "back": "`Lax` adds back cross-site top-level navigations with a safe method, so a link from another site carries the cookie. A cross-site `POST`, `fetch` or `<img>` still goes without it."
     },
     {
       "id": "none-needs-secure",
       "front": "`SameSite=None` without `Secure`. What does the browser do with that `Set-Cookie`?",
-      "back": "Ignores it entirely. The specification says to abort and ignore the cookie unless its secure-only flag is true, so there is no half-applied state to inspect: the header is right there in devtools and the cookie is nowhere. `None` sends the cookie on every cross-site request, which is why it is the one value the spec refuses to grant over plain HTTP."
+      "back": "Ignores it entirely: the spec aborts on a `SameSite=None` cookie that is not `Secure`. The header is right there in devtools and the cookie is nowhere."
     },
     {
       "id": "the-absent-default",
       "front": "You left `SameSite` off. Which value do you get?",
-      "back": "It depends on the browser, which is the reason to set it. The spec only says to set the same-site flag to \"Default\" and leaves the treatment open. Chromium uses `Lax`; Firefox does not, and its meta bug for the change is resolved WONTFIX, so an absent attribute still means `None` there. A CSRF nobody reproduced in Chrome and the tester found in Firefox is this exact gap."
+      "back": "It depends on the browser, which is the reason to set it. Chromium uses `Lax`; Firefox still treats an absent attribute as `None`."
     },
     {
       "id": "httponly-contains-not-prevents",
       "front": "An injected script cannot read your `HttpOnly` session cookie. What can it still do with it?",
-      "back": "Spend it. `HttpOnly` is an API restriction: the cookie is omitted from `document.cookie`, but it is still attached to JavaScript-initiated requests, so a same-origin `fetch` from the injected script arrives indistinguishable from one the user made. What the flag buys is that the attacker cannot exfiltrate the credential and replay it later from their own machine. Containment, not prevention."
+      "back": "Spend it. `HttpOnly` only hides the cookie from `document.cookie`, so a same-origin `fetch` from the injected script still carries it; what the attacker loses is a copy to replay from their own machine."
     },
     {
       "id": "secure-is-transport-only",
       "front": "What does `Secure` actually constrain, and what does it leave open?",
-      "back": "Transport, and nothing else: the cookie is sent only over `https:`, localhost excepted. It says nothing about who can read the cookie once it is in the browser, so a `Secure` cookie without `HttpOnly` is still readable from JavaScript, and still reachable with access to the client's disk. The two attributes are not alternatives; a session cookie wants both."
+      "back": "Transport only: the cookie is sent only over `https:`, localhost excepted. Without `HttpOnly` it is still readable from JavaScript, so a session cookie wants both."
     },
     {
       "id": "the-host-prefix",
       "front": "What does renaming a cookie to `__Host-session` commit you to, and what do you get back?",
-      "back": "It commits to `Secure`, set from HTTPS, no `Domain` attribute, and `Path=/`. A `Set-Cookie` that breaks the promise is dropped rather than corrected, so the name is enforced on the way in. What you get is a cookie only the exact host that set it receives, set host-wide and not overridable on any path: as close as cookies come to treating the origin as a security boundary."
+      "back": "It commits to `Secure`, set from HTTPS, no `Domain` attribute, and `Path=/`, and a `Set-Cookie` that breaks that is dropped. In return only the exact host that set it receives it, and no path can override it."
     },
     {
       "id": "domain-only-widens",
       "front": "`Domain` on a cookie. Which direction does it move the scope, and why is that a subdomain problem in both directions?",
-      "back": "It only ever widens. Omit it and the cookie goes to the host that set it and not its subdomains; set it and every subdomain is included, third-party hosting along with them. The reverse holds without any sharing: a sibling subdomain can write a cookie scoped to the parent, and the parent cannot distinguish it from one it set itself. `Path` is scoping too, not a control."
+      "back": "It only ever widens: set it and every subdomain gets the cookie, third-party hosting included. In reverse, a sibling subdomain can write a cookie scoped to the parent that the parent cannot tell from its own."
     },
     {
       "id": "max-age-against-expires",
       "front": "`Max-Age` and `Expires` on the same cookie, and a cookie with neither. What happens in each case?",
-      "back": "`Max-Age` wins when both are set. With neither you get a session cookie, deleted when the browser decides the session ended, and a browser that restores tabs on launch restores those cookies with them, which is how users stay logged in for weeks. Set `Max-Age`, and give the server-side record its own lifetime: the cookie's expiry is only the client's opinion."
+      "back": "`Max-Age` wins when both are set, and with neither you get a session cookie. A browser that restores tabs on launch restores those cookies too, which is how users stay logged in for weeks."
     }
   ]
 }
