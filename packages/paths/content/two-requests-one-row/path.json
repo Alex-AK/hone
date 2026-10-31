@@ -1,0 +1,26 @@
+{
+  "slug": "two-requests-one-row",
+  "title": "Two requests, one row",
+  "question": "Two requests changed the same row at the same moment. Which one won, and what did the other lose?",
+  "summary": "What a transaction actually promises, and the read-then-write that loses an update inside one anyway. Every rep is a fix you would ship: a conditional update, an upsert, a retry. Ends with a booking system that sold the last place twice.",
+  "order": 9,
+  "minutes": 60,
+  "steps": [
+    { "kind": "page", "ref": "databases/transactions-and-acid" },
+    {
+      "kind": "page",
+      "ref": "databases/two-writers-one-row",
+      "note": "The shapes that survive concurrency, once you know the transaction alone does not."
+    },
+    { "kind": "problem", "ref": "sql-optimistic-update-zero-rows" },
+    { "kind": "problem", "ref": "sql-upsert-not-check-then-insert" },
+    { "kind": "problem", "ref": "orm-save-reads-first" },
+    { "kind": "problem", "ref": "sql-for-update-across-requests" },
+    { "kind": "problem", "ref": "sql-serializable-needs-retry" },
+    {
+      "kind": "workout",
+      "ref": "class-places-sqlite",
+      "note": "Two connections, one last place, and a count kept beside the rows it counts."
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "slug": "more-than-one-copy",
+  "title": "When the data lives on more than one machine",
+  "question": "There are copies of the data on several machines now. What can a read still promise you?",
+  "summary": "Replication first, because that is where a stale read comes from. Then what CAP actually asks you to choose, and which failure a write's acknowledgement protects you against. No workout fits this one, so the hour ends on reps.",
+  "order": 10,
+  "minutes": 45,
+  "steps": [
+    { "kind": "page", "ref": "systems/replication" },
+    { "kind": "page", "ref": "systems/cap-and-consistency" },
+    {
+      "kind": "page",
+      "ref": "systems/what-an-ack-promises",
+      "note": "The write side of the same question: success, against which failure?"
+    },
+    { "kind": "problem", "ref": "sys-leader-follower-replication" },
+    { "kind": "problem", "ref": "sys-replica-lag" },
+    { "kind": "problem", "ref": "sys-strong-vs-eventual-consistency" },
+    { "kind": "problem", "ref": "sys-cap-theorem" },
+    { "kind": "problem", "ref": "sys-ack-durability-ladder" }
+  ]
+}
