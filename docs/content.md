@@ -198,18 +198,36 @@ A page is not an article. It is what you would want open beside you while doing 
 
 ### The shape
 
-Five parts, fixed:
+Six parts, fixed:
 
 1. **The question it answers**, phrased the way you would ask it at the moment you needed it. "Why
    did my cache not invalidate" beats "Cache invalidation". This is the `question` field.
-2. **The model** — what is actually happening, not the API surface. `## The model`.
-3. **A worked example** you can read in under a minute. Real code, ideally lifted straight out of a
+2. **A plain-language opener**, two to four sentences before the first heading, for someone who has
+   never met the topic: what the thing is in everyday words, and what goes wrong without it. No
+   identifiers, no quotes, no numbers. The model is where the technical part starts.
+3. **The model** — what is actually happening, not the API surface. Its first sentence is the one
+   idea the rest builds on. `## The model`.
+4. **A worked example** you can read in under a minute. Real code, ideally lifted straight out of a
    workout so the two reinforce each other. `## Worked example`.
-4. **The traps** — the two or three things that actually get got wrong, stated as symptoms first,
+5. **The traps** — the two or three things that actually get got wrong, stated as symptoms first,
    because that is how you meet them. `## Traps`.
-5. **Where to practise it** — the `practise` field, resolved by the app into links.
+6. **Where to practise it** — the `practise` field, resolved by the app into links.
 
 The three body headings are checked by exact text. Write whatever else you need around them.
+
+**A page reads in a few minutes, which in practice is a body under about 1,200 words.** Past that it
+has become a reference article, and the reader skims the part that mattered. Cut reference material
+out of the model first, such as exhaustive lists, parameter tables and history, and link to the
+source that keeps them current.
+
+**Cite more than you quote.** The accuracy rule is met by the `sources` list and by naming the source
+in the sentence ("OWASP says..."), not by quoting it. Keep a direct quote only where the exact
+wording matters, such as a spec's MUST or a doc's precise boundary, and two on a page is plenty: each
+one switches register mid-sentence and slows the reading down.
+
+**Say how a claim was checked next to the claim.** "Measured on Node 24.16.0" belongs beside the
+measurement, not at the top of the page, where it is the first thing a reader meets and tells them
+nothing yet. One measured figure makes a point; four make a lab report.
 
 **A page that cannot fill its traps section honestly does not get written.** If nothing goes wrong
 in practice, the thing is a fact you would look up, and a fact you would look up is a problem, not a

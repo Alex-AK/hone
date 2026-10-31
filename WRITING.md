@@ -62,6 +62,9 @@ The tells that mark copy as filler, machine-made or otherwise:
 - Recaps. If the previous paragraph said it, the next one doesn't get to say it again.
 - Three balanced items in every sentence. One triple can be load-bearing; a page of them sounds
   generated.
+- Pet phrases and closing aphorisms: "is the point", "falls out of", "pays for itself", "the whole
+  game", and the "X is not Y" line that ends a paragraph on a turn. One on a page reads as voice.
+  Three read as a tic.
 
 ## Mechanics
 
