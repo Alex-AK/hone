@@ -37,8 +37,9 @@ sources:
 verified: 2026-08-01
 ---
 
-SQLite is the engine on this page, because that is what the SQL problems run against. Postgres
-behaves the same way on every rule here except one: where NULLs land in a sort.
+Databases have a marker for a value that is missing or not known. It behaves unlike any real value:
+comparing it with anything, even another missing value, gives neither yes nor no. Filters keep only
+the rows that come out yes, so missing values make rows vanish from a result without any error.
 
 ## The model
 
@@ -93,6 +94,7 @@ into a single row.
 
 ## Worked example
 
+The results here are SQLite, which the SQL problems run; Postgres differs only in where NULLs sort.
 `employees.manager_id` is NULL for exactly one row, the person at the top. Ask which employees
 manage nobody:
 

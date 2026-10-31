@@ -23,6 +23,12 @@ sources:
 verified: 2026-08-09
 ---
 
+Platforms that run your app keep asking each copy of it whether it is all right, and act on the
+answer. One kind of check decides whether to restart a copy and another decides whether to send it
+traffic, and mixing them up turns a brief database hiccup into every copy restarting at once. The
+traffic check is also what lets a deploy swap old copies for new ones without dropping the requests
+caught in between.
+
 ## The model
 
 Three words that sound like the same question, and a platform that keeps them apart because the

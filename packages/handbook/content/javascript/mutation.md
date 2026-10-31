@@ -25,6 +25,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Changing an object in place is fine until somebody else is holding the same object. Then your edit
+turns up in their screen, their cache or another user's response, and code that spots changes by
+asking whether it still has the same object sees nothing new at all. So whether an edit is safe
+comes down to who else can see the thing you edited.
+
 ## The model
 
 Mutation changes the object a reference points at. Reassignment points a variable at a different

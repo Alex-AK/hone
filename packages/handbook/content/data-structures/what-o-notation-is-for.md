@@ -22,11 +22,10 @@ sources:
 verified: 2026-08-02
 ---
 
-O notation answers one question: how the cost changes when the data grows. It will not tell you
-whether your page is fast today. Which container to reach for is
-[choosing a structure](./choosing-a-structure.md), what makes a hash lookup constant is
-[the key function](./the-key-function.md), and what a sort costs is
-[sorting and comparators](./sorting-and-comparators.md).
+Code that is quick on a small test list can crawl on real data, because some work grows faster than
+the data does. O notation is shorthand for how the cost of a piece of code grows as its input grows.
+It says nothing about whether your page is fast right now: it tells you which work to worry about,
+and measuring tells you whether to worry yet.
 
 ## The model
 
@@ -51,6 +50,10 @@ with the same code in front of them. Four shapes are worth recognising by sight:
 boundary is a DOM write, a round trip, or a query, and one inside a loop settles the argument before
 any complexity claim is made. So measure at the size you have, then reason about growth for the size
 you are heading for: complexity tells you which curve, measurement tells you where on it you stand.
+
+Which container to reach for is [choosing a structure](./choosing-a-structure.md), what makes a hash
+lookup constant is [the key function](./the-key-function.md), and what a sort costs is
+[sorting and comparators](./sorting-and-comparators.md).
 
 ## Worked example
 

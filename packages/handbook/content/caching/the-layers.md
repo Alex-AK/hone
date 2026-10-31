@@ -23,6 +23,12 @@ sources:
 verified: 2026-08-01
 ---
 
+Your data is copied and kept at several points on its way from the database to the screen: in the
+browser, at servers spread around the world, in front of your app and inside it. Each copy saves
+work, and each one goes out of date on its own schedule. When something on screen is wrong, the
+first job is finding which copy is serving it, because each layer is cleared a different way and a
+fix aimed at the wrong one changes nothing.
+
 ## The model
 
 A single `GET /api/orders` can be answered by eight things, and only the last of them is your

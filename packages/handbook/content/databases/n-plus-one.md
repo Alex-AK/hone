@@ -26,8 +26,10 @@ sources:
 verified: 2026-08-01
 ---
 
-This one is engine-independent, but the tooling is not: the section on finding it splits by engine,
-and the two workouts that exercise it run on different ones.
+A page that shows a list often needs something extra for each item, like the customer behind each
+order. Fetch that extra piece one item at a time and the page makes a separate trip to the database
+for every row. Each trip is quick, so nothing looks slow on its own, but the trips add up, and their
+number grows with the list.
 
 ## The model
 

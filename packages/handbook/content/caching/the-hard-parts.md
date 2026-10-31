@@ -26,6 +26,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Putting a cache in front of something slow is the easy half. What comes after is deciding what a
+stored answer depends on, when it stops being true, and whether an old answer beats a slow one, and
+those questions come back at every layer. Get them wrong and users see data no reload clears, or the
+database falls over the moment the cache empties.
+
 ## The model
 
 Every cache, at every layer, asks the same three questions. The layer changes the vocabulary and

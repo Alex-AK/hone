@@ -29,9 +29,11 @@ sources:
 verified: 2026-08-04
 ---
 
-Reads are where the interesting queries are and writes are where the surprises are. Every statement
-log on this page came from running the code against typeorm 1.1.0 and drizzle-orm 0.45.2 on
-better-sqlite3 12.11.1, with the query runner wrapped so nothing could hide.
+Saving an object through a database library looks like one action, but the library decides what it
+means. It might send exactly the change you asked for, read the row first and merge your object into
+it, or treat a list you passed as the complete set and delete whatever is missing from it. Pick the
+wrong one and the write succeeds while a field stays put, a related item disappears, or someone
+else's edit is undone.
 
 ## The model
 
@@ -49,6 +51,7 @@ supports partial updating since all undefined properties are skipped".
 state you want that relation to be in, so the library computes the join rows to insert and the join
 rows to delete by comparing it against what is there.
 
+Every statement log here came from typeorm 1.1.0 and drizzle-orm 0.45.2 on better-sqlite3 12.11.1.
 Here are the first two, side by side, on the same change:
 
 ```

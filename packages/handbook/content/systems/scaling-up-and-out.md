@@ -23,6 +23,11 @@ sources:
 verified: 2026-08-01
 ---
 
+A bigger machine needs no changes to your code, and that is its appeal, but it has a ceiling and it
+is still one machine that can go down. Running more copies behind a load balancer has no ceiling. It
+works only once nothing important lives inside a single copy, like sessions held in memory or files
+saved to its own disk.
+
 ## The model
 
 Vertical scaling is a bigger box: more cores, more RAM, the same single machine. Nothing about the

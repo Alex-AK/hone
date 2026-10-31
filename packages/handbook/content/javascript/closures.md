@@ -18,8 +18,10 @@ sources:
 verified: 2026-08-02
 ---
 
-A closure is not a copy. That single sentence resolves the loop that logs `3 3 3`, the effect reading
-last render's state, and the memoised function that quietly holds a whole page of data alive.
+A function in JavaScript remembers the variables around the place it was written, and can still read
+them long after that code has finished running. It does not keep a snapshot of them, though: it
+reads whatever the variable holds at the moment it runs. When a callback seems to be using an old
+value, it is almost always holding on to a different variable from the one you were looking at.
 
 ## The model
 

@@ -25,6 +25,11 @@ sources:
 verified: 2026-08-02
 ---
 
+A live connection gets your messages there in order while it is up, and tells you nothing about the
+ones in flight when it drops. A message can vanish without an error, or arrive twice after a
+reconnect. If it matters which ones made it, your code has to number them, confirm them and replay
+the gap, because the connection itself keeps no record.
+
 ## The model
 
 A socket delivers bytes in order for as long as it is up, and promises nothing about what happened

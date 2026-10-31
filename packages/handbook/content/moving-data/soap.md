@@ -19,9 +19,11 @@ sources:
 verified: 2026-08-02
 ---
 
-You will meet SOAP as an integration somebody else built, usually against a bank, a carrier, a
-government service or an ERP. This page is about reading one and getting a client working, not about
-building one.
+SOAP is a way for systems to call each other in which every call is an XML document posted to one
+address. You will usually meet it as an integration somebody else built, at a bank, a carrier, a
+government service or an ERP, and the job is getting a client to talk to it rather than building
+one. Little of what you know from REST carries over: which operation you called is inside the
+document, and an ordinary refusal comes back as a server error.
 
 ## The model
 

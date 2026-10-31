@@ -14,9 +14,10 @@ sources:
 verified: 2026-08-02
 ---
 
-An eval is a test suite for a component whose output you cannot predict. That sounds like a new
-discipline and mostly is not: the useful move is the one you already make when testing anything
-non-deterministic, which is to assert on what has to be true rather than on what came out.
+Testing code that calls a model is awkward because the same question gets a differently worded
+answer on every run, so checking for an exact reply fails for no useful reason. An eval is a test
+suite built for that. Instead of matching the words, it checks what has to hold every time, such as
+whether the reply parsed and whether it cited only documents it was given.
 
 ## The model
 

@@ -36,6 +36,11 @@ sources:
 verified: 2026-08-22
 ---
 
+Running more than one copy of a server needs something in front that sends each request to one of
+them, and stops sending to any that look broken. Putting that load balancer in place changes things
+your code took for granted. The connection now comes from the balancer instead of the user, and the
+next request from the same user may land on a different copy that has never seen them.
+
 ## The model
 
 A load balancer does two things: it picks which instance gets the next request, and it stops picking

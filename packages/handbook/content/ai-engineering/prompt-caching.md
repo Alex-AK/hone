@@ -16,12 +16,14 @@ sources:
 verified: 2026-08-07
 ---
 
-Caching is the only lever on a model bill that costs nothing to pull and breaks without saying so.
-[What inference costs you](./what-inference-costs.md) prices it. This page is about why the same
-18,000 tokens are nearly free on one turn and full price on the next, and it is the Claude API's
-mechanics unless it says otherwise. The multipliers were read on the `verified` date.
+When every request opens with the same long instructions, the provider can keep that opening ready
+and charge far less for it the next time it arrives. The discount applies only when the opening is
+identical, character for character, so one changing detail near the top, such as today's date,
+quietly switches it off. Nothing errors and the answers stay right; the bill goes up.
 
 ## The model
+
+These are the Claude API's mechanics unless a line says otherwise.
 
 **A cache entry is a prefix, and its key is the exact bytes.** You mark one content block with
 `cache_control`, and what is stored is everything from the start of the request up to and including
@@ -54,12 +56,13 @@ line, none of them reads as a caching change in review, and each costs the whole
 - **A session id, a request id or the user's name in the preamble.** The same failure, one line
   above where anyone thinks to look.
 
-**The price is a ratio, and the ratio decides how many reads you need.** A cache write costs 1.25
-times base input at the default five-minute lifetime, or twice base input at the one-hour lifetime. A
-read costs a tenth either way. So a five-minute entry pays for itself on the first read, 1.25 + 0.1
-against 2 for two uncached requests, and a one-hour entry needs two, 2 + 0.2 against 3. The lifetime
-is refreshed for free every time the entry is used and runs from the start of the request rather than
-the end of the response, so a busy prefix stays warm indefinitely.
+**The price is a ratio, and the ratio decides how many reads you need.** These multipliers were read
+on the `verified` date, and [What inference costs you](./what-inference-costs.md) prices the rest. A
+cache write costs 1.25 times base input at the default five-minute lifetime, or twice base input at
+the one-hour lifetime. A read costs a tenth either way. So a five-minute entry pays for itself on
+the first read, 1.25 + 0.1 against 2 for two uncached requests, and a one-hour entry needs two, 2 +
+0.2 against 3. The lifetime is refreshed for free every time the entry is used and runs from the
+start of the request rather than the end of the response, so a busy prefix stays warm indefinitely.
 
 You get up to four breakpoints per request, or one `cache_control` at the top level and the API
 places it on the last cacheable block. The cache is scoped to the model, so an A/B test across two

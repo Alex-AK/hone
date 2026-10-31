@@ -24,6 +24,12 @@ sources:
 verified: 2026-08-01
 ---
 
+Instead of you asking another service what happened, it tells you: you hand it a URL, and its server
+sends a request to yours whenever something changes on its side. Anyone on the internet can reach
+that URL, the same event can arrive more than once or out of order, and the sender does not wait
+long for an answer. An endpoint that does not plan for all of that ends up trusting forged requests
+or doing the same work twice.
+
 ## The model
 
 A webhook is an ordinary POST that you did not ask for. You publish a URL, the other side stores it,

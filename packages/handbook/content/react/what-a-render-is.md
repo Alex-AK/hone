@@ -27,6 +27,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Changing a value in a React app does not change the screen straight away. React notes the change,
+runs your component again to see what it should look like now, and only then writes whatever
+actually differs to the page. Most surprises, such as reading the old value on the line after you
+changed it, come from treating those as one step.
+
 ## The model
 
 Calling a state setter does not touch the screen. It queues an update, and React later does three

@@ -39,6 +39,11 @@ sources:
 verified: 2026-08-01
 ---
 
+A click lands on whatever is under the pointer, often a small icon inside a button inside a row, but
+it does not stop there. The browser carries it up through every element that contains that icon, and
+anything listening along the way hears it. That is why a handler on a whole table fires for a click
+on one cell, and why one listener can look after a list that keeps changing.
+
 ## The model
 
 An event does not happen at one element. It travels, and the DOM Standard numbers the legs of the

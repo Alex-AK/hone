@@ -41,6 +41,12 @@ sources:
 verified: 2026-08-01
 ---
 
+Making a page fit both a narrow screen and a wide one used to mean a separate set of rules for each
+screen width. A card or a panel does not care how wide the screen is, though, only how much room it
+was given, and a card that sits in a narrow sidebar breaks as soon as those two differ. Modern CSS
+can size things from the space they actually have, so most of those per-width rules never need
+writing.
+
 ## The model
 
 A media query asks how wide the viewport is. Almost nothing in a layout wants to know that. A

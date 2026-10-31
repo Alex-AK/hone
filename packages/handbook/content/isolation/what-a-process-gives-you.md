@@ -23,6 +23,11 @@ sources:
 verified: 2026-08-09
 ---
 
+Running code in a separate process stops its crashes and runaway loops from taking yours down with
+it. It does not change who the code runs as, so it can still open your files, reach your network and
+read your secrets. Hiding the server's globals from the code, the trick a web developer tends to try
+first, gives even less than that.
+
 ## The model
 
 A process boundary is a fault boundary. That is the whole of what it promises, and it is worth

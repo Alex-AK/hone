@@ -23,6 +23,11 @@ sources:
 verified: 2026-08-01
 ---
 
+The client asks for updates, and instead of answering straight away the server waits until it has
+news or a timer runs out. The client then asks again at once. It needs nothing but plain HTTP, which
+is why it still works where other options get blocked, but anything that happens between one answer
+and the next request can be lost.
+
 ## The model
 
 The client sends an ordinary GET and the server does not answer it. It holds the request open,

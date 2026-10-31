@@ -36,6 +36,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Every value a screen remembers, such as the open tab or the text in a search box, has to be kept
+somewhere. Keep it too high up and typing in one box makes unrelated parts of the page redo their
+work. Keep a copy of something you could have worked out instead, and the copy and the original
+drift apart. Picking the home is mostly a matter of asking the questions in the right order.
+
 ## The model
 
 There are four homes for a piece of state, and an order to try them in. Most arguments about state

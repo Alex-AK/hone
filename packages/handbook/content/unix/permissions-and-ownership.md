@@ -25,6 +25,11 @@ sources:
 verified: 2026-08-09
 ---
 
+Files carry an owner and a short list of who may read, change or run them, and every running
+program carries an identity that the system checks against that list. Containers do not change the
+check. They make it easier to lose track of which identity is which, so a server that stops running
+as the all-powerful admin account can suddenly find its own mounted data off limits.
+
 ## The model
 
 Two numbers on the process, three numbers on the file, and one comparison between them.

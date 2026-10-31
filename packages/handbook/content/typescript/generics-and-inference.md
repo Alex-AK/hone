@@ -33,6 +33,11 @@ sources:
 verified: 2026-08-01
 ---
 
+A generic function works with whatever type you hand it, and you almost never say which type that
+is: the compiler works it out from what you passed. Its guess is usually broader than what you
+wrote, so an exact value can come back as plain text. Knowing how it decides, and how to steer it,
+keeps a helper from quietly losing the types its callers gave it.
+
 ## The model
 
 A generic parameter is a type the caller supplies, and almost no caller supplies it. The compiler

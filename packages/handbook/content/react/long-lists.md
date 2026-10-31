@@ -31,6 +31,11 @@ sources:
 verified: 2026-08-01
 ---
 
+A very long list is slow for React, which has to build every row, and slow for the browser, which
+has to keep every row on the page and account for it each time the layout changes. Showing only the
+rows in view fixes the slowness but takes away things people rely on, such as searching the page or
+printing it. Splitting the list into pages keeps all of that, at the cost of a click.
+
 ## The model
 
 Two costs get confused here, and they are paid to different things.

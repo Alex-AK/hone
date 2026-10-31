@@ -26,6 +26,11 @@ sources:
 verified: 2026-08-03
 ---
 
+Node has several ways to schedule a function to run soon, and they do not mean the same soon. Some
+run before Node is allowed to do anything else, and one waits until Node has checked for new network
+traffic and fired any timers that are due. Picking the wrong one can freeze a server even though
+every individual piece of work is fast.
+
 ## The model
 
 [The event loop](../javascript/the-event-loop.md) has the base model: one thread, a job runs to

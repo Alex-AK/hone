@@ -17,11 +17,15 @@ sources:
 verified: 2026-08-02
 ---
 
-The protocol is small and the design problem is not. Almost everything that makes an MCP server good
-or bad is API design you have done before, aimed at a caller that will not read your source, will not
-file a ticket, and will guess plausibly when your description is vague.
+Model Context Protocol is a standard way for an AI assistant to find out which actions your app
+offers and to call them. The caller on the other end is a model. It reads only the descriptions you
+wrote, guesses when they are vague, and can be talked into asking for things the person using it
+should not get.
 
 ## The model
+
+The protocol is small, and most of what makes a server good or bad is API design you have done
+before.
 
 **It is JSON-RPC 2.0.** Every message carries `jsonrpc: "2.0"`; requests carry a string or integer
 `id` that must not be null and must not repeat within a session, and responses come back with the

@@ -33,6 +33,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Before your server sees a request, the browser has already traded messages back and forth to find
+the server's address and open a secure connection to it. Each of those exchanges crosses the network
+and back, and its cost depends on distance rather than on your code. That is how a request that is
+quick in your server's own log can still feel slow to a user far away.
+
 ## The model
 
 Before the server has read a single byte of your request, the browser has already waited out three

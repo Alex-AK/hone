@@ -25,15 +25,16 @@ sources:
 verified: 2026-08-02
 ---
 
-Postgres is the engine here, and every output below came out of PGlite 0.5.4 (PostgreSQL 18.3).
-[How an index gets used](./how-an-index-gets-used.md) ends a trap by saying a `%term%` search wants a
-trigram or a full-text index, and never says what either is. This is that page. `LIKE` itself,
-wildcards and `ESCAPE` included, belongs to [the shape of a SELECT](../sql/the-shape-of-a-select.md).
+A plain text search looks for the exact letters you typed, so it misses a row that uses the word in
+another form, and it has to read every row to do it. Databases have better tools for this. They
+break text into normalised words, or into short slices of letters, and index those, which lets a
+search for one form of a word find the others, or survive a typo, without reading the whole table.
 
 ## The model
 
-A full-text index does not hold your text. `to_tsvector` reduces a document to lexemes: case folded,
-stemmed to a root, stop words dropped, each carrying the positions it appeared at.
+Every output here came from PGlite 0.5.4, which is PostgreSQL 18.3. A full-text index does not hold
+your text. `to_tsvector` reduces a document to lexemes: case folded, stemmed to a root, stop words
+dropped, each carrying the positions it appeared at.
 
 ```sql
 SELECT to_tsvector('english', 'She runs every morning before work');
@@ -66,6 +67,10 @@ SQLite arrives by another door. FTS5 is a virtual table you write alongside the 
 `MATCH`, not an index on a column. Stemming is opt-in, through a `tokenize = porter` wrapper that
 "applies the porter stemming algorithm to each token", and `tokenize = trigram` is what makes `LIKE`
 and `GLOB` indexed.
+
+[How an index gets used](./how-an-index-gets-used.md) ends a trap by saying a `%term%` search wants
+a trigram or a full-text index, and this is what each one is. `LIKE` itself, wildcards and `ESCAPE`
+included, belongs to [the shape of a SELECT](../sql/the-shape-of-a-select.md).
 
 ## Worked example
 

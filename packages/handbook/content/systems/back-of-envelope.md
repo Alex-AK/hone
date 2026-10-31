@@ -20,6 +20,12 @@ sources:
 verified: 2026-08-01
 ---
 
+Some design questions start with how big the thing will be: how many requests, how much storage, how
+many machines. Nobody has the real figures, so you build the answer from rough guesses said out
+loud, with arithmetic simple enough to do while talking. The estimate earns its keep only once you
+compare it with something, because that comparison tells you which part of the problem deserves the
+time.
+
 ## The model
 
 The answer is a method, performed out loud. Four rules carry all of it.

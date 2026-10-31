@@ -24,6 +24,12 @@ sources:
 verified: 2026-08-09
 ---
 
+Shipping a change means building the code into something runnable, pairing that build with one
+environment's settings, and starting it in place of what was running. These are separate steps, and
+most deploy surprises come from one of them moving when you thought another had, like a rollback
+that brings back old code but keeps today's settings. During every deploy, old and new versions also
+run side by side for a while and answer the same users.
+
 ## The model
 
 "Deploy" is one word for three things, and most deploy surprises are one of the three moving when you

@@ -23,6 +23,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Autoscaling, deploys and crashes keep changing which servers are running, so an address written into
+a config file goes stale almost at once. Service discovery is how one service finds a working copy
+of another at the moment it needs to call it. It shrinks the window in which callers are sent to a
+server that has already gone, but it never closes it.
+
 ## The model
 
 An instance's address used to be a fact you could write in a config file. Autoscaling, rolling

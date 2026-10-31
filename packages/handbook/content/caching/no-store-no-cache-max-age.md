@@ -24,6 +24,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Every response can carry instructions about whether a browser or a shared cache may keep a copy of
+it. Two of those instructions have names that sound alike and mean different things: one forbids
+keeping a copy at all, the other keeps it and checks with the server before each reuse. Mix them up
+and private pages sit on the visitor's disk, or every visit downloads files that never change.
+
 ## The model
 
 Three directives, three different behaviours, and one of the names is a lie.

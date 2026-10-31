@@ -26,6 +26,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Only one piece of your code can run at any moment. Each piece runs to the end before anything else
+gets a turn, including clicks, timers and redrawing the page, so one slow piece freezes everything
+waiting behind it. Waiting on the network does not count, because that waiting happens outside your
+code and hands a turn back when it is done.
+
 ## The model
 
 One thread runs your JavaScript, and everything else follows from that.

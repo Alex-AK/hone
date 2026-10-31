@@ -21,7 +21,10 @@ sources:
 verified: 2026-08-08
 ---
 
-Measured against PostgreSQL 17.10. Kafka behaviour is quoted from its design documentation.
+Behind every success message from a database or a message broker is a specific claim about where
+your data got to: memory, the disk, or another machine. Each step further survives a worse kind of
+crash and makes every write slower, so most systems stop partway by default. Data that was reported
+as saved and then vanished usually stopped earlier than anyone realised.
 
 ## The model
 
@@ -50,11 +53,13 @@ flush of WAL to disk". With a synchronous standby configured, `remote_write` mea
 durable storage", and `remote_apply` means it has been "applied, so that it has become visible to
 queries on the standby". That is rungs 3, 5 and 6, named.
 
-**Kafka.** `acks` is the same dial. Committed means "all replicas in the in-sync replicas (ISR) for
-that partition have applied it to their log", and the producer chooses how much of that to wait for:
-`acks=0` does not wait, `acks=1` waits for the leader alone, `acks=all` waits for the current ISR.
+**Kafka.** `acks` is the same dial. Committed, in its design documentation, means "all replicas in
+the in-sync replicas (ISR) for that partition have applied it to their log", and the producer
+chooses how much of that to wait for: `acks=0` does not wait, `acks=1` waits for the leader alone,
+`acks=all` waits for the current ISR.
 
-The cost is a real number rather than a shrug. 2,000 individual commits, measured:
+The cost is a real number rather than a shrug. 2,000 individual commits, measured on PostgreSQL
+17.10:
 
 ```
 synchronous_commit = on     178.0 ms      89 µs per commit

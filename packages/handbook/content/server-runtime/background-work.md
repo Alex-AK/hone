@@ -24,6 +24,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Some of what a request sets off, like sending an email or building an export, does not need to
+finish before you answer. Handing that work off lets you reply straight away, but the work then runs
+with nobody waiting on it and no request around it. It has to be stored somewhere a restart cannot
+erase, and written so that running it twice does no harm, because sooner or later it will run twice.
+
 ## The model
 
 Work leaves the request when the caller does not need the result in order to carry on. Sending the

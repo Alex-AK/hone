@@ -28,6 +28,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Two CSS rules can try to set the same thing on the same element, say two colours for one link, and
+only one of them gets applied. The browser picks by a fixed ranking, and which rule comes later in
+the file is the last thing it checks, not the first. Expect the later rule to win and some fixes
+seem to do nothing, which tends to end in heavier and heavier selectors that nobody dares change.
+
 ## The model
 
 When two declarations set the same property on the same element, the browser does not take the one

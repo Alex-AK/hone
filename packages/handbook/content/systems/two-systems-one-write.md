@@ -25,6 +25,11 @@ sources:
 verified: 2026-08-08
 ---
 
+Plenty of features save something in the database and then tell another system about it: a search
+index, a cache, another service. Nothing ties the two steps together, so a crash between them leaves
+one done and the other not, and nobody is told. Retrying harder does not fix it; turning the two
+writes into one does.
+
 ## The model
 
 One logical write, two systems, and no transaction spanning them. AWS names the shape: "A dual write

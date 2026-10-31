@@ -22,6 +22,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Putting an object into a second variable does not make a second object. Both names lead to the same
+thing, so a change made through one shows up through the other, and handing an object to a function
+hands over the original. A real copy takes a deliberate step, and the usual shorthand for copying
+only goes one level deep.
+
 ## The model
 
 A variable holds a value. When the value is a number or a string, the value is the thing itself. When

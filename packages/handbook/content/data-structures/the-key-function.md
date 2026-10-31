@@ -25,13 +25,17 @@ sources:
 verified: 2026-08-02
 ---
 
-A lookup object, a `Map`, a group-by, a memo cache, a cache server, a sharded table: each trades a
-scan for a [constant-time answer](./what-o-notation-is-for.md), and is only as good as the function
-turning a value into its key. [Choosing a structure](./choosing-a-structure.md) is the other half.
+Grouping rows, caching results and looking things up all work the same way underneath: turn each
+value into a key, and things with the same key go together. The key is something you write, usually
+without much thought. When it is wrong nothing throws. Rows land in the wrong bucket or a cache
+stops hitting, and you find out from a report.
 
 ## The model
 
-A key function has three jobs, and each one fails differently.
+Every lookup, group-by and cache trades a scan for a [constant-time
+answer](./what-o-notation-is-for.md), and the key function decides whether that answer is right.
+[Choosing a structure](./choosing-a-structure.md) is the other half. A key function has three jobs,
+and each one fails differently.
 
 - **Total** — every input produces a key. The failure is a missing field: `item.userId` is
   `undefined` on some rows, so all of them land in one bucket named `undefined`, and nothing throws.

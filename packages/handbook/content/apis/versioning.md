@@ -25,6 +25,12 @@ sources:
 verified: 2026-08-01
 ---
 
+Once other people's code calls your API, every change you ship is a change to their program as
+well. Versioning is how you keep changing it anyway: you decide which changes are safe to make in
+place, put the rest behind a new version, and eventually switch the old one off. The trouble comes
+from changes that did not look breaking, and from old versions still in use that nobody is
+counting.
+
 ## The model
 
 A version is a promise about a contract. You need a new one when you break the promise, so the

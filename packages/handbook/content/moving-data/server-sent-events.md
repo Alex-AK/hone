@@ -21,6 +21,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Sometimes the browser only needs to listen, as a live dashboard does. Server-sent events handle that
+by keeping one ordinary response open and letting the server write each update into it as it
+happens. If the connection drops, the browser reconnects by itself and tells the server the last
+update it saw, so the server can fill in what was missed.
+
 ## The model
 
 An event stream is one HTTP response that never finishes. The client makes an ordinary GET, the

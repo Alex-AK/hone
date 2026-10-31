@@ -27,6 +27,11 @@ sources:
 verified: 2026-08-09
 ---
 
+Whatever starts your server hands it a starting folder, a set of named settings and an identity to
+run as, and your code inherits all of them without asking. On a laptop the thing starting it is your
+terminal. In production it is something that has never seen your shell setup, so files go missing,
+settings vanish, and a setting of false behaves like true.
+
 ## The model
 
 Your source code is one of five things a running server is made of, and the other four were decided

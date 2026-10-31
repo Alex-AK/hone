@@ -25,6 +25,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Asking whether two values are equal sounds like one question, and JavaScript has several answers to
+it. They agree almost all the time and part ways on a few odd values, such as the special
+not-a-number value, which is not even equal to itself. None of them looks inside two objects to
+compare what they hold.
+
 ## The model
 
 There are four equality algorithms, and MDN names them: `IsLooselyEqual` is `==`, `IsStrictlyEqual`

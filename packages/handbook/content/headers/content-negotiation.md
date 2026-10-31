@@ -28,6 +28,11 @@ sources:
 verified: 2026-08-01
 ---
 
+One address can serve the same thing in more than one form: as JSON or as CSV, compressed or not, in
+English or in French. The client says what it would like and the server picks one. The response then
+has to admit what the choice depended on, or a cache in the middle hands whichever version it stored
+first to everybody.
+
 ## The model
 
 One URL, more than one representation. Negotiation is how the two ends agree on which one, and it

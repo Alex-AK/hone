@@ -30,6 +30,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Memoising a component tells React to skip rendering it again when nothing it was handed has changed.
+Checking that costs a little on every render, and the check is easy to defeat without noticing, so a
+memoised component can end up doing more work than before rather than less. Removing the slow work
+usually beats skipping it.
+
 ## The model
 
 `memo`, `useMemo` and `useCallback` make the same trade: run a comparison, and skip some work when

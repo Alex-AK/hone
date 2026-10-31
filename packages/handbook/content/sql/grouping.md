@@ -25,9 +25,10 @@ sources:
 verified: 2026-08-01
 ---
 
-The problems run SQLite, and this is the page where that matters most. Postgres answers the question
-in the title with an error; SQLite answers it by not refusing at all. The rest of the page is the
-same on both engines.
+Grouping squeezes many rows into one, like all of a genre's books into a single line with a count.
+Anything shown on that line needs one obvious answer for the whole group: the thing you grouped by
+has one, and so does a total or an average. A plain column usually doesn't, which is why one
+database refuses the query and another quietly picks a row for you.
 
 ## The model
 
@@ -38,6 +39,8 @@ are identical for every row in the group, because that is what put those rows in
 Aggregates (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`) are defined over all the rows of a group and return
 one value. A third kind, a plain column you did not group by, has as many candidate values as the
 group has rows and no rule for choosing between them. That is the thing the database objects to.
+Postgres objects with an error; SQLite, which the problems run, accepts it, and the first trap shows
+what you get.
 
 Postgres states the rule and its one exception. Referring to ungrouped columns is invalid "except
 within aggregate functions or when the ungrouped column is functionally dependent on the grouped

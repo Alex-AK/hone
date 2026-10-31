@@ -36,6 +36,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Left to itself, a form sends its fields to the server and swaps the whole page for whatever comes
+back. That is why a form in an app can reload and wipe everything on screen. Once your code takes
+that step over, a few jobs the reload never had become yours, and the one most often missed is the
+person who clicks twice and places two orders.
+
 ## The model
 
 A form submit is a navigation. The browser serialises every named control, builds a request from

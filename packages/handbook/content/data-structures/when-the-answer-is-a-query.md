@@ -25,9 +25,11 @@ sources:
 verified: 2026-08-02
 ---
 
-[Choosing a structure](./choosing-a-structure.md) assumes the rows have arrived. The question before
-it is whether they should have: the `filter` over the array, the sort, the `Map` you build to stitch
-two lists together. The database does all four, and it has an index.
+It is easy to fetch every row and then filter, sort, total or match them up in your own code. The
+database could have done that work before sending anything, often with an index that skips most of
+the table. Doing it afterwards means hauling rows you throw away, and scanning where the database
+could have gone straight to the answer. Moving the work into the query is usually right, and
+occasionally it is the bug.
 
 ## The model
 
@@ -45,6 +47,9 @@ discarded, a sort redoes an index's work, and a join is a loop by hand. Paging i
 Pushing work down is not free, though, and is sometimes the bug. The rule: push it down when it
 reduces what crosses the wire or lets an index do it, and keep it in the app when it needs something
 the database does not have, or when pushing it down turns one statement into per-row work.
+
+This is the question before [choosing a structure](./choosing-a-structure.md), which assumes the
+rows have already arrived.
 
 ## Worked example
 

@@ -39,6 +39,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Types can be built out of other types, the way a function builds a value from its inputs. Instead of
+copying a list of fields into a second type and keeping the two in step by hand, you derive the
+second from the first. When the original changes, everything derived from it changes too, and the
+compiler points at the code that now disagrees.
+
 ## The model
 
 The annotations are a second language running beside the JavaScript, and it has the pieces you would

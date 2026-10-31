@@ -24,9 +24,11 @@ sources:
 verified: 2026-08-04
 ---
 
-An answer becomes data at exactly one point in your code, and that point decides whether a bad reply
-is a failure you caught or a row you have to go and find later. Constrained decoding has removed most
-of the ways this used to go wrong. It has not removed the ones that end up in an incident.
+Asking a model for data instead of prose means getting text back and turning it into something your
+program can use, such as an order with its fields filled in. Providers now offer modes that force
+the reply into the right shape, and they help, but a reply can still stop halfway, refuse, or put a
+value in a field that makes no sense. The place in your code where a reply is accepted as data is
+where those get caught, or where they slip through into your database.
 
 ## The model
 

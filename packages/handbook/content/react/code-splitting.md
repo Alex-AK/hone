@@ -27,6 +27,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Splitting the code means the browser downloads what the first screen needs and fetches the rest only
+when someone goes looking for it. Done well, people stop paying for parts of the app they never
+open. Done in the wrong place, the page waits on a second download before it can show something it
+needed from the start.
+
 ## The model
 
 A dynamic `import()` is the split point. A static import gets inlined into whatever bundle contains

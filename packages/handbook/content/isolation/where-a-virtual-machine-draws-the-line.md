@@ -22,6 +22,11 @@ sources:
 verified: 2026-08-09
 ---
 
+Giving untrusted code a kernel of its own means the only part of your machine it talks to is a thin
+layer that pretends to be hardware. That is a much smaller thing to get right than the whole kernel
+a container talks to. What kept people from using one per request was the cost in startup time and
+memory, and cutting the virtual machine down to almost nothing is what brought that cost down.
+
 ## The model
 
 The whole difference is what the untrusted code is allowed to talk to.

@@ -23,6 +23,11 @@ sources:
 verified: 2026-08-09
 ---
 
+When a platform wants your server gone, during a deploy for instance, it first asks it to stop,
+waits a while, and then kills it outright. Signals are how the operating system delivers both. What
+happens in between is up to your code: finish the work in flight and leave cleanly, get cut off
+mid-response, or hang until the kill arrives.
+
 ## The model
 
 A signal is a number delivered to a process by the kernel, and that is nearly all it is. There is no

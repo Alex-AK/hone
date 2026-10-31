@@ -27,6 +27,11 @@ sources:
 verified: 2026-08-01
 ---
 
+In everyday use, REST means a set of habits for HTTP APIs: URLs that name things, and the standard
+methods and status codes used the way they were defined. Some of those habits matter, because
+browsers, caches and retrying clients already rely on what they mean. Others only decide what the
+API gets called, and arguing about those in review costs time without changing how anything behaves.
+
 ## The model
 
 REST is a set of architectural constraints. What ships under the name is an HTTP API with

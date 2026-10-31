@@ -27,6 +27,11 @@ sources:
 verified: 2026-09-27
 ---
 
+Workers on different machines take a lock when only one of them may do a job at a time. Across a
+network the lock has to expire on its own, or a worker that crashed would hold it forever. That
+expiry is the catch: a worker that stalls for a moment can wake up still believing the lock is its
+own, after somebody else has taken it.
+
 ## The model
 
 A lock across machines is a lease: it expires. It has to, because a holder that crashes would

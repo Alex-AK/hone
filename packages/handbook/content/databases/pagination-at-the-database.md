@@ -27,8 +27,10 @@ sources:
 verified: 2026-08-01
 ---
 
-The plans below are Postgres, from the query-plan workout. Everything on this page works in SQLite
-too, with one version cutoff noted in the traps.
+Showing a long list a page at a time is usually done by telling the database how many rows to skip.
+Skipping still costs: the database builds every row it skips, so each page deeper in gets slower.
+And because the count starts over on every request, a row added or removed in between shifts
+everything along, so a reader sees one row twice or never sees another.
 
 ## The model
 
@@ -64,7 +66,8 @@ unique column as a tiebreaker, and the index has to be able to produce that exac
 
 ## Worked example
 
-The orders list, 239 pending rows, an index on `(status, created_at DESC)`, and `OFFSET 200`:
+The plans are Postgres, from the query-plan workout. The orders list, 239 pending rows, an index on
+`(status, created_at DESC)`, and `OFFSET 200`:
 
 ```
 Limit  (cost=315.32..315.37 rows=20 width=12) (actual time=0.365..0.376 rows=20.00 loops=1)

@@ -24,6 +24,12 @@ sources:
 verified: 2026-08-01
 ---
 
+Getting data from one place to another can mean a plain request, a connection held open, a message
+left on a queue, or a job that runs on a timer. Each suits a different situation, and the wrong pick
+shows up later, usually as missed messages or as something that breaks when a second server is
+added. A few plain questions about who starts the exchange and what happens when nobody is listening
+usually settle it.
+
 ## The model
 
 There is no list of protocols to memorise. There are four questions, and the answers pick the

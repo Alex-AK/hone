@@ -24,6 +24,10 @@ sources:
 verified: 2026-08-01
 ---
 
+Protecting an endpoint takes separate checks. One works out who is asking, from a login cookie or a
+token. The other decides whether that person may touch this particular thing, and it is the one that
+goes missing, usually on a route somebody added after the check was written.
+
 ## The model
 
 Two questions with two answers and two status codes. Authentication asks who this is.

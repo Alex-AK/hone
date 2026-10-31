@@ -35,6 +35,11 @@ sources:
 verified: 2026-08-01
 ---
 
+A browser tab runs your code, draws the page and handles every click and key press on the same
+single line of work. While your code is busy, everything else waits its turn, so a slow update shows
+up as a click that seems ignored or typing that trails behind. The fix is to do less, let input go
+first, or move the work somewhere else.
+
 ## The model
 
 One thread runs your JavaScript, and the same thread runs style, layout, paint and every event

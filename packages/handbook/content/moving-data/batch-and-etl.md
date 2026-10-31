@@ -24,6 +24,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Not every piece of data has to move the moment it changes. A scheduled job that wakes up, copies a
+slice of data somewhere else and exits is often the honest answer to a request for realtime, because
+nobody acts on the number any faster. The hard parts are rows that arrive after their slice was
+already read, and making sure that running the job again does not count everything twice.
+
 ## The model
 
 This is the fourth answer to "who starts it": a clock. Nothing is waiting for a response, because

@@ -21,6 +21,12 @@ sources:
 verified: 2026-08-01
 ---
 
+A WebSocket turns an ordinary web request into a connection that stays open, where either side can
+send a message at any moment. That freedom is what a chat or a shared editor needs. It also gives up
+what plain HTTP did for you: the browser will not reconnect on its own, load balancers and caches
+can no longer help, and once there is more than one server a message has to find the one process
+holding the right connection.
+
 ## The model
 
 A WebSocket begins as an HTTP request and then stops being HTTP.

@@ -16,9 +16,10 @@ sources:
 verified: 2026-08-02
 ---
 
-Retrieval-augmented generation is a pipeline with a model on the end of it, and almost all of the
-pipeline is code you wrote. When the answer is wrong, the model is the last place to look and the
-first place everybody looks.
+The usual way to let a model answer from your own documents is to look up the passages that seem
+relevant and hand them over with the question. Nearly all of that is code you wrote: cutting the
+documents into pieces, finding the closest ones, deciding how many fit. So when an answer comes back
+wrong, most often the right passage never reached the model, and blaming the model hides that.
 
 ## The model
 

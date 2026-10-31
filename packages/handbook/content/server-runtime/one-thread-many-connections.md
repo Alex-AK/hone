@@ -46,6 +46,11 @@ sources:
 verified: 2026-08-01
 ---
 
+A server has to keep many conversations going at once, and older designs give each one its own
+process or thread. Node gives all of them a single thread that never sits waiting: a connection that
+is waiting for data costs almost nothing, but there is only that one thread to compute on. One slow
+calculation in one request stalls every other request in the process.
+
 ## The model
 
 A server has to hold many conversations at once, and there are only three ways to buy that: a

@@ -25,6 +25,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Putting work on a queue means the request only records what needs doing, and a separate worker does
+it later. The user gets a fast answer, and the work survives even if nothing is ready to handle it
+yet. In exchange, every task may run more than once, and failures now happen quietly, away from
+anyone watching.
+
 ## The model
 
 A queue is not a transport. It is a place a message waits, and that is the one property nothing else

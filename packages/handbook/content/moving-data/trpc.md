@@ -35,6 +35,11 @@ sources:
 verified: 2026-08-02
 ---
 
+tRPC lets a TypeScript front end call functions on a TypeScript server and have the compiler check
+every call, with no separate schema file and nothing generated. It works by handing the server's
+types to the client at build time. That check covers only code the compiler can see in the same
+build, and it says nothing about what actually arrives over the wire.
+
 ## The model
 
 There is no contract file because the server's source is the contract. tRPC's own summary: it "lets

@@ -22,6 +22,12 @@ sources:
 verified: 2026-08-08
 ---
 
+Calendars let a meeting repeat, every Tuesday or on the last day of each month, possibly forever.
+Storing each occurrence as its own row fails fast: an endless series has no last row, and a change
+of clocks can leave every stored time wrong. What you store instead is the pattern, and the trouble
+is in the details, such as months that lack the day you asked for, or moving one meeting without
+moving all of them.
+
 ## The model
 
 A repeating meeting is one row, not many. The row holds a start, a zone and a rule; the occurrences

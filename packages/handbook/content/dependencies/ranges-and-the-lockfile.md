@@ -28,9 +28,10 @@ sources:
 verified: 2026-08-04
 ---
 
-Every range expansion below came out of semver 7.8.5, and every install out of pnpm 11.5.0 on Node
-24.16.0. Ranges are a shared standard; what a given tool does with a lockfile is not, so anything
-behavioural here names the tool.
+Your project's list of dependencies usually names a range of versions it will accept rather than one
+exact version, so installing on a different day can pull in different code. A lockfile writes down
+exactly what one install chose, so every machine after it gets the same thing. Lose it, or never
+commit it, and two people with identical project files end up running different packages.
 
 ## The model
 
@@ -67,7 +68,7 @@ went through.
 Ranges are the consumer's half, and node-semver is what actually evaluates them. A caret allows
 "changes that do not modify the left-most non-zero element in the `[major, minor, patch]` tuple".
 Read that sentence twice, because the phrase "left-most non-zero" is where the surprise lives.
-Expanded, measured:
+Expanded by semver 7.8.5:
 
 ```
 range      expands to           accepts            refuses
@@ -116,7 +117,8 @@ forget the lockfile is doing at all.
 
 ## Worked example
 
-All four manifests here that mention TypeScript declare `"typescript": "^5.7.3"`. Not one of them
+Every install on this page ran on pnpm 11.5.0 and Node 24.16.0. All four manifests here that mention
+TypeScript declare `"typescript": "^5.7.3"`. Not one of them
 names 5.9:
 
 ```

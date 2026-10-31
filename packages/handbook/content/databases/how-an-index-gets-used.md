@@ -23,9 +23,10 @@ sources:
 verified: 2026-08-01
 ---
 
-Postgres is the engine on this page, because that is what the query-plan workouts run, and the plans
-were taken from PostgreSQL 18. SQLite differences are called out where they bite, and they bite
-hardest around `LIKE`.
+Adding an index to a slow query is the usual first move, and the database is free to ignore it. It
+first checks whether your condition is the kind of question the index can answer, then guesses
+whether going through the index beats reading the whole table. Sometimes the honest answer is no,
+and sometimes the way the query is written rules the index out before any guessing starts.
 
 ## The model
 
@@ -54,7 +55,8 @@ indexed column? And does the planner believe that range is small enough to be wo
 
 ## Worked example
 
-The orders list from the bug-hunt workout: 40,000 orders, and the statuses are lopsided the way real
+The plans are from PostgreSQL 18, which the query-plan workouts run. The orders list from the
+bug-hunt workout: 40,000 orders, and the statuses are lopsided the way real
 ones are. 239 are `pending`, 24,097 are `shipped`. There is an index on `status` alone.
 
 Filtering to `pending` uses it:

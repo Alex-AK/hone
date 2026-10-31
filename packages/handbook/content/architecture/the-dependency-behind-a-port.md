@@ -23,6 +23,11 @@ sources:
 verified: 2026-08-09
 ---
 
+Code that talks to a cache or a database directly ends up handling that tool's odd replies in every
+place that uses it. Putting a small interface of your own in front of it, written in your app's
+words, gives those oddities one home and gives your tests a stand-in you control. It only helps if
+the interface promises something, rather than renaming the tool's commands.
+
 ## The model
 
 A port is an interface stated in your application's vocabulary, over a dependency stated in somebody

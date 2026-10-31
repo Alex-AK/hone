@@ -23,6 +23,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Text, numbers and true-or-false values in JavaScript cannot be changed once they exist. Anything
+that looks like it edits a piece of text, such as upper-casing or trimming it, makes a new piece of
+text and leaves the old one alone. Forget to keep the new one and nothing changes, often with no
+error to tell you so.
+
 ## The model
 
 Seven of the eight language types are primitive: string, number, bigint, boolean, symbol, undefined

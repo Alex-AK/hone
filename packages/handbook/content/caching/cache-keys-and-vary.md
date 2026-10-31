@@ -23,6 +23,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Caches file everything they store under a key, and a later request is answered from storage only
+when its key matches. Put something unique to each visitor in the key and the cache keeps storing
+copies nobody else can use. Leave out something the response really depends on and the opposite
+happens: one visitor is handed a page built for someone else.
+
 ## The model
 
 A cache is a dictionary, and everything it does well or badly follows from what is in the key.

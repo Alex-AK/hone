@@ -28,6 +28,11 @@ sources:
 verified: 2026-08-09
 ---
 
+Replacing a system people are using right now means moving it over piece by piece, with old and new
+both running, so any single step can be undone. The moving is rarely what goes wrong. Finishing is:
+new uses of the old system keep appearing while the last stragglers wait for someone to own them,
+and a migration that never ends leaves you maintaining both.
+
 ## The model
 
 You do not get to stop. Whatever is being replaced is answering requests this afternoon, so the

@@ -29,6 +29,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Code checks values all the time before using them: is this missing, is it text, which kind of
+response came back. TypeScript reads those ordinary checks and treats the value as the narrower type
+in the code that follows. It only carries a check so far, though, so a check on one line can be
+forgotten on the next, inside a callback or once the value has been copied out.
+
 ## The model
 
 At every point in a function the compiler holds a set of types a value could be. It starts as the

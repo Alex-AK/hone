@@ -28,6 +28,12 @@ sources:
 verified: 2026-08-09
 ---
 
+A container feels like a small separate machine, but it is an ordinary process with some kernel
+features switched on: one limits what it can see, one limits how much it can use, and one limits
+what it can ask the kernel to do. Every container on a host still shares that host's single kernel.
+That makes a container a good guard against mistakes and a much weaker one against somebody trying
+to break out.
+
 ## The model
 
 There is no container object in Linux. A container is an ordinary process, the one from

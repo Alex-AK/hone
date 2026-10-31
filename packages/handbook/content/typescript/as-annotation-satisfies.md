@@ -29,6 +29,11 @@ sources:
 verified: 2026-08-01
 ---
 
+There are three ways to tell TypeScript what type a value has, and they read almost the same. One
+checks the value and then forgets its details, one checks it and keeps them, and one checks nothing
+and takes your word for it. Mixing them up either hides a bug until the program runs or throws away
+something you need later, like the exact list of keys in a config.
+
 ## The model
 
 Separate the three with two questions: does it check the value, and what type does the variable end up

@@ -26,6 +26,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Logging in produces a token, and something has to present it again on every request after that.
+Either your code attaches it by hand, or the browser stores it as a cookie and attaches it for you.
+Which one does the attaching decides which attacks you are open to, and explains why a login can
+work from a testing tool and fail in the browser.
+
 ## The model
 
 HTTP does not remember you, so identity has to ride along on every request. There are two ways to

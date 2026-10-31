@@ -27,6 +27,11 @@ sources:
 verified: 2026-08-01
 ---
 
+With GraphQL, a screen asks for everything it needs in one request, naming exactly the fields it
+wants. That removes the slow chain of small requests the browser used to make, but the work does not
+disappear. It moves to the server, where one request can quietly turn into a flood of database
+queries, and to caching, which stops working the way it used to.
+
 ## The model
 
 The client sends one document naming exactly the fields it wants, the server walks that document

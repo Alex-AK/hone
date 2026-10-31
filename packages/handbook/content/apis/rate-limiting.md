@@ -24,6 +24,12 @@ sources:
 verified: 2026-08-01
 ---
 
+A rate limiter caps how many requests one client can make in a stretch of time, so a single busy
+script or attacker cannot use up the capacity everyone else needs. There are several ways to do
+the counting, and they differ in how much bursting they allow. The choice that hurts people is what
+you count against: get it wrong and a whole office shares one allowance, or a password-guessing
+attack slips under every limit you set.
+
 ## The model
 
 Five algorithms get used, and the useful way to hold them apart is what each one stores per client

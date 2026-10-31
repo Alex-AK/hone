@@ -30,6 +30,12 @@ sources:
 verified: 2026-08-01
 ---
 
+Each newer version of HTTP changed what makes requests wait behind one another. The oldest one in
+use queues them behind any slow response. Its successor fixes that but lets a single lost packet
+stall everything sharing the connection, and the newest fixes that in turn by leaving the old
+transport behind. Knowing which kind of waiting you have tells you whether an upgrade helps or makes
+things worse.
+
 ## The model
 
 Three versions chasing the same problem down two layers of the stack. The problem is called

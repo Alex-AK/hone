@@ -27,6 +27,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Keeping a second copy of a database on another machine lets more servers answer reads, and gives you
+something to switch to if the first one dies. The copy is always a little behind, so a user can save
+something and then load a page that does not show it yet. Every write still has to happen on every
+copy, which means the extra machines do nothing for write load.
+
 ## The model
 
 One leader, several followers. Writes go to the leader only. It appends every change to a log and

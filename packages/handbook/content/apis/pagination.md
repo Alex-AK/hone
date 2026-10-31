@@ -21,6 +21,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Long lists are sent a page at a time, and the obvious way to ask for the next page is to say how
+many rows to skip. That works until the list changes while someone is reading it. New items push
+old ones along, so the reader sees a row twice or never sees one at all, and skipping far into a
+big list gets slower the deeper you go.
+
 ## The model
 
 There are two ways to say "give me the next twenty", and they differ in what the request names.

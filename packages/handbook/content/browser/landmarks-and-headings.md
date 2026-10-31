@@ -38,6 +38,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Plenty of people move around a page without seeing it, using a screen reader to jump from region to
+region or from heading to heading. Those jumps only work if the markup says where the regions are
+and how the headings nest, because the visual design tells a screen reader nothing. Get it wrong and
+there is nothing to jump to, so the only way to the content is through everything in front of it.
+
 ## The model
 
 A sighted reader navigates by looking: the nav is the row along the top, the article is the wide

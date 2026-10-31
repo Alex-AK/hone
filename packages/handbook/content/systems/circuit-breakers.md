@@ -22,6 +22,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Your service calls other services, and one of them can stop answering without ever sending back an
+error. Every call to it then sits waiting and holding resources, until requests to unrelated parts
+of your service are queueing behind them. A circuit breaker notices the failures and starts refusing
+those calls straight away, so the rest of the service stays up.
+
 ## The model
 
 Start with why it exists, because the mechanism is the easy half.

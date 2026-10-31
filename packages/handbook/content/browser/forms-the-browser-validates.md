@@ -42,6 +42,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Browsers can check a form before it is sent: that a field is filled in, that an email looks like an
+email, that a number is in range. You switch this on with markup, and the browser blocks the submit
+and shows the user what is wrong. It is a convenience and nothing more, because anyone can skip your
+page and send whatever they like straight to the server.
+
 ## The model
 
 Constraint validation is a feature the browser already ships, and most of it is attributes.

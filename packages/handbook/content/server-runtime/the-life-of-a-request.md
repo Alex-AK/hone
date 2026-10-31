@@ -26,6 +26,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Nest sends every request through the same fixed series of layers on its way in and on its way out.
+Each layer can see a different amount about where the request is heading, and only some of them run
+before your own code does. Putting a check in a layer that can see what it needs, and that runs
+early enough, is the difference between refusing a bad request and cleaning up after it.
+
 ## The model
 
 A framework's real product is an itinerary. Every request takes the same path through the same

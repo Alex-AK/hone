@@ -19,10 +19,10 @@ sources:
 verified: 2026-08-02
 ---
 
-Streaming is why a generative endpoint feels usable at all: the answer takes eight seconds and the
-first word arrives in four hundred milliseconds. What you give up for that is the ability to fail
-cleanly, and the transport half of this is the same Server-Sent Events the moving-data section
-already covers.
+Streaming means showing a model's answer as it is written, a few words at a time, instead of leaving
+the user in front of a blank screen until the whole thing is done. The catch is at both ends. The
+browser receives raw pieces that do not line up with words or messages, and the server has already
+said everything went fine before it knows whether it will.
 
 ## The model
 

@@ -25,14 +25,17 @@ sources:
 verified: 2026-08-01
 ---
 
-`EXPLAIN` means two unrelated things in the two engines this project runs. Postgres is the one worth
-learning to read, and it is what the workouts use; the SQLite section below is not a footnote, it is
-a different command.
+Before it runs a query, the database works out a plan: which tables to read, in what order, and
+whether an index helps. You can ask to see that plan, and when a query is slow it is usually where
+the reason shows up, such as a whole table read to keep a handful of rows, or a small step repeated
+many times. The output is dense, and a few lines carry most of the diagnosis.
 
 ## The model
 
-A plan is a tree. Each node pulls rows from the nodes indented under it, so the most indented line
-runs first and the top line is the last thing that happens. Read it from the inside out.
+Postgres is the engine here, because the workouts use it; SQLite's `EXPLAIN` is a different command,
+shown after it. A plan is a tree. Each node pulls rows from the nodes indented under it, so the most
+indented line runs first and the top line is the last thing that happens. Read it from the inside
+out.
 
 Plain `EXPLAIN` runs nothing. It prints the plan the planner chose and four estimates per node:
 

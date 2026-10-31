@@ -29,6 +29,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Calls to other servers fail, and sending the same request again is often the right response. It can
+also charge a customer twice, or bury a struggling server under a crowd of retries that all arrive
+at once. The difference lies in which requests are safe to repeat, and in how long each client waits
+before it tries again.
+
 ## The model
 
 Every remote call needs three answers, and they are separate decisions.

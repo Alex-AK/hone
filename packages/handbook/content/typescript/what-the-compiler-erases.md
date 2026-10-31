@@ -28,6 +28,11 @@ sources:
 verified: 2026-08-01
 ---
 
+TypeScript checks your types and then deletes them, so the program that runs is plain JavaScript
+with no types left in it. That makes the checking a promise about your own code fitting together,
+and says nothing about data arriving from outside. A server response or a parsed string can be any
+shape at all, and only code that runs can tell you which.
+
 ## The model
 
 The compiler reads your types, checks them against each other, and deletes them. Compile this:

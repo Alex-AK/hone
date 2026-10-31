@@ -28,6 +28,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Networks lose replies, so a client that hears nothing back cannot tell whether its request was
+never done or was done and the answer went missing. Sending it again is harmless for some requests
+and costly for others, such as a payment that charges the card twice. Idempotency is the property
+that makes a repeat safe, and where a request lacks it, you can build it in.
+
 ## The model
 
 Idempotent means the effect of N identical requests is the effect of one. That is the whole

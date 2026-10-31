@@ -25,6 +25,11 @@ sources:
 verified: 2026-08-09
 ---
 
+A program gets a place to write its results and a separate place to write messages about how it is
+going. In a terminal both show up mixed together, so it is easy to treat them as one. They split
+apart the moment the output is saved to a file or handed to another program, and a progress message
+written to the wrong one ends up inside the data.
+
 ## The model
 
 A process starts with two output streams, not one. POSIX gives them numbers: file descriptors 1 and

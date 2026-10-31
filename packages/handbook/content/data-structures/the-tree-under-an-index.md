@@ -25,14 +25,16 @@ sources:
 verified: 2026-08-02
 ---
 
-[How an index gets used](../databases/how-an-index-gets-used.md) models an index as a second copy of
-a few columns kept sorted, which answers what an index can do but not how it reaches the first
-matching entry: a sorted array of a million still has to be searched. That shape is a tree, and
-whether to reach for one at all is [when the answer is a query](./when-the-answer-is-a-query.md).
+An index lets a database jump to the rows you asked for instead of reading the whole table. It keeps
+the values in a short, wide tree, so finding where a range starts takes a few steps however big the
+table gets. The same shape decides which searches it can help: one that names where to start and
+which way to walk is fast, and one that doesn't reads everything anyway.
 
 ## The model
 
-An index is a tree of 8kB pages. Postgres: "Leaf pages are the pages on the lowest level of the
+An index is a tree of 8kB pages: the sorted copy that [how an index gets
+used](../databases/how-an-index-gets-used.md) describes, arranged so that reaching the first match
+never means searching all of it. Postgres: "Leaf pages are the pages on the lowest level of the
 tree... Each internal page contains tuples that point to the next level down in the tree." A search
 starts at the root, compares your value against that page's separator keys, and follows one pointer.
 
@@ -58,7 +60,8 @@ names none either: the leaves sit in `email` order, so index the expression, spe
 spells it. A composite index has one once its leading columns are pinned, and Postgres 18 rescues a
 slice with a skip scan: 20 tenants gave `Index Searches: 21` here, one descent per distinct value,
 while 200,000 collapsed to `Index Searches: 1` and read every page of the index. Neither a hash nor
-an array does both ([choosing a structure](./choosing-a-structure.md)).
+an array does both ([choosing a structure](./choosing-a-structure.md)). Whether to reach for one at
+all is [when the answer is a query](./when-the-answer-is-a-query.md).
 
 ## Worked example
 

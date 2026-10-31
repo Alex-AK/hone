@@ -21,7 +21,10 @@ sources:
 verified: 2026-08-08
 ---
 
-Numbers here were measured against PostgreSQL 17.10 on a 300,000-event log.
+Overwriting a row loses what was there before, so a balance can tell you what it is but not how it
+got there. Event sourcing keeps every change as its own record and works out the current value from
+them when asked. The history comes for free, and so does the obligation to keep it forever, old
+formats and personal data included.
 
 ## The model
 
@@ -103,7 +106,8 @@ violation on one of them rather than a lost update.
 ## Traps
 
 **We added snapshots and the rebuild got slower.** A snapshot is a cached fold, `{ key, state,
-as_of_offset }`, and reloading means reading it plus the events after it. Measured both ways:
+as_of_offset }`, and reloading means reading it plus the events after it. Measured both ways,
+against PostgreSQL 17.10 on a 300,000-event log:
 
 ```
 rebuild every account's balance from offset 0     15.3 ms

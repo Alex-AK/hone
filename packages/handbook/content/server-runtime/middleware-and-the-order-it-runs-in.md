@@ -26,6 +26,11 @@ sources:
 verified: 2026-08-02
 ---
 
+In Express, each request passes through a chain of small functions before it reaches the code for
+its route, for jobs like logging, parsing the body or enforcing a rate limit. They run in the order
+you registered them, and any one of them can answer the request and stop the rest from running. So
+moving a line up or down the file can switch a check off without anything looking wrong.
+
 ## The model
 
 A middleware is a function holding three things: the request, the response, and a handle on

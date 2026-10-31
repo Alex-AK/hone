@@ -24,6 +24,11 @@ sources:
 verified: 2026-08-09
 ---
 
+Splitting an application into separately deployed services is often sold as the tidy option. It
+does buy real things, like a team shipping on its own schedule, but every call between the pieces
+can now fail, stall, or leave a change half saved. One application with internal boundaries that
+something actually enforces catches the same accidental tangling for none of that cost.
+
 ## The model
 
 Two different things get called a boundary. A **module** boundary is enforced by a compiler, a lint

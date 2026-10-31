@@ -31,6 +31,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Some components have to keep something outside React in step with what is on screen: a timer, a live
+connection, a request for data. An effect is where that work goes, and whatever it starts has to be
+stopped when the screen moves on, or the leftovers turn into doubled listeners and answers that land
+out of order. Plenty of code also ends up in an effect that never needed one.
+
 ## The model
 
 An effect synchronises your component with something outside React: a subscription, a timer, a socket,

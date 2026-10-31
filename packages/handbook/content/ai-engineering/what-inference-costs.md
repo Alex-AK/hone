@@ -33,10 +33,10 @@ sources:
 verified: 2026-08-02
 ---
 
-A generative dependency bills and paces itself unlike anything else you call. The work is charged as
-it is produced rather than as it is delivered, the expensive half is the half you did not write, and
-the number your dashboard calls latency is two numbers wearing one label. Every price below was read
-on the `verified` date and will move. The ratios move far more slowly, so the page leans on those.
+A call to a hosted AI model is paid for by the amount of text that goes in and comes out, and how
+long it takes depends mostly on how long the answer is. Neither works like an ordinary API. The
+words the model writes cost several times what the words you send do, and a request your code gave
+up waiting for may still have run to the end and been billed.
 
 ## The model
 
@@ -55,8 +55,9 @@ tokenizer that produces about 30% more tokens for the same input than earlier mo
 measured against last quarter's model does not transfer to this one. Count against the model you are
 going to call.
 
-**Output is the expensive token, by a ratio that outlives any price list.** On every current Claude
-model output costs five times input: Opus 5 is $5 and $25 per million tokens, Haiku 4.5 is $1 and
+**Output is the expensive token, by a ratio that outlives any price list.** Prices here were read on
+the `verified` date and will move; the ratios move far more slowly. On every current Claude model
+output costs five times input: Opus 5 is $5 and $25 per million tokens, Haiku 4.5 is $1 and
 $5. OpenAI's current flagships hold six to one, from $5 and $30 down to $0.20 and $1.20. Both
 providers price a cache hit at a tenth of base input.
 

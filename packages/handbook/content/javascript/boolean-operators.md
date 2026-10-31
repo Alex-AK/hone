@@ -35,6 +35,11 @@ sources:
 verified: 2026-08-02
 ---
 
+The operators for and, or and a fallback look as if they should produce a yes or a no. In JavaScript
+they hand back one of the two things you gave them, which is handy for filling in a default until a
+perfectly good zero or blank gets treated as missing and replaced. They also decide whether the
+right-hand side runs at all, so a call can quietly stop happening.
+
 ## The model
 
 `&&`, `||` and `??` do not answer a question. They pick one of their two operands and hand it back.

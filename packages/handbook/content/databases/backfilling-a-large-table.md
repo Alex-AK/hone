@@ -21,19 +21,22 @@ sources:
 verified: 2026-08-08
 ---
 
-This page is Postgres. Every number on it was measured against PostgreSQL 17.10 on a table of 500,000
-rows, not recalled. SQLite reaches most of the same conclusions for different reasons and is noted
-where it diverges; the DDL half of this, which is a different subject, is
-[migrations](../orms/migrations.md).
+A backfill is a one-off job that writes a value into every existing row, often right after a new
+column is added. Run as one giant update, it holds on for its whole length: it leaves an old copy of
+every row behind, competes with the app for connections, and stops the database cleaning up after
+anyone. Run in small batches, each committed before the next starts, the cost spreads out and a
+failure loses one batch, as long as each batch knows exactly where the last one stopped.
 
 ## The model
 
-Start by deleting the thing you are worried about. **A bulk `UPDATE` does not lock readers out.** It
-takes `ROW EXCLUSIVE` on the table, which Postgres documents as conflicting with "the SHARE, SHARE ROW
+Every number here was measured on PostgreSQL 17.10, against a table of 500,000 rows. Start by
+deleting the thing you are worried about. **A bulk `UPDATE` does not lock readers out.** It takes
+`ROW EXCLUSIVE` on the table, which Postgres documents as conflicting with "the SHARE, SHARE ROW
 EXCLUSIVE, EXCLUSIVE, and ACCESS EXCLUSIVE lock modes" and therefore not with the `ACCESS SHARE` a
 plain `SELECT` takes. Measured mid-backfill, with the `UPDATE` holding `RowExclusiveLock`, a
 concurrent `SELECT` returned all 500,000 rows. Readers being locked out is a DDL problem, and the
-`ALTER TABLE` that often travels with a backfill is where it comes from.
+`ALTER TABLE` that often travels with a backfill is where it comes from, which is
+[migrations](../orms/migrations.md).
 
 What a backfill actually spends is everything the database shares between workloads:
 

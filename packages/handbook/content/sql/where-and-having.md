@@ -23,8 +23,10 @@ sources:
 verified: 2026-08-01
 ---
 
-One rule answers this, and everything else on the page is a consequence of it. The problems run
-SQLite; the rule is the same on Postgres, and the two places they diverge are called out.
+Filtering can happen twice in one query: once on individual rows, and again after the rows have been
+gathered into groups and counted or totalled. The two filters run at different moments, so a
+condition on a count only makes sense in the later one. Put a plain row condition in the wrong place
+and some databases run it anyway, with totals that come out wrong.
 
 ## The model
 
@@ -66,7 +68,8 @@ belongs semantically, then read the plan. That half lives in
 
 ## Worked example
 
-Customers with more than one completed order. Both filters are present, doing different jobs:
+The output here is SQLite's, which the problems run. Customers with more than one completed order.
+Both filters are present, doing different jobs:
 
 ```sql
 SELECT c.name, COUNT(*) AS order_count

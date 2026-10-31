@@ -22,8 +22,10 @@ sources:
 verified: 2026-08-02
 ---
 
-Sorting fails quietly: the array comes back sorted and the order is wrong, because `sort` did what
-the comparator told it to. The comparator is a contract, and the bugs that survive review break it.
+To sort a list by anything other than the default order, you hand the sort a small function that
+compares two items and says which goes first. The sort trusts that answer completely. Get it subtly
+wrong and nothing errors: the list comes back looking sorted, in the wrong order, and the bug
+survives review.
 
 ## The model
 
@@ -35,11 +37,11 @@ values." `"10"` sorts before `"9"` on its first character, and that is documente
 [10, 9, 1].sort(); // [1, 10, 9]
 ```
 
-A comparator answers one question about one pair, with a sign: negative puts `a` before `b`, positive
-puts `b` before `a`, and **zero means treat them as equal**. Only the sign counts, never the size. So
-a comparator returning a boolean can never say "before", because `true` and `false` coerce to 1 and
-0, and the sort only ever hears "b first" or "already equal". On Node 24 (V8),
-`[3, 1, 2].sort((a, b) => a > b)` hands back `[3, 1, 2]`, untouched.
+A comparator is a contract: it answers one question about one pair, with a sign: negative puts `a`
+before `b`, positive puts `b` before `a`, and **zero means treat them as equal**. Only the sign
+counts, never the size. So a comparator returning a boolean can never say "before", because `true`
+and `false` coerce to 1 and 0, and the sort only ever hears "b first" or "already equal". On Node 24
+(V8), `[3, 1, 2].sort((a, b) => a > b)` hands back `[3, 1, 2]`, untouched.
 
 Nothing better is promised. A consistent comparator, in the spec's terms, returns the same non-`NaN`
 number for a given pair and is reflexive, symmetric ("If a =C b, then b =C a") and transitive, and

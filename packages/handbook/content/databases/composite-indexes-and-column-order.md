@@ -22,10 +22,10 @@ sources:
 verified: 2026-08-01
 ---
 
-Postgres is the engine on this page, and the plans were taken from PostgreSQL 18. The version matters
-once: the skip scan in the last trap, and the `Index Searches` line that shows it, arrived in 18, and
-earlier releases neither skip nor print that count. The SQLite equivalents are shown alongside,
-because they say the same thing in a different vocabulary.
+An index on two columns is sorted by the first, and by the second only among rows that share the
+first. So the order you list the columns in decides which queries it can speed up, and whether their
+results come out already sorted or need sorting afterwards. Get the order backwards and the index
+still shows up in the plan, doing half its job.
 
 ## The model
 
@@ -48,6 +48,7 @@ out ready and the plan has no sort step in it at all.
 
 ## Worked example
 
+The plans are from PostgreSQL 18, with SQLite's equivalents alongside.
 `GET /orders?status=pending` in the bug-hunt workout runs one query: filter on `status`, order by
 `created_at` descending, take 20. There are 40,000 orders and 239 of them are pending.
 
@@ -110,9 +111,10 @@ single most common way a composite index ends up being half an index.
 queries on `status` alone, so a separate index on `(status)` is redundant: extra writes on every
 insert, extra pages, no new answers. Look for prefixes you already have before adding another.
 
-**Reading that leading columns are mandatory, and designing around it.** Both engines can use an index
-whose leading column is unconstrained when that column has very few distinct values, by stepping
-through the distinct values one at a time. Postgres shows it as extra index searches; SQLite writes
-the condition as `ANY(status) AND created_at>?`. It is a rescue, not a design: SQLite only attempts
-it when `ANALYZE` has been run and it estimates around 18 or more duplicates per leading value, so on
-a database nobody has analysed it never happens at all.
+**Reading that leading columns are mandatory, and designing around it.** Both engines can use an
+index whose leading column is unconstrained when that column has very few distinct values, by
+stepping through the distinct values one at a time. Postgres 18 shows it as extra index searches,
+and earlier releases do not skip; SQLite writes the condition as `ANY(status) AND created_at>?`. It
+is a rescue, not a design: SQLite only attempts it when `ANALYZE` has been run and it estimates
+around 18 or more duplicates per leading value, so on a database nobody has analysed it never
+happens at all.

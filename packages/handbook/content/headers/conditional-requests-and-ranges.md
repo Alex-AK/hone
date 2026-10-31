@@ -26,6 +26,11 @@ sources:
 verified: 2026-08-02
 ---
 
+Instead of asking for a whole file every time, a client can attach a condition, such as only if it
+has not changed, or ask for one slice of it. Together those let a dropped download pick up where it
+stopped rather than starting over. Done carelessly, the resumed file is quietly stitched together
+from two different versions, with no error to show for it.
+
 Which validator to send, how to compute one cheaply, and what `304` saves you is
 [revalidation](../caching/revalidation.md). This page is the other side of it: what a client does with
 a validator in hand, and what it takes to ask for part of something.

@@ -27,6 +27,12 @@ sources:
 verified: 2026-08-01
 ---
 
+Instead of each class building the objects it needs, a framework like Nest builds them once and
+hands them over, which makes it easy to share one instance and to swap in a fake for tests. To do
+that it has to know at runtime what each class asked for, and TypeScript normally throws that
+information away when it compiles. When a build tool drops it, nothing fails until the class tries
+to use a dependency that was never filled in.
+
 ## The model
 
 A class names what it needs, and something else decides what it gets. That inversion is the whole

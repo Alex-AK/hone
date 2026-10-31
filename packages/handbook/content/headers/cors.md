@@ -28,6 +28,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Browsers stop a page on one site from reading responses from another site unless that other site
+says it may. CORS is how a server gives that permission, and only browsers enforce it. That is why a
+request can succeed from the command line and fail in the browser, and why these headers never stop
+anyone from sending a request in the first place.
+
 ## The model
 
 The same-origin policy is the default: a page can send a request to another origin, but it cannot

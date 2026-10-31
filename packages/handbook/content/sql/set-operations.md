@@ -19,8 +19,10 @@ sources:
 verified: 2026-08-01
 ---
 
-Every count below came from running the query against the practice database (SQLite 3.51). Engine
-differences are called out where they exist.
+Customer cities and staff cities live in different tables, and you can still ask for them as one
+list. Stacking two results, keeping only what both share, or taking one away from the other are all
+built in. Whether duplicates get removed is the part that bites: pick wrong and you either pay for a
+sort you didn't need or silently lose a row you meant to keep.
 
 ## The model
 
@@ -69,7 +71,8 @@ De-duplication is a separate question, and three tools answer overlapping parts 
 
 ## Worked example
 
-Ten customers and twelve employees, and the cities they live in:
+Every count here came from the practice database on SQLite 3.51. Ten customers and twelve
+employees, and the cities they live in:
 
 ```sql
 SELECT city FROM customers UNION ALL SELECT city FROM employees;  -- 22 rows

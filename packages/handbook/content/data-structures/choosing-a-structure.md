@@ -25,8 +25,10 @@ sources:
 verified: 2026-08-02
 ---
 
-Four containers, and the choice usually gets made by habit. Two questions decide it: how you find a
-thing once it is in there, and what you are allowed to look it up by.
+JavaScript gives you several ways to hold a collection, and most code picks one out of habit. They
+differ in how you find something once it is in there, and in what you are allowed to look it up by.
+Pick the wrong one and nothing throws: two different things quietly share a slot, a list reorders
+itself, or a lookup finds an entry nobody put there.
 
 ## The model
 

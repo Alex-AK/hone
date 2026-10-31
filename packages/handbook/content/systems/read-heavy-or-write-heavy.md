@@ -21,9 +21,10 @@ sources:
 verified: 2026-08-07
 ---
 
-Postgres is the engine here. Every number below was measured on PGlite 0.5.4, which is PostgreSQL
-18.3 compiled to wasm. They are counts rather than timings, so the wasm build changes nothing about
-them.
+Every fix for a slow database helps one direction of traffic: several make reading cheaper, and only
+one makes room for more writes. Picking the right one depends on whether the struggling table is
+mostly read or mostly written. That answer is easy to get wrong, because a page that only shows data
+can still write to the database every time it loads.
 
 ## The model
 
@@ -53,6 +54,7 @@ translation fails in both directions. A read request writes: a session touch, a 
 analytics row, an audit line. A write request reads: the row it is about to update, the uniqueness
 check, the permission lookup. The mechanisms respond to statements. The dashboard counts requests.
 
+Every count on this page was measured on PGlite 0.5.4, which is PostgreSQL 18.3 compiled to wasm.
 The per-table number lives in `pg_stat_user_tables` and accumulates until something resets it. Reads
 are `seq_scan` and `idx_scan`, the "number of index scans initiated on this table" and the
 sequential equivalent. Writes are `n_tup_ins`, `n_tup_upd` and `n_tup_del`, which count rows rather

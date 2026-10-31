@@ -24,6 +24,11 @@ sources:
 verified: 2026-08-01
 ---
 
+A stored copy that has gone stale does not have to be thrown away. The cache can ask the server
+whether it is still current, and if nothing has changed the server answers with a short yes instead
+of sending everything again. That saves the download but not the trip, and it only saves the server
+any work if it can answer the question without building the whole response first.
+
 ## The model
 
 Freshness and validation are two mechanisms, not one. Freshness says how long a stored copy may be

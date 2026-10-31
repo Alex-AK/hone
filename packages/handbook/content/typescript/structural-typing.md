@@ -28,6 +28,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Two types count as the same in TypeScript when they have the same contents, whatever they are
+called. That is what makes everyday code easy, because an object fits anywhere its shape matches. It
+also means two things that happen to share a shape, like a user's id and an order's id, can be
+swapped without a complaint, and telling them apart takes deliberate work.
+
 ## The model
 
 TypeScript compares shapes, not names. The handbook calls it structural subtyping, "a way of

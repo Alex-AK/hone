@@ -27,6 +27,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Context lets a component deep in a React tree read a shared value, such as the signed-in user or the
+theme, without every component in between handing it along. What it cannot do is tell which part of
+that value a component cares about. Change any part, or only look as if you did, and everything
+reading it renders again, whether or not its part moved.
+
 ## The model
 
 Context has one unit of subscription: the provider's `value`. Calling `useContext(SomeContext)`

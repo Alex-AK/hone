@@ -26,6 +26,11 @@ sources:
 verified: 2026-08-01
 ---
 
+How long one request takes and how many requests a system can handle each second are separate
+measurements. Making requests faster raises the second only if the time you saved was being spent at
+whatever is actually in short supply, such as database connections. Averages also hide the slow
+requests that users complain about, which is why the useful numbers describe the slowest share.
+
 ## The model
 
 Fast is a fact about one request. Keeping up is a fact about the system. They are separate

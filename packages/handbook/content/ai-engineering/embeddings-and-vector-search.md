@@ -12,11 +12,14 @@ sources:
 verified: 2026-08-02
 ---
 
-An embedding is a list of floats, and a vector search is an `ORDER BY` over a distance function. If
-you read it as a search engine you will trust results it never promised you. This page means
-Postgres with pgvector, because that is the version you can run and read the plan of.
+To find passages that mean roughly what a question means, you turn each piece of text into a list of
+numbers that places it near similar text, then look for the pieces closest to the question. That
+search always finds something closest, whether or not anything is relevant. Read it as a search
+engine and you will trust answers built on passages that have nothing to do with the question.
 
 ## The model
+
+Everything here is Postgres with pgvector, the version you can run and read the plan of.
 
 **A vector is coordinates in one model's space.** The number of dimensions is not the meaning: two
 models can both output 1,536 floats and agree on nothing, because the axes are different axes. Which

@@ -32,23 +32,24 @@ sources:
 verified: 2026-08-04
 ---
 
-The browser half of this is settled: a form with a file needs `multipart/form-data`, and
-[submitting a form](../browser/submitting-a-form.md) covers what the boundary is and how to avoid
-destroying it. This page is what happens after those bytes reach your process, which is a different
-question with a worse failure mode, because the thing arriving is as large as somebody's phone will
-let it be.
+Uploaded files arrive as one long request body, which can be far larger than anything else your
+server receives. Code that collects the whole body in memory before looking at it can run the
+process out of memory, and a size limit that trusts what the client declares stops only honest
+clients. Everything the browser says about the file, its name and its type included, comes from the
+person sending it.
 
 ## The model
 
-**A body is a stream, and buffering it is a decision you can make by accident.** Body parsers buffer:
-that is their whole job, and `express.json()` is documented as parsing "incoming requests with JSON
-payloads", with a `limit` option that defaults to `"100kb"`. That default is doing more work than
-people notice, because the moment a parser has run, the size of the request is a number in your heap
-rather than a number on the wire. For a file that is exactly the wrong shape. What you want is the
-bytes going somewhere else as they arrive, which is [backpressure](./backpressure.md) pointed at the
-request instead of the response, and `pipeline` rather than `pipe`, because Node describes it as
-piping "forwarding errors and properly cleaning up" while `pipe` leaves the destination open when the
-source fails.
+**A body is a stream, and buffering it is a decision you can make by accident.** Body parsers
+buffer: that is their whole job, and `express.json()` is documented as parsing "incoming requests
+with JSON payloads", with a `limit` option that defaults to `"100kb"`. That default is doing more
+work than people notice, because the moment a parser has run, the size of the request is a number in
+your heap rather than a number on the wire. For a file that is exactly the wrong shape. What you
+want is the bytes going somewhere else as they arrive, which is [backpressure](./backpressure.md)
+pointed at the request instead of the response, and `pipeline` rather than `pipe`, because Node
+describes it as piping "forwarding errors and properly cleaning up" while `pipe` leaves the
+destination open when the source fails. How the browser packs a file into the request is [submitting
+a form](../browser/submitting-a-form.md); this page starts where those bytes reach you.
 
 **The limit is only real where the bytes stop.** `Content-Length` is the sender's arithmetic, and a
 chunked request does not carry one at all, so a limit that reads the header is a limit against

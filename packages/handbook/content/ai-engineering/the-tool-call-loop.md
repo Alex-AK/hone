@@ -25,9 +25,10 @@ sources:
 verified: 2026-08-04
 ---
 
-Giving a model tools does not give it hands. It gives it a way to ask, and the thing that turns an
-ask into a refund, a deletion or an email is a loop in your code. This page is that loop, and the two
-places it is dangerous.
+Tools let a model do more than talk: it can ask your program to look something up, send an email or
+issue a refund. It can only ask, though. Your own code reads each request, decides whether to carry
+it out and reports back, and if that code trusts the request too far, a model that has read the
+wrong web page can be steered into acting against the person it is helping.
 
 ## The model
 

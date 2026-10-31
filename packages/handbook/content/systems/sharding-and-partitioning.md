@@ -32,6 +32,11 @@ sources:
 verified: 2026-08-01
 ---
 
+Splitting a table means deciding, row by row, which piece each row belongs to, usually by something
+like the user it is for. Put the pieces on separate machines and you can take more writes than one
+machine could, but the database stops answering questions that need more than one piece. Joins,
+totals, unique checks and transactions that cross the split become your code's job.
+
 ## The model
 
 One table's rows, split into pieces by a key, each row living in exactly one piece. Fix the

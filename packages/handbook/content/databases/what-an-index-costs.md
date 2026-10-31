@@ -22,9 +22,10 @@ sources:
 verified: 2026-08-04
 ---
 
-Postgres is the engine here. Every number below was measured on PGlite 0.5.4, which is PostgreSQL
-18.3 compiled to wasm, so read the ratios rather than the milliseconds: a 32-bit wasm build is not
-your production server.
+An index makes some reads faster, and it is paid for on every write and in disk space for as long as
+it exists. The read gets faster every time, so the cost is easy to miss: it hides behind ordinary
+requests and turns up when something writes in bulk, like an import. An index nothing uses still
+charges you.
 
 ## The model
 
@@ -33,7 +34,8 @@ database keeps that copy correct for you, and that is the entire bargain: you bu
 a structure that has to be written, stored and maintained for as long as it exists. Nothing warns you
 when it stops being worth it.
 
-Three costs, and they are nowhere near the same size.
+Every number here was measured on PGlite 0.5.4, which is PostgreSQL 18.3 compiled to wasm, so read
+the ratios rather than the milliseconds. Three costs, and they are nowhere near the same size.
 
 **Disk is the largest and the most predictable.** An index on a text column stores that text again,
 per row, plus a pointer. Four indexes on a 14.9MB table came to 29.8MB here, so the table was a third

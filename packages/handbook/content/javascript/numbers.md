@@ -20,8 +20,11 @@ sources:
 verified: 2026-08-02
 ---
 
-There is one number type and it is binary. Everything on this page follows from that, including the
-penny that goes missing on an invoice and the validation that accepts `"1e3"` as `1`.
+JavaScript stores every number in binary, and many ordinary decimal fractions have no exact binary
+form. Add up a few prices and the total can come out a hair off, which reaches the invoice as a
+missing penny. Reading a number out of text has its own surprise: the older parsing function reads
+digits until it meets something else and quietly drops the rest, so a typo becomes a believable
+wrong value.
 
 ## The model
 

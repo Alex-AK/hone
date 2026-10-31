@@ -24,6 +24,12 @@ sources:
 verified: 2026-08-01
 ---
 
+Every request and response carries a set of labelled notes about the message: what format it is in,
+who is asking, how long it may be kept. They sit apart from the content, which is what lets proxies
+and caches act on a message without reading it. Anything on the path can also merge or drop those
+notes, and your runtime changes how their names are spelled, so the one you set is not always the
+one you read back.
+
 ## The model
 
 A header is metadata about the message, not part of the resource. That is why the same bytes can

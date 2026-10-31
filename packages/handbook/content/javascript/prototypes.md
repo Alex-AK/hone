@@ -21,9 +21,10 @@ sources:
 verified: 2026-08-02
 ---
 
-Four different bugs share one model: reads and writes do not travel the same path, `this` is decided
-by the call rather than by the definition, and `{}` arrives with properties in it. Get the model
-wrong and all four look like separate mysteries.
+Every JavaScript object has a hidden parent it falls back on when you ask it for something it does
+not have itself. Reading follows that fallback and writing never does, so a change can land
+somewhere other than where you meant it to. The same hidden parent is why an object you have only
+just created, with nothing in it, already answers to names you never put there.
 
 ## The model
 

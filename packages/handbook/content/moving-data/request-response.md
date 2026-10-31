@@ -22,6 +22,11 @@ sources:
 verified: 2026-08-01
 ---
 
+The simplest way to move data is to ask for it and get an answer, with nothing remembered on either
+side once the exchange is over. Because each request stands on its own, every load balancer, cache
+and proxy on the web can help without knowing what came before. Most of the bugs live in the client,
+which has to notice when the answer is bad news or never comes at all.
+
 ## The model
 
 One client asks, one server answers, and then neither owes the other anything. That is the whole

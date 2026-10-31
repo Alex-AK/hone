@@ -25,6 +25,12 @@ sources:
 verified: 2026-08-01
 ---
 
+Once a load balancer or CDN sits in front of your app, every connection your app sees comes from
+that box rather than from the person at the other end. The real address survives only if something
+writes it into a header along the way, and any client can fill in that header with whatever it
+likes. Rate limits, and anything else keyed on who the client is, depend on reading it the right way
+round.
+
 ## The model
 
 The socket tells you who connected to you, and that is all it tells you. Put a load balancer, a CDN
