@@ -38,70 +38,55 @@ sources:
 verified: 2026-08-07
 ---
 
-Two pages own the mechanisms this one chooses between. [Transactions and ACID](./transactions-and-acid.md)
-has the isolation levels and what `SELECT ... FOR UPDATE` does;
-[conditional requests](../headers/conditional-requests-and-ranges.md) has `If-Match` and its `412`.
-Every Postgres behaviour below was produced by running it on two connections to PostgreSQL 17.10, and
-the quoted statements are from the PostgreSQL 18 documentation. The SQLite behaviour was run against
-3.53.2 through better-sqlite3.
+When two people edit the same record and both save, the second save can wipe out the first, and
+both are told it worked. The database is not misbehaving: the app read a copy and wrote it back
+later without checking whether anything had changed. This page covers where to close that gap, and
+what to tell the person whose edit collided.
 
 ## The model
 
-A read-then-write is not a write. The row you read is a copy, the write lands later, and every answer
-here is a different way of protecting the gap between the two. So the first question is not which kind
-of locking. It is how long that gap is, and there are three lengths.
+**Every answer here protects the gap between reading a row and writing it, and which one fits
+depends on how long that gap is.** This page means Postgres, with SQLite noted where it differs.
 
 **A gap you can delete.** Where the new value is a function of the stored one, do not bring it into
-your process at all: say it in the statement.
-`UPDATE classes SET places_left = places_left - 1 WHERE id = ? AND places_left > 0` has no read to go
-stale, and the row count says whether the condition held when the write landed. `class-places-sqlite`
-is a whole workout of that shape, and the neighbouring page makes the same move on a balance. Try it
-before anything below, because a lock is an expensive answer to a question you did not have to ask.
+your process: say it in the statement. `UPDATE classes SET places_left = places_left - 1 WHERE id =
+? AND places_left > 0` has no read to go stale, and the row count says whether the condition held
+when the write landed. `class-places-sqlite` is a workout of that shape, and [Transactions and
+ACID](./transactions-and-acid.md) makes the same move on a balance. Try this first.
 
-**A gap inside one transaction.** Where the decision needs the data in your process, checking a
-membership or totting up a basket, the read and the write are two statements with your code between
-them. Lock the row you read. `SELECT ... FOR UPDATE` stops the returned rows "from being locked,
-modified or deleted by other transactions until the current transaction ends", and a second
-transaction asking for the same row "will wait for a concurrent transaction that has run any of those
-commands on the same row, and will then lock and return the updated row". The Postgres documentation
-is direct about when you need it: to ensure the current validity of a row against concurrent updates
-"one must use `SELECT FOR UPDATE`, `SELECT FOR SHARE`, or an appropriate `LOCK TABLE` statement".
-SQLite has no row lock and rejects the clause outright, with `near "FOR": syntax error`; what it
-offers instead is `BEGIN IMMEDIATE`, which is the whole database.
+**A gap inside one transaction.** Where the decision needs the data in your process, lock the row
+you read. In Postgres, `SELECT ... FOR UPDATE` stops other transactions locking, modifying or
+deleting the returned rows until yours ends, and a second transaction asking for the same row waits,
+then locks and gets the updated row. SQLite has no row
+lock, and 3.53.2 rejects the clause with `near "FOR": syntax error`; its alternative is
+`BEGIN IMMEDIATE`, which is the whole database.
 
-**A gap that outlives the transaction.** The edit form is this one. A `GET` renders it, somebody goes
-to lunch, the `PUT` arrives forty minutes later, and the two requests share no transaction and
-probably no connection. Row-level locks "are released at transaction end", so there is nothing left
-holding anything by the time the save turns up. What can cross that gap is data: send the version you
-read back with the write, and let the write assert what it was built on. `WHERE id = ? AND version = ?`
-matches nothing once the row has moved, so a lost update arrives as a row count of 0, which is a
-conflict you can show somebody.
+**A gap that outlives the transaction.** A `GET` renders an edit form, somebody goes to lunch, and
+the `PUT` arrives forty minutes later in a different transaction. Row locks are released at
+transaction end, long before the save turns up. What can cross that gap is data: send back the
+version you read, and let the write assert it. `WHERE id = ? AND version = ?` matches nothing once
+the row has moved, so a lost update arrives as a row count of 0, a conflict you can show somebody.
 
 The last two are the pessimistic and optimistic offline lock of Patterns of Enterprise Application
-Architecture, offline because the business transaction spans several database ones. The names mislead
-in one way: optimistic is not the version with no lock. An `UPDATE` takes a row lock on what it
-modifies either way, and a second writer to that row waits for the first to finish. What optimistic
-declines to do is hold a lock across a human being.
+Architecture. Optimistic still locks, since an `UPDATE` takes a row lock on what it modifies either
+way. What optimistic declines to do is hold a lock across a human being.
 
-The version itself is anything that changes on every write and travels out with the read: a counter, a
-row hash, an ETag over the whole representation. One layer up the same check is spelled `If-Match`,
-where a mismatch is a `412` rather than a row count of 0, and
-[conditional requests](../headers/conditional-requests-and-ranges.md) owns that half.
+The version is anything that changes on every write and travels out with the read: a counter, a row
+hash, an ETag. One layer up, the same check is `If-Match`, where a mismatch is a `412`;
+[conditional requests](../headers/conditional-requests-and-ranges.md) covers it.
 
 ### What to do with the conflict is a product decision
 
-Detecting one is the cheap half. By the time you hold that 0, somebody has to be told something, and
-there are three answers:
+Once you hold that 0, there are three answers:
 
-- **Refuse.** Answer `409` with what the row says now and let the person decide. This is the right
-  answer wherever the field is prose a human wrote, because nothing can merge two paragraphs for them.
-- **Merge.** Only where the edits are separable, which in practice means per field rather than per
-  row. `shared-card-websocket` keeps the version at which each field last changed, so a title and a
-  status moving at once both stick and only two people on the same field is a conflict.
-- **Last writer wins.** A legitimate answer when you say it out loud: a draft nobody else edits, a
-  status a webhook owns. It is also what you get by not choosing, which is the whole problem. Chosen,
-  it is a decision somebody can find later; unchosen, it is an edit that disappears with a `200` on
-  it.
+- **Refuse.** Answer `409` with what the row says now and let the person decide. This is right
+  for prose a human wrote, because nothing can merge two paragraphs for them.
+- **Merge**, only where the edits are separable, which in practice means per field.
+  `shared-card-websocket` keeps the version at which each field last changed, so only two people on
+  the same field is a conflict.
+- **Last writer wins**, a legitimate answer when you say it out loud: a draft nobody else edits, a
+  status a webhook owns. It is also what you get by not choosing, as an edit that disappears with a
+  `200` on it.
 
 ## Worked example
 
@@ -123,9 +108,7 @@ COMMIT;
 -- body is 'draft + B'. A's paragraph is gone, and both writers were told UPDATE 1.
 ```
 
-Nothing there is the database misbehaving. Neither statement made a claim about the row still being
-what was read, so there was nothing to violate. Now the same interleaving with the version carried
-back into the write:
+Now the same interleaving with the version carried back into the write:
 
 ```sql
 -- A
@@ -136,8 +119,7 @@ UPDATE documents SET body = 'draft + B', version = version + 1
   WHERE id = 42 AND version = 7;   -- UPDATE 0
 ```
 
-Same two writers, same order, and B now gets an answer instead of a silence. The handler is that row
-count plus one re-read:
+B now gets an answer. The handler is that row count plus one re-read:
 
 ```ts
 const { rowCount } = await db.query(
@@ -156,31 +138,29 @@ if (rowCount === 0) {
 ## Traps
 
 **The conflict rate dropped to zero after the fix and edits are still going missing.** The handler
-caught the failed update, re-read the row and ran the write again with the version that came back.
-That is the lost update with a spinner in front of it: the second attempt is built on a value nobody
-looked at, and it overwrites the change that caused the conflict. Retrying is only safe where the new
-value does not depend on what was read, which is the first case in the model, and there you did not
-need the version anyway. Everything else has to reach a merge rule or a person.
+caught the failed update, re-read the row and ran the write again with the version that came back,
+so the retry overwrites the change that caused the conflict. Retrying is only safe where the new
+value does not depend on what was read, the first case in the model. Everything else has to reach a
+merge rule or a person.
 
-**`updated_at` was the validator and a stale write went through.** A timestamp only works as a version
-if it changes on every write and has the resolution to prove it. SQLite's `CURRENT_TIMESTAMP` is whole
-seconds: on 3.53.2 it answers `2026-08-08 03:53:50`, so two saves in the same second are
-indistinguishable and the later one matches the earlier one's `WHERE`. `datetime('now', 'subsec')`
-buys milliseconds, which shrinks the window rather than closing it. Postgres has the opposite
-surprise: `now()` and `CURRENT_TIMESTAMP` are the transaction's start time and "do not change during
-the transaction", so every row one transaction touches carries the same stamp, and `clock_timestamp()`
-is the one that moves. A counter incremented in the `SET` clause has neither problem.
+**`updated_at` was the validator and a stale write went through.** A timestamp only works as a
+version if it changes on every write and has the resolution to prove it. On SQLite 3.53.2,
+`CURRENT_TIMESTAMP` is whole seconds, so a second save in the same second matches the first one's
+`WHERE`. `datetime('now', 'subsec')` buys milliseconds, which
+shrinks the window rather than closing it. In Postgres, `now()` and `CURRENT_TIMESTAMP` are the
+transaction's start time and stay fixed through it, so every row one transaction touches carries the
+same stamp; `clock_timestamp()` is the one that moves. A counter incremented in the `SET` clause has
+neither problem.
 
-**One row went quiet and the endpoint stopped answering for everybody who touched it.** A row lock is
-held until the transaction ends, so a transaction that takes one and then calls a payment provider
-holds it for the length of that call, and every writer to that row is queued behind it. Nothing puts a
-limit on that by default: for both `lock_timeout` and `idle_in_transaction_session_timeout`, "a value
-of zero (the default) disables the timeout". Set `lock_timeout` on the transactions that take row
-locks, and keep anything you wait on outside them.
+**One row went quiet and the endpoint stopped answering for everybody who touched it.** A row lock
+is held until the transaction ends, so taking one and then calling a payment provider holds it for
+the length of that call, with every writer to that row queued behind it.
+Nothing limits that by default. The Postgres docs say of both `lock_timeout` and
+`idle_in_transaction_session_timeout` that "a value of zero (the default) disables the timeout". Set
+`lock_timeout` on the transactions that take row locks, and keep anything you wait on outside them.
 
-**The version column is there, the update looks right, and stale writes still land.** The row count is
-the entire signal, and it is easy to throw away without noticing. An ORM `save` reads the row first, merges
-your object into it and writes the difference back, keyed on the primary key: that is a read-then-write
-with the gap moved inside one call, and the version is not in its `WHERE` unless the ORM was told to
-put it there. Whatever you call, find out whether it returns a count, the updated row, or nothing at
-all before you believe the check is running.
+**The version column is there, the update looks right, and stale writes still land.** The row count
+is the only signal, and it is easy to throw away. An ORM `save` reads the row, merges your object
+into it and writes the difference back keyed on the primary key, so the version is not in its
+`WHERE` unless the ORM was told to put it there. Find out whether what you call returns a count, the
+updated row or nothing before you believe the check is running.

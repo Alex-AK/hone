@@ -32,15 +32,18 @@ sources:
 verified: 2026-08-04
 ---
 
-Every number and every statement below was produced by running it, against drizzle-orm 0.45.2,
-kysely 0.29.4, typeorm 1.1.0 and better-sqlite3 12.11.1, which are the versions the workouts resolve.
-These three libraries disagree with each other, so a claim here names one.
+A database library sits between your code and the database, and either helps you write the query or
+writes it for you. The database hands back rows, and your code wants objects, and those are not the
+same shape: a join can return several rows for what your code thinks of as one thing. Knowing which
+layer does that translation explains surprises like a report total counted several times over, or
+an edit that never reaches the database.
 
 ## The model
 
-A row is a member of a set. An object is a node in a graph, with an identity and a lifetime. The two
-stop lining up the moment a parent has more than one child, because a join repeats the parent once
-per child and a list of objects does not:
+**Rows and objects stop lining up the moment a parent has more than one child, and these libraries
+differ in who folds one into the other.** A row is a member of a set. An object is a node in a
+graph, with an identity and a lifetime. A join repeats the parent once per child, and a list of
+objects does not:
 
 ```
 what the database returns          what the code wants
@@ -54,19 +57,20 @@ order_id  ref      item_qty
 6 rows
 ```
 
-Somebody has to do that fold. Which layer does it, and who decides what statements get sent, is the
-whole difference between the two shapes these libraries come in.
+Somebody has to do that fold. Which layer does it, and who decides what statements get sent, is what
+separates the two shapes these libraries come in. The three libraries here also disagree with each
+other, so each claim names one.
 
-**A query builder types the SQL you were going to write anyway.** Kysely calls itself "a type-safe
-and autocompletion-friendly TypeScript SQL query builder"; Drizzle's tagline is "If you know SQL, you
-know Drizzle". One call is one statement, the result is rows, and nothing is remembered between
-calls. The fold from rows to objects is yours, which is why the Kysely workout's solution ends with a
-`rows.map(...)` written by hand.
+**A query builder types the SQL you were going to write anyway.** Kysely describes itself as a
+type-safe SQL query builder, and Drizzle's tagline says that if you know SQL, you know Drizzle. One
+call is one statement, the result is rows, and nothing is remembered between calls. The fold from
+rows to objects is yours, which is why the Kysely workout's solution ends with a `rows.map(...)`
+written by hand.
 
-**A data mapper takes objects and works out the statements.** Fowler's definition is the whole idea:
-"A layer of mappers that moves data between objects and a database while keeping them independent of
-each other and the mapper itself." TypeORM's repositories are that layer. It folds the join rows for
-you, it reads a row before writing over it, and it knows which columns moved, which is what makes
+**A data mapper takes objects and works out the statements.** Fowler defines it as "A layer of
+mappers that moves data between objects and a database while keeping them independent of each other
+and the mapper itself." TypeORM's repositories are that layer. It folds the join rows for you, it
+reads a row before writing over it, and it knows which columns moved, which is what makes
 subscribers and cascades possible at all.
 
 Neither shape is more advanced than the other. They answer different questions, and the cost of each
@@ -75,8 +79,8 @@ something, and a data mapper will not tell you what it is about to send unless y
 
 ### The thing people assume is there and is not
 
-Fowler's Identity Map "ensures that each object gets loaded only once by keeping every loaded object
-in a map". That is what makes an entity in Hibernate or Entity Framework feel like the row: read it
+Fowler's Identity Map keeps every loaded object in a map so that each one is loaded only once. That
+is what makes an entity in Hibernate or Entity Framework feel like the row: read it
 twice, get the same object, change a field, and a flush writes it.
 
 TypeORM 1.1.0 does not do this. Two `findOneBy` calls for the same row hand back two different
@@ -86,8 +90,7 @@ row, not a live handle on one.
 
 ### Choosing between them
 
-This does not resolve into a table, which is why it sits in a paragraph rather than in a page of its
-own. Two questions decide it, and neither is about syntax. Do you want the library to decide your
+Two questions decide it, and neither is about syntax. Do you want the library to decide your
 statements, or to type them? And when you need a query it cannot express, what happens: Kysely and
 Drizzle expect you to drop to a `sql` template and carry on in the same query, while a data mapper's
 raw path usually means leaving the entity world and mapping the rows yourself. Pick on those, and on
@@ -95,8 +98,10 @@ whether the team can read a plan when the abstraction picks badly.
 
 ## Worked example
 
-The same two orders with three line items each, asked for three ways. TypeORM first, with both of its
-answers to the same join:
+The same two orders with three line items each, asked for three ways. Every number and statement
+here was produced by running it against typeorm 1.1.0, kysely 0.29.4 and drizzle-orm 0.45.2 on
+SQLite through better-sqlite3 12.11.1, the versions the workouts resolve. TypeORM first, with both
+of its answers to the same join:
 
 ```ts
 const qb = orders.createQueryBuilder('o').leftJoinAndSelect('o.items', 'item');
@@ -109,8 +114,8 @@ await orders
   .getRawMany(); // 6 rows
 ```
 
-Running the SQL from `qb.getQueryAndParameters()` by hand returns 6 rows. `getMany` did the fold;
-`getRawMany` handed the rows over untouched. Both are the truth, about different things.
+Running the SQL from `qb.getQueryAndParameters()` by hand returns 6 rows. `getMany` did the
+fold; `getRawMany` handed the rows over untouched. Both are true, about different things.
 
 Kysely has one answer, because it does no folding. This is the orders list from
 `slow-list-endpoint-kysely`, cut down:
@@ -140,15 +145,15 @@ const items = await workspace.db
   .offset((page - 1) * limit);
 ```
 
-Read it as SQL and it is SQL. That is the deal on this side: no statement is a surprise, and no
-statement is written for you.
+Read it as SQL and it is SQL. On this side no statement is a surprise, and no statement is written
+for you.
 
 ## Traps
 
 **Every total on the report is multiplied by the number of line items.** `getRawMany` gives you the
-join rows, so an order with 3 items appears 3 times, and summing in JavaScript triples it. `getMany`
-gives 2 objects for the same 6 rows. Decide which of the two you are holding before you add anything
-up, and prefer doing the arithmetic in SQL, which is what `orders-report-typeorm` is about.
+join rows, so an order with 3 items appears 3 times, and summing in JavaScript triples it. Decide
+which of the two you are holding before you add anything up, and prefer doing the arithmetic in SQL,
+which is what `orders-report-typeorm` is about.
 [What a join actually does](../sql/what-a-join-does.md) has the row arithmetic itself.
 
 **I changed a property on the entity and nothing was written.** There is no identity map and no dirty
@@ -158,10 +163,10 @@ reads of one row give you two objects that can silently disagree.
 
 **The types are green and the column does not exist.** A query builder's types come from a file you
 wrote, not from the database. A Kysely `Database` interface declaring `products.archived_at` against
-a table that has only `id` and `name` type-checks clean under `tsc --strict` and fails at runtime with
-`no such column: "archived_at"`. Drizzle reads the same schema file its migrations are generated
-from, which narrows the gap without closing it: the deployed database is still a separate artefact.
-Green types mean your code agrees with your schema file.
+a table that has only `id` and `name` type-checks clean under `tsc --strict` and fails at runtime
+with `no such column: "archived_at"`. Drizzle reads the same schema file its migrations are
+generated from, which narrows the gap without closing it: the deployed database is still a separate
+artefact, and green types only mean your code agrees with your schema file.
 
 **We swapped the ORM and the endpoint is still slow.** The library chooses the statements; it does
 not choose the access pattern, and the access pattern is what costs you. A loop that touches a

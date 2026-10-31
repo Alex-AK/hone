@@ -30,56 +30,49 @@ sources:
 verified: 2026-08-04
 ---
 
-Every other page in this section asks what the database does with the query you sent it. This one is
-about the decision underneath, which is what shape the data was in before any query existed. It is
-not a question you avoid by staying on Postgres: a `jsonb` column is a document sitting inside a row,
-and it comes with the same bill.
+You can store an order as rows in several tables that a query stitches back together, or as one
+self-contained record you read in a single go. The two put the cost in different places. Rows make
+any question easy to ask later; one record makes the page you planned for fast and the questions you
+didn't plan for hard.
 
 ## The model
 
 **A relational model starts from the entities. A document model starts from the reads.** AWS states
-the inversion about as plainly as it can be stated: for a relational database "you can go ahead and
-create a normalized data model without thinking about access patterns" and extend it later as new
-questions arrive, while "you shouldn't start designing your schema for DynamoDB until you know the
-questions it will need to answer". MongoDB's version of the same rule is that "data that's accessed
-together should be stored together". The relational habit is a good habit, which is why this is the
-part people arrive unable to do: normalising and letting the planner assemble an answer is correct
-until the shape of the answer is the thing you are choosing.
+the inversion plainly. For a relational database you can create a normalised model without thinking
+about access patterns and extend it as new questions arrive, while "you shouldn't start designing
+your schema for DynamoDB until you know the questions it will need to answer". MongoDB's version is
+that data accessed together should be stored together. Normalising and letting the planner assemble
+the answer is correct until the shape of the answer is the thing you are choosing, which is why this
+is the part people arrive unable to do.
 
-**Embedding buys a read and charges every write that touches the copy.** MongoDB's own guidance
-splits the decision on the relationship rather than on taste. Embed where there is a "has-a" or
-"contains" relationship, where the application "queries pieces of information together", where the
-data "is often updated together" or archived together. Reference where "the child side of the
-relationship has high cardinality", where the data "grows without bounds", where the pieces are
-"written at different times in a write-heavy workload", or where the child "can exist by itself
-without a parent". Nothing on either list is about elegance. They are all questions about when the
-bytes are read and when they are written.
-
-That trade is the same one [an index makes](./what-an-index-costs.md): a faster read bought with a
-structure something has to maintain. Duplicated data is write amplification by design, and it is the
-price rather than a mistake. What makes it a mistake is paying it without noticing.
+**Embedding buys a read and charges every write that touches the copy.** MongoDB's guidance splits
+the decision on the relationship, not on taste. Embed when one thing contains the other, when the
+application queries the pieces together, or when they are updated or archived together. Reference
+when the child side has high cardinality, grows without bounds, is written at different times in a
+write-heavy workload, or can exist without a parent. Every item on both lists is about when the
+bytes are read and when they are written. It is the trade [an index
+makes](./what-an-index-costs.md): a faster read bought with a structure something has to maintain.
+Duplicated data is write amplification by design, and the mistake is paying for it without noticing.
 
 **The unit of atomicity is the document, and it is the sharpest test for where the boundary goes.**
-In MongoDB "an operation on a single document is atomic", and because relationships can be captured
-inside one document, "multi-document transactions are not necessary for many practical use cases".
-The docs are blunt about the direction that runs in: the availability of distributed transactions
-"should not be a replacement for effective schema design". So the test is not what looks tidy. It is
-what has to change together. Things that must commit or fail as one want to be one document; things
-written at different moments by different code want to be separate.
+In MongoDB an operation on a single document is atomic, so capturing a relationship inside one
+document makes multi-document transactions unnecessary for many practical cases, and the docs say
+those transactions should not replace effective schema design. So the test is what has to change
+together. Things that must commit or fail as one want to be one document; things written at
+different moments by different code want to be separate.
 
 **"Schemaless" means the checking moved into your code, and nothing versioned it.** Documents in a
-collection "don't need the same fields or data types", which is the feature: MongoDB's own
-relational comparison offers "you must determine a table's schema before you insert data" against
-"you can easily change your data model over time". Validation rules exist and you add them to a
-collection, and even then they "don't need to cover every field in a document". What follows is
-structural rather than a criticism. There is no `ALTER` that visits the old documents, so the shape
-you wrote in March is still in there in December, and the only thing that knows how to read it is
-code. That is the same boundary the TypeScript section keeps arriving at, one storage layer down: a
-shape is a claim until something checks it.
+MongoDB collection don't need the same fields or data types, and that is the feature: MongoDB sets a
+data model you can change over time against a table whose schema you must fix before inserting. You
+can add validation rules to a collection, and even then they need not cover every field. There is no
+`ALTER` that visits the old documents, so the shape you wrote in March is still there in December,
+and only code knows how to read it. The TypeScript section keeps arriving at the same boundary, one
+storage layer down.
 
 ## Worked example
 
-One order, both ways. In rows, the shape is the entities and the reads are assembled:
+One order, both ways. The document side is MongoDB's model, and the relational side, with `jsonb`
+below, is Postgres. In rows, the shape is the entities and the reads are assembled:
 
 ```sql
 orders(id, customer_id, placed_at, status)
@@ -110,31 +103,31 @@ What it costs is the query nobody planned for. Finding every order containing `T
 index into that array, a price correction rewrites the document rather than a row, and the total is
 correct only for as long as the code that writes items also writes it.
 
-Postgres will sell you the same shape inside a row. `jsonb` stores "a decomposed binary format"
-rather than the original text, is "significantly faster to process", "supports indexing", and does
-not preserve key order or duplicate keys. That makes it a genuinely good home for the part of a row
-that really is one opaque thing, a webhook payload or a settings blob, and a bad home for the fields
-you are going to filter, join and aggregate on.
+Staying on Postgres doesn't avoid the question: a `jsonb` column is a document inside a row, with
+the same bill. The Postgres docs say `jsonb` stores a decomposed binary format rather than the
+original text, is significantly faster to process, supports indexing, and keeps neither key order
+nor duplicate keys. That makes it a good home for the part of a row that really is one opaque thing,
+a webhook payload or a settings blob, and a bad home for the fields you are going to filter, join
+and aggregate on.
 
 ## Traps
 
 **The embedded list with no ceiling.** Reviews inside the product, comments inside the post, events
 inside the job. It reads beautifully for a year, because a page that shows ten of them costs one
 read. MongoDB names this one directly: "if you do not limit the number of elements in an array, your
-documents might exceed the 16MB BSON document size limit", and "an unbounded array can strain
-application resources and decrease index performance". The question at modelling time is not how long
-the list is today. It is whether anything stops it growing, and if nothing does, it wants its own
-documents with a bounded summary left behind.
+documents might exceed the 16MB BSON document size limit", and an unbounded array can also strain
+application resources and hurt index performance. At modelling time, ask whether anything stops the
+list growing, not how long it is today. If nothing does, it wants its own documents with a bounded
+summary left behind.
 
 **The copy nobody decided about.** A customer's name is denormalised onto the order to save a join,
-the customer changes it, and now half the screens disagree. The copy is not the bug; the undecided
+the customer changes it, and now half the screens disagree. The bug is that nobody decided what the
 copy is. Either it is the value as it was, in which case say so in the field name and it is correct
 forever, or it is a cache of the current value, in which case every write that changes the original
-owes a write to every copy. Both are defensible. Neither survives being left implicit.
+owes a write to every copy. Both are defensible, once one of them is chosen.
 
-**The migration that never ran.** Nothing rewrites old documents when the shape changes, so the shape
-from March is still in the collection, and the reader grows a branch for it. Two years of that and
-the oldest shape is the one nobody dares delete, because nobody can prove what still writes it.
-Stamp a version into every document from the first day and migrate deliberately, on read or in a job.
-The flexibility is real, and what it costs is that "the schema" becomes whatever the code happens to
-tolerate.
+**The migration that never ran.** Nothing rewrites old documents when the shape changes, so the
+shape from March is still in the collection, and the reader grows a branch for it. Two years of that
+and the oldest shape is the one nobody dares delete, because nobody can prove what still writes it.
+Stamp a version into every document from the first day and migrate deliberately, on read or in a
+job. Otherwise the schema becomes whatever the code happens to tolerate.

@@ -38,121 +38,76 @@ sources:
 verified: 2026-08-02
 ---
 
+After someone logs in, the browser has to keep something that proves it, and there are two places to
+keep it: browser storage that your scripts can read, or a cookie the browser sends for you. Each
+leaves a different door open. Storage hands the token to any script injected into your page, and a
+cookie rides along on requests that other sites trigger.
+
 ## The model
 
-A browser has two places to keep a session token, and they fail in opposite directions.
+**The two places a browser can keep a session token fail in opposite directions, and only one of
+them has a cheap fix.** Storage is exposed to XSS, cookies to CSRF, and three cookie attributes
+close most of CSRF for a line of config. No cookie attribute closes XSS.
 
-`localStorage` and `sessionStorage` are key-value stores scoped to an origin, and every script on
-that origin reads them. OWASP states the consequence directly: "Do not store authentication tokens,
-session IDs, JWTs, refresh tokens, or any credential in `localStorage` or `sessionStorage`. These
-APIs are accessible to any JavaScript executing in the origin, so a single XSS vulnerability
-discloses every token." The two differ only in lifetime, `localStorage` "data has no expiration
-time" against `sessionStorage` cleared "when the page session ends", which changes nothing about the
-exposure. Neither is attached to a request for you, so your code sets the `Authorization` header
+`localStorage` and `sessionStorage` are scoped to an origin, and every script on that origin reads
+them. OWASP says to keep no credential in either, because a single XSS vulnerability then discloses
+every token. Neither is attached to a request for you, so your code sets the `Authorization` header
 itself, which [authentication headers](../headers/authentication.md) covers.
 
-A cookie inverts all of it. The server sends it once and the browser attaches it to every matching
-request from then on, whether or not the code making that request knew a cookie existed. That is the
-value and the problem in one: it survives a reload, and it also fires on a request another site
-provoked. OWASP: "Since browser requests automatically include all cookies including session
-cookies, this attack works unless proper authorization is used". CSRF exists because of the
-attachment.
-
-So the trade is XSS exposure against CSRF exposure, and it is not symmetric. CSRF has three cookie
-attributes that close most of it for a line of config. XSS has no cookie attribute that closes it.
+A cookie inverts that. The server sends it once and the browser attaches it to every matching
+request from then on, whether or not the code making the request knew it existed. That is why it
+survives a reload, and why it also fires on a request another site provoked: CSRF exists because of
+the attachment.
 
 ### The three attributes
 
-`HttpOnly` "forbids JavaScript from accessing the cookie, for example, through the `Document.cookie`
-property". RFC 6265 frames it as an API restriction rather than a language one: it "instructs the
-user agent to omit the cookie when providing access to cookies via 'non-HTTP' APIs".
+`HttpOnly` hides the cookie from JavaScript APIs such as `document.cookie`. `Secure` sends it only
+on `https:` requests (localhost excepted), and constrains transport and nothing else. `SameSite`
+decides which cross-site requests carry it:
 
-`Secure` means the cookie "is sent to the server only when a request is made with the `https:`
-scheme (except on localhost)". It constrains transport and nothing else, as MDN warns: cookies with
-it "can still be read/modified either with access to the client's hard disk or from JavaScript if
-the `HttpOnly` cookie attribute is not set."
+- `Strict` sends it only for requests from the site that set it. Arrive from a link on another site
+  and you land logged out.
+- `Lax` adds cross-site top-level navigations that use a safe method, which excludes `POST`, `PUT`
+  and `DELETE`. A link click carries the cookie. A `fetch`, an `<img>` and an `<iframe>` navigation
+  do not.
+- `None` sends it everywhere, and the specification ignores the cookie unless it is also `Secure`.
 
-`SameSite` decides which cross-site requests carry it:
-
-- `Strict` sends it "only for requests originating from the same site that set the cookie". Arrive
-  from a link on another site and you land logged out.
-- `Lax` adds back cross-site requests meeting two criteria: "The request is a top-level navigation",
-  and "The request uses a safe method: in particular, this excludes `POST`, `PUT`, and `DELETE`." A
-  link click still carries the cookie. A `fetch`, an `<img>`, and an `<iframe>` navigation do not.
-- `None` sends it everywhere, and the specification refuses it without `Secure`: "abort this
-  algorithm and ignore the cookie entirely unless the cookie's secure-only-flag is true."
-
-Set it explicitly, because the default is not settled. With the attribute absent the specification
-says only to "set the cookie's same-site-flag to 'Default'" and leaves the treatment to the browser,
-and MDN as of this page's verified date hedges to match: "Some browsers use `Lax` as the default
-value if `SameSite` is not specified." Chromium does. Firefox does not, and its meta bug for the
-change is resolved WONTFIX: "the current behaviour is when no SameSite attribute is set we use None
-by default." Nothing above them settles it either: RFC 6265 predates the attribute, and `rfc6265bis`
-is still an Internet-Draft in the RFC Editor queue, without a number.
+Set `SameSite` explicitly, because the default is not settled. With the attribute absent, the
+specification leaves the treatment to the browser: Chromium uses `Lax`, and Firefox closed that
+change as WONTFIX and still uses `None`.
 
 ### HttpOnly is not a cure for XSS
 
 An injected script cannot read an `HttpOnly` cookie and does not need to. MDN: "a cookie that has
 been created with `HttpOnly` will still be sent with JavaScript-initiated requests, for example,
 when calling `XMLHttpRequest.send()` or `fetch()`." The script calls your API from your own page,
-the browser attaches the cookie, and the request arrives indistinguishable from one the user made.
+and the request looks like one the user made. What the flag buys is narrow and real: without it, the
+attacker takes a credential home and replays it after the tab is closed. With it, they act as the
+user only while their code runs on your page.
 
-What the flag buys is narrow and real. Without it, the attacker exfiltrates a credential and replays
-it from their own machine, after the tab is closed. With it, they act as the user only while their
-code is running on your page. That is containment, not prevention.
+### Prefixes, scope and lifetime
 
-### Cookie prefixes
+`__Secure-` and `__Host-` commit a cookie to a set of attributes, and a `Set-Cookie` that breaks the
+promise is dropped rather than corrected. `__Secure-` needs `Secure`. `__Host-` also needs no
+`Domain` and `Path=/`, which pins the cookie to the host that set it, as close to an origin boundary
+as cookies get. OWASP recommends it for session IDs.
 
-`__Secure-` and `__Host-` are enforced on the way in: the name commits the cookie to a set of
-attributes, and a `Set-Cookie` that breaks the promise is dropped rather than corrected. `__Secure-`
-cookies "must be set with the `Secure` attribute by a secure page (HTTPS)". `__Host-` requires that
-too, and "in addition, they must not have a `Domain` attribute specified, and the `Path` attribute
-must be set to `/`". What you get back is the reason to use it: "This guarantees that such cookies
-are only sent to the host that set them, and not to any other host on the domain. It also guarantees
-that they are set host-wide and cannot be overridden on any path on that host. This combination
-yields a cookie that is as close as can be to treating the origin as a security boundary."
-
-Origin-like is as good as cookies get. RFC 6265 says they "do not provide isolation by port" and "do
-not provide isolation by scheme", and 6265bis notes "Ports are the only piece of the origin model
-that `__Host-` cookies continue to ignore." OWASP names it as recommended for session IDs, and it is
-the strongest thing you can put in front of a session cookie's name.
-
-### Scope and lifetime
-
-`Domain` only ever widens. Omit it and the cookie goes to the host that set it "but not on its
-subdomains"; set it and "subdomains are always included", leading dots ignored. The weakness runs
-the other way too, which is why a subdomain you do not control is your problem: RFC 6265's weak
-integrity section describes a sibling domain setting a cookie with a parent `Domain`, after which
-the victim "will be unable to distinguish this cookie from a cookie it set itself".
-
-`Path` "indicates the path that must exist in the requested URL for the browser to send the `Cookie`
-header", defaulting to the path of the request that set it. It is scoping, not a control: RFC 6265
-is explicit that it carries no integrity protection either.
-
-Lifetime is `Max-Age` in seconds or `Expires` as a date, and "if both `Expires` and `Max-Age` are
-set, `Max-Age` has precedence." Omit both and you get a session cookie, deleted "when the current
-session ends". That end is the browser's to define: "some browsers use session restoring when
-restarting. This can cause session cookies to last indefinitely."
+`Domain` only ever widens: omit it and the cookie goes to the host that set it and not its
+subdomains, set it and every subdomain is included. Omit both `Max-Age` and `Expires` and you get a
+session cookie, which ends when the browser says the session ended.
 
 ### Revocation, and where in-memory fits
 
-An opaque session id is a lookup key. The server holds the state, so deleting the row ends the
-session on the next request. A self-contained JWT carries its own claims and is checked by
-signature, so nothing is consulted and there is nothing to delete: it is valid until it expires. RFC
-6819 draws the same line between handles and assertions. "Handles enable simple revocation", and
-against that, "implementing token revocation is more difficult with assertions than with handles."
+An opaque session id is a lookup key, so deleting the server's row ends the session on the next
+request. A self-contained JWT is checked by signature, so there is nothing to delete and it is valid
+until it expires. RFC 6819 draws the same line between handles and assertions. The mitigation is a
+short-lived access token plus a refresh token the server can revoke at any time, leaving exposure
+only until the access token expires.
 
-That bill comes due at logout, at password change, and at "this account looks compromised". The
-mitigation is a short access-token lifetime plus a revocable refresh token: "The authorization
-server can revoke the refresh token at any time, causing the granted access to be revoked once the
-current access token expires." Your exposure is the gap between the revocation and that expiry, so
-size the access-token lifetime against it.
-
-The in-memory option follows from both halves. Keep the access token in a JavaScript variable that
-is never persisted and the refresh token in a `__Host-` cookie with `HttpOnly` and `Secure`: no
-store on the origin holds a credential, and the long-lived half is revocable. It costs a loading
-state on every cold start, since a reload wipes the variable and the app refreshes before its first
-real request. An injected script can still call that refresh endpoint, so this narrows the window
+The in-memory option follows from both halves: the access token in a variable that is never
+persisted, the refresh token in a `__Host-` cookie with `HttpOnly` and `Secure`. No store on the
+origin holds a credential, and the long-lived half is revocable, at the cost of a loading state on
+every cold start. An injected script can still call the refresh endpoint, so this narrows the window
 rather than closing it.
 
 ## Worked example
@@ -197,28 +152,26 @@ async function authedFetch(path, init = {}) {
 ## Traps
 
 **You moved the token out of `localStorage` into an `HttpOnly` cookie and the pentest still lands.**
-The finding was XSS, and the storage change never touched it. The injected script no longer reads
-the token, so it spends it instead, on a same-origin `fetch` that carries the cookie automatically.
-Fixing storage limits what an attacker takes home; only
-[stopping the injection](./untrusted-input-becomes-code.md) stops it.
+The finding was XSS, and the storage change never touched it: the injected script now spends the
+token on a same-origin `fetch` instead of reading it. Fixing storage limits what an attacker takes
+home; only [stopping the injection](./untrusted-input-becomes-code.md) stops it.
 
 **The `Set-Cookie` header is right there in devtools and the cookie is nowhere.** The browser
-rejected it whole rather than repairing it, silently. Usual causes: a `__Host-` name sent with a
-`Domain` attribute or a `Path` other than `/`, `SameSite=None` without `Secure`, or `Secure` over
-plain `http` on a host that is not localhost. The specification says "abort this algorithm and
-ignore the cookie entirely", so there is no half-applied state to inspect.
+rejected it whole, silently. Usual causes: a `__Host-` name sent with a `Domain` or a `Path` other
+than `/`, `SameSite=None` without `Secure`, or `Secure` over plain `http` on a host that is not
+localhost. The specification says "abort this algorithm and ignore the cookie entirely", so there is
+no half-applied state to inspect.
 
 **Nobody hit CSRF in testing and the report finds it anyway.** The cookie has no `SameSite`
 attribute and the tester used Firefox, where an absent attribute still means `None`, so Chromium's
 `Lax` default was covering for you. Set the attribute, and treat it as the second layer regardless:
-OWASP is clear that "`SameSite` is useful as a defense-in-depth control but it does not replace a
-proper CSRF defense in most deployments", because `Lax` still permits a cross-site top-level GET.
+OWASP says `SameSite` is defense in depth and does not replace a proper CSRF defense in most
+deployments, because `Lax` still permits a cross-site top-level GET.
 
 **The user pressed log out, the UI cleared, and their old token still works.** The token is a
-self-contained JWT, so logging out deleted the client's copy and nothing else. The server validates
-by signature and consults no store, so a token captured earlier stays good until its `exp`. Keep
-server-side state you can delete, or shrink the gap with a short lifetime and a revocable refresh
-token.
+self-contained JWT, so logging out deleted the client's copy and nothing else. The server consults
+no store, so a token captured earlier stays good until its `exp`. Keep server-side state you can
+delete, or shrink the gap with a short lifetime and a revocable refresh token.
 
 **The marketing subdomain got compromised and the main app's sessions went with it.** Somebody set
 `Domain=example.com` to share a login across hosts, so every subdomain receives the session cookie,

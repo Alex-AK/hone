@@ -46,18 +46,23 @@ sources:
 verified: 2026-08-01
 ---
 
+When someone uses a keyboard instead of a mouse, one thing on the page is active at a time, and
+every key they press goes there. They need to be able to reach every control, see which one they are
+on, and not get stranded when something opens, closes or disappears. Each of those breaks in its own
+way, and testing with a mouse hides it.
+
 ## The model
 
-Exactly one element in a document has focus, and keyboard events go to that element.
-`document.activeElement` names it, and when nothing is focused it is the `<body>`. Two things follow
-from that, and both are your job: everything interactive has to be reachable in that state, and the
-user has to be able to see where they are.
+**Exactly one element in a document has focus, and keyboard events go to that element.**
+`document.activeElement` names it, and when nothing is focused it is the `<body>`. Two jobs follow,
+and both are yours: everything interactive has to be reachable, and the user has to be able to see
+where they are.
 
 Tab walks a sequence built from the document, not from the stylesheet. Elements that are interactive
 by default are in it (`a` with an `href`, `button`, `input`, `select`, `textarea`), in source order.
-CSS that moves things around visually does not move their tab stop: `order` "is only meant to affect
-the visual order of elements and not their logical or tab order", so a column you reshuffled in
-flexbox still tabs in the order you wrote it.
+CSS that moves things visually does not move their tab stop: MDN says `order` "is only meant to
+affect the visual order of elements and not their logical or tab order", so a column you reshuffled
+in flexbox still tabs in the order you wrote it.
 
 `tabindex` edits that sequence. It takes three kinds of value, and one of them is a mistake:
 
@@ -66,61 +71,55 @@ flexbox still tabs in the order you wrote it.
 - `tabindex="-1"` — takes it out of the sequence but leaves it focusable from script, so `.focus()`
   works. How you send focus somewhere the user cannot Tab to.
 - A positive value — jumps the element ahead of everything with `tabindex="0"`, ordered by number,
-  across the whole document. MDN's advice is flat: "You are recommended to only use 0 and -1 as
-  tabindex values."
+  across the entire document. MDN recommends using only 0 and -1.
 
-Reachable is half of it. Three things break the other half, and they are separate bugs with separate
-fixes.
+Reachable is half of it. Three separate bugs break the other half.
 
 ### Focus you cannot see
 
 `:focus` matches whenever an element has focus, mouse click included, which is why a designer asks
 for the ring to go and somebody writes `button:focus { outline: none }`. `:focus-visible` matches
 only when the browser's heuristics say the user needs telling where focus is, which in practice
-means keyboard. In MDN's words, it "allows authors to change the appearance of the focus indicator
-without changing when the focus indicator appears". A visible keyboard focus indicator is WCAG
-success criterion 2.4.7, level AA. `:focus-visible` has been Baseline widely available since March 2022.
+means keyboard. A visible keyboard focus indicator is WCAG success criterion 2.4.7, level AA.
+`:focus-visible` has been Baseline widely available since March 2022.
 
 ### Focus that escapes something modal
 
 A modal owes the keyboard four things: focus moves into it on open, Tab and Shift+Tab cycle inside
-it while it is open, Escape closes it, and focus returns to whatever opened it. There is a fifth for
-screen readers, which is that the content behind it has to be inert, or the reading cursor wanders
-into a page the user cannot reach.
+it, Escape closes it, and focus returns to whatever opened it. A fifth is for screen readers: the
+content behind it has to be inert, or the reading cursor wanders into a page the user cannot reach.
 
 `<dialog>` opened with `showModal()` is all five, from the platform. It renders in the top layer,
-above everything else regardless of `z-index`. Every element in the document except the dialog and
-its descendants becomes inert, "as if the `inert` attribute is specified", which means unfocusable,
-unclickable and out of the accessibility tree. Escape is a close request: it fires `cancel`, then
-closes the dialog if nothing cancelled it. And the spec stores the element that was focused
-beforehand as the "previously focused element", then focuses it again on close.
+above everything regardless of `z-index`. Everything in the document except the dialog and its
+descendants becomes inert, as if it carried the `inert` attribute: unfocusable, unclickable and out
+of the accessibility tree. Escape is a close request: it fires `cancel`, then closes the dialog if
+nothing cancelled it. And the spec remembers the element that was focused beforehand and focuses it
+again on close.
 
-`show()` opens the same element non-modally and gives you none of that. The page behind stays live
-and Escape does nothing, which is the same bet as everywhere else in
-[what the platform gives you](./what-the-platform-gives-you.md): the element is doing work you would
-otherwise write, until you call the method that switches it off.
+`show()` opens the same element non-modally and gives you none of that: the page behind stays live
+and Escape does nothing. The element does work you would otherwise write, as everywhere in
+[what the platform gives you](./what-the-platform-gives-you.md), until you call the method that
+switches it off.
 
-Say where focus should land with `autofocus`, on "the element the user is expected to interact with
-immediately upon opening a modal dialog". Do not put `tabindex` on the `<dialog>` itself; its
-contents take focus, not it.
+Say where focus should land with `autofocus`, on the element the user is expected to interact with
+first. Do not put `tabindex` on the `<dialog>` itself; its contents take focus, not it.
 
 ### Focus that gets lost
 
 The third one gets forgotten because nobody writes it. Delete the row whose button you just pressed,
 or swap the view on a client-side navigation, and the element holding focus stops existing. The APG
-is blunt about what happens next: if you do not move focus deliberately, "browsers move focus to the
-body element, effectively causing a loss of focus within the user interface". Nothing is
-highlighted, and the user's place in the page is gone.
+says that unless you move focus deliberately, "browsers move focus to the body element, effectively
+causing a loss of focus within the user interface". Nothing is highlighted, and the user's place in
+the page is gone.
 
 So pick the destination before you remove the source: the next row, the list that contained it, or
 the heading of whatever you navigated to, with `tabindex="-1"` so it can take focus without joining
-the tab sequence. Tab order is not the whole picture either, because screen reader users move
-through [landmarks and headings](./landmarks-and-headings.md) rather than tabbing everything.
+the tab sequence. Tab order is also only part of it, because screen reader users move through
+[landmarks and headings](./landmarks-and-headings.md) rather than tabbing through everything.
 
 Not every keyboard interaction moves focus. In the autocomplete workout the arrow keys move a
-highlight through the listbox while DOM focus never leaves the input, and `aria-activedescendant` is
-what says which option is active: "the browser keeps the DOM focus on the container element or on an
-input element that controls the container element."
+highlight through the listbox while DOM focus stays on the input, and `aria-activedescendant` says
+which option is active.
 
 ## Worked example
 
@@ -149,11 +148,11 @@ A confirm dialog that behaves, in the amount of code the platform actually needs
 ```
 
 Nothing there traps Tab, hides the background from a screen reader, handles Escape or remembers the
-delete button. All four arrive with `showModal()`, and all four leave if you change that one call to
+delete button. All four arrive with `showModal()`, and all four leave if you change that call to
 `show()`.
 
-The removal case has no platform equivalent, so it is the one you write. Choose the next focus
-target while the current one still exists:
+The removal case has no platform equivalent, so you write it. Choose the next focus target while the
+current one still exists:
 
 ```js
 function deleteRow(row) {
@@ -170,18 +169,17 @@ function deleteRow(row) {
 **The design looks clean and nobody can tell where they are.** `outline: none` with nothing in its
 place is the most common accessibility regression in a codebase, and it is invisible to everyone
 testing with a mouse. Keep the reset on `:focus` if the click ring is what the designer objected to,
-then draw your own on `:focus-visible`, with `outline-offset` so the ring sits outside the element
-rather than on its edge.
+then draw your own on `:focus-visible`, with `outline-offset` so the ring sits outside the element.
 
 **Tab out of the last button in your modal and you are in the page behind it.** A modal built from
-divs has no trap, because the document behind it never stopped being tabbable. `showModal()` ends
+divs has no trap, because the document behind it never stopped being tabbable. `showModal()` fixes
 that by making everything else inert. Hand-rolled, you own all of it: the wrap at both ends, `inert`
 on the background, and Escape. `inert` has been Baseline widely available since April 2023.
 
 **You close the dialog and nothing is focused.** Focus was inside it, the dialog went away, and
-nothing put focus back, so it fell to `<body>`. The next Tab then starts wherever the browser
-decides rather than where the user was. Capture `document.activeElement` before you open and
-`.focus()` it on close, or use `showModal()`, which already does.
+nothing put focus back, so it fell to `<body>`, and the next Tab starts wherever the browser
+decides. Capture `document.activeElement` before you open and `.focus()` it on close, or use
+`showModal()`, which already does.
 
 **One field jumps to the front of the whole form.** A positive `tabindex` is not scoped to the
 component that declares it. It orders against every other positive value in the document and comes
@@ -189,5 +187,5 @@ before everything with `tabindex="0"`, so a `tabindex="3"` inside one card reord
 it and move the element in the markup instead.
 
 **Focus is visible and still says nothing.** Landing on an icon button announces its accessible
-name, and if there is no name there is nothing to announce, which is
+name, and with no name there is nothing to announce: that is
 [the accessible name](./the-accessible-name.md) problem rather than this one.

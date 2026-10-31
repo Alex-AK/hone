@@ -27,16 +27,19 @@ sources:
 verified: 2026-08-04
 ---
 
-Every output on this page was produced by running the code against kysely 0.29.4, drizzle-orm 0.45.2
-and typeorm 1.1.0 on better-sqlite3 12.11.1.
+A query builder or ORM writes the SQL for you, so the statement that reaches the database is one you
+never see. When a filter goes missing or a page comes back short, the fix starts with reading that
+statement. Each library will show it to you, before it runs or after, and each treats a half-built
+query differently enough to cause bugs of its own.
 
 ## The model
 
-Two different questions get confused with each other, and they have different answers.
+**Every one of these libraries builds a statement in memory and hands it to a driver as a separate
+step, so you can stop after the first half and read what it would send.** That answers one of two
+questions that get confused with each other.
 
-**What would this send?** Every one of these libraries builds a statement in memory and hands it to a
-driver as a separate step, so you can stop after the first half. Nothing touches the database:
-wrapping the driver and counting prepared statements shows zero until `execute` is called.
+**What would this send?** Compile it. Nothing touches the database: wrapping the driver and counting
+prepared statements shows zero until `execute` is called.
 
 | Library        | Compile without running                  | Log what ran                        |
 | -------------- | ---------------------------------------- | ----------------------------------- |
@@ -64,7 +67,8 @@ typeorm           stateful.   One builder, two terminals: .getMany() folds rows
 
 ## Worked example
 
-The same question in all three, compiled and not run:
+The same question in all three, compiled and not run. Every output on this page came from running
+the code at the versions in the table, on SQLite through better-sqlite3 12.11.1:
 
 ```ts
 // kysely
@@ -92,8 +96,8 @@ named placeholders still in it, `WHERE "o"."ref" = :ref`, which is TypeORM's own
 something a driver will take. `getQueryAndParameters()` returns the driver's form and the values
 beside it, which is the pair you need if you want to run the statement yourself. That is what the
 last checkpoint of `slow-list-endpoint-kysely` does with the statement out of its query log: it runs
-`EXPLAIN` on the query the endpoint actually sent, because an index existing proves nothing and the
-planner choosing it is the thing.
+`EXPLAIN` on the query the endpoint actually sent, because an index existing proves nothing until
+the planner chooses it.
 
 Now the two mistakes that come from the middle column of the table above. Kysely, where the builder
 is immutable:
@@ -130,9 +134,9 @@ the filter is a value, not a half-built query.
 ## Traps
 
 **The filter is right there in the code and every row came back.** In Kysely, `.where()` returns a
-new builder and changes nothing about the one you called it on, so a `.where()` whose return value is
-discarded is a no-op. It reads exactly like the mutating version, and the symptom is a whole table
-where you expected one row.
+new builder and changes nothing about the one you called it on, so a `.where()` whose return value
+is discarded is a no-op. It reads exactly like the mutating version, and the symptom is every row of
+the table where you expected one.
 
 **The count query grew the filter from the page query.** The Drizzle mirror image. `.where()` mutates
 and returns the same object, so a `base` handed to two call sites is one query that both of them are
@@ -152,11 +156,12 @@ queries with joins or subqueries." Measured against a `leftJoinAndSelect` over 5
 each: `take(2).getMany()` sends two statements, a `SELECT DISTINCT` that pages the ids and then the
 join restricted to them, and returns 2 orders. `limit(2).getMany()` puts `LIMIT 2` on the join and
 returns 1 order, because both of those rows belong to the first one. And `take(2).getRawMany()`
-ignores `take` completely: no `LIMIT` reaches the statement and all 15 rows come back. `take` pages
-objects, `limit` pages rows, and the terminal you call decides which one is even in effect.
+ignores `take` completely: no `LIMIT` reaches the statement and every joined row comes back.
+`take` pages objects, `limit` pages rows, and the terminal you call decides which one is even in
+effect.
 
 **The builder could not express the query, so a string went in instead.** That is the moment every
 one of these libraries hands you a `sql` template or a `dataSource.query`, and it is the moment the
 parameterisation stops being automatic.
 [Parameterised queries](../security/parameterised-queries.md) owns that boundary, down to a CVE
-against a Drizzle release one patch older than this one.
+against a Drizzle release one patch older than the one in the table above.

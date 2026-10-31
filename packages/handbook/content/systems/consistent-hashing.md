@@ -26,64 +26,60 @@ sources:
 verified: 2026-08-01
 ---
 
+When data is spread across several cache servers, something has to decide which server holds each
+item. The obvious rule depends on how many servers there are, so adding one sends almost every
+request to the wrong place and the cache suddenly looks empty. Consistent hashing is a rule that
+moves only a small share of the items when a server joins or leaves.
+
 ## The model
 
-Start with why the cache emptied, because the mechanism is the easy half.
+Consistent hashing ties a key's server to the key and to each server's identity, never to how many
+servers exist, so adding or removing one moves only a small slice of the keys.
 
-`server = hash(key) % n` ties a key's home to the current value of n rather than to the key. Change
-n by one and the remainder changes for nearly every key at once, so nearly every lookup goes to a
-machine that has never held that key. Nothing expired and nothing was evicted. The old entries are
-still sitting in memory on servers nobody is asking. The hit rate falls to roughly zero in the
-moment the config changes, and the database absorbs the entire read load, from a deploy whose whole
-purpose was to reduce load.
+Compare the rule it replaces. `server = hash(key) % n` ties a key's home to the current value of n.
+Change n by one and the remainder changes for nearly every key, so nearly every lookup goes to a
+machine that has never held that key. Nothing expired or was evicted; the old entries sit on servers
+nobody is asking. The hit rate falls to roughly zero, and the database absorbs the entire read load,
+from a deploy meant to reduce load.
 
 Consistent hashing takes n out of the calculation. Hash the servers as well as the keys, into the
 same output space, and treat that space as a circle where the largest value wraps back to zero. A
 key belongs to the first server clockwise from its own position. A key's position depends on the key
-alone and never moves. A server's position depends on that server's identity and not on how many
-other servers exist.
+alone, and a server's on that server's identity alone.
 
-Everything else follows from that. Adding a server changes the owner of exactly one arc, the keys
-lying between the new server's position and the next server counterclockwise from it, and every key
-outside that arc keeps the owner it had. Removing a server hands its arc to its clockwise neighbour
-and touches nothing else. Cassandra describes its own version in one sentence: it "maps every node
-to one or more tokens on a continuous hash ring, and defines ownership by hashing a key onto the
-ring and then 'walking' the ring in one direction".
+So adding a server changes the owner of exactly one arc, the keys lying between the new server's
+position and the next server counterclockwise from it, and every key outside that arc keeps its
+owner. Removing a server hands its arc to its clockwise neighbour and touches nothing else.
 
-The arithmetic, stated honestly. With `% n`, a key keeps its server only by coincidence, so close to
-all K keys move. On a ring, adding or removing a server moves about K/n keys. That K/n is an average
-over where the positions happened to fall, not a bound, and it is only as good as the spread of
-those positions.
+With `% n`, a key keeps its server only by coincidence, so close to all K keys move. On a ring,
+adding or removing a server moves about K/n keys. That K/n is an average over where the positions
+happened to fall, not a bound, and it is only as good as the spread of those positions.
 
-**Virtual nodes** are what make the spread good, which is why they are not an optimisation to leave
-for later. With one position per server, the arcs come out at whatever lengths the hash gives them,
-so a server's share of the ring is random rather than equal, and a single successor inherits the
-whole of a departing server's traffic and working set. Give each physical server many positions
-instead: its share becomes the sum of many small arcs, which evens out, and its departure is
-absorbed by many neighbours rather than one. Cassandra's virtual nodes work by "assigning multiple
-tokens in the token ring to each physical node", with the result that "when a new node is added it
-accepts approximately equal amounts of data from other nodes in the ring". How many positions is a
-real decision, and one is nowhere near enough: Cassandra's docs record that picking tokens at random
-meant "the default number of tokens per node had to be quite high, at 256", and that the
-deterministic allocator added in 3.x reaches the same balance "while requiring a much lower number
-of tokens per physical node".
+**Virtual nodes** are what make the spread good, so they are not an optimisation to leave for later.
+With one position per server, the arcs come out at whatever lengths the hash gives them, so a
+server's share of the ring is random rather than equal, and a single successor inherits all of a
+departing server's traffic and working set. Give each physical server many positions instead: its
+share becomes the sum of many small arcs, which evens out, and its departure is absorbed by many
+neighbours rather than one. Cassandra's virtual nodes assign each physical node multiple tokens on
+the ring, so a new node takes roughly equal amounts of data from the others. One position is nowhere
+near enough: Cassandra's docs record that choosing tokens at random needed a default as high as 256
+per node, and that the deterministic allocator added in 3.x reaches the same balance with far fewer.
 
-Where this belongs is anywhere a node holds state for a key: a cache tier, and the partitioning
-layer of a hash-partitioned datastore. Amazon's Dynamo paper puts it plainly, saying its
-"partitioning scheme relies on consistent hashing to distribute the load across multiple storage
-hosts", and the Karger paper that named the technique was written about web caches in the first
-place.
+This belongs anywhere a node holds state for a key: a cache tier, and the partitioning layer of a
+hash-partitioned datastore. Amazon's Dynamo paper says its partitioning relies on consistent hashing
+to spread load across storage hosts, and the Karger paper that named the technique was written about
+web caches in the first place.
 
-Where it does not belong is a load balancer choosing between stateless application servers. Nothing
-is stored on those instances, so no request is cheaper for having landed on the same one, and round
+It does not belong in a load balancer choosing between stateless application servers. Nothing is
+stored on those instances, so no request is cheaper for having landed on the same one, and round
 robin or least-connections spreads work better. [Load balancers](./load-balancers.md) covers what
-hashing at that layer actually buys, which is a warm local cache or a pinned session. Both of those
-are state, which puts you back in this material.
+hashing at that layer buys, which is a warm local cache or a pinned session. Both of those are
+state, which puts you back in this material.
 
-Redis Cluster gets the same property by a different route, and is worth knowing precisely because it
-is not a ring. The key space is a fixed 16,384 hash slots, `HASH_SLOT = CRC16(key) mod 16384`, and
-each master owns a subset of them. The slot count never changes, so the key-to-slot function never
-changes either; adding a node moves ownership of slots, and the keys inside them, and nothing else.
+Redis Cluster gets the same property without a ring. The key space is a fixed 16,384 hash slots,
+`HASH_SLOT = CRC16(key) mod 16384`, and each master owns a subset of them. The slot count never
+changes, so the key-to-slot function never changes either; adding a node moves ownership of slots,
+and the keys inside them, and nothing else.
 
 ## Worked example
 
@@ -113,7 +109,7 @@ loses that key and keeps k3; A, C and D are not involved at all. Under `% n` the
 neighbour, only a remainder that changed for everybody.
 
 The ring here has a thousand positions so the arithmetic fits on a line. A real one uses the hash
-function's whole output range, and each server sits at many of those positions rather than one.
+function's full output range, and each server sits at many of those positions rather than one.
 
 ## Traps
 
@@ -128,9 +124,9 @@ share of the load. Give every physical server many positions and its share becom
 arcs.
 
 **Removed a node cleanly and its neighbour fell over a few seconds later.** With one position per
-server, the whole departing arc goes to the single successor, which doubles both its request rate
-and its working set. Virtual nodes spread that arc across many neighbours instead, which is the
-half of the feature that only shows up on the bad day.
+server, the entire departing arc goes to the single successor, which doubles both its request rate
+and its working set. Virtual nodes spread that arc across many neighbours instead, which is the half
+of the feature that only shows up on the bad day.
 
 **The same key is cached twice, with different values, on two different nodes.** Every client
 computes the ring itself, from the hash function, the number of virtual positions per server, and

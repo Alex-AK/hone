@@ -21,23 +21,26 @@ sources:
 verified: 2026-08-04
 ---
 
-Every command and every exit code below was run against pnpm 11.5.0 on Node 24.16.0. npm's behaviour
-is quoted from the npm v11 documentation, which is a different tool with a different default, and
-that difference is most of the page.
+A lockfile records the exact version of every package a project installed, so every machine gets the
+same set. A normal install quietly rewrites it when it no longer matches what the project asks for.
+CI is set up to refuse instead. So a pull request that never meant to change a dependency can still
+fail the install step, because some edit made the project's list of dependencies and its lockfile
+disagree.
 
 ## The model
 
-Two commands, two contracts, and they disagree on purpose.
+**`install` and the frozen install agree on everything except what to do when the lockfile no longer
+satisfies `package.json`.** One fixes the lockfile, the other stops.
 
 **`install` makes the tree satisfy `package.json`.** If the lockfile already does that, it is used.
 If it does not, the resolver runs, the tree moves, and the lockfile is rewritten as a side effect of
 a command you thought was read-only.
 
-**`npm ci`, or `pnpm install --frozen-lockfile`, makes the tree equal the lockfile.** If the lockfile
-does not already satisfy `package.json`, it stops rather than fixing it. npm's version of the rule:
-"If dependencies in the package lock do not match those in `package.json`, `npm ci` will exit with an
-error, instead of updating the package lock", and "it will never write to `package.json` or any of
-the package-locks: installs are essentially frozen."
+**`npm ci`, or `pnpm install --frozen-lockfile`, makes the tree equal the lockfile.** If the
+lockfile does not already satisfy `package.json`, it stops rather than fixing it. The npm v11 docs
+state the rule: "If dependencies in the package lock do not match those in `package.json`, `npm ci`
+will exit with an error, instead of updating the package lock." The same docs say it never writes to
+`package.json` or any lockfile.
 
 ```
                        does the lockfile satisfy package.json?
@@ -50,13 +53,10 @@ the package-locks: installs are essentially frozen."
   frozen        use the lockfile              stop (exit 1)
 ```
 
-The two rows agree on everything except the failure case, which is why the disagreement is invisible
-until the day it is not.
-
 ### How a lockfile goes stale without anybody touching a dependency
 
-This is the part that makes the failure feel unfair. The check is on **specifiers**, not on installed
-versions, so it fires on edits nobody thinks of as dependency changes:
+The check is on **specifiers**, not on installed versions, so it fires on edits nobody thinks of as
+dependency changes:
 
 - a range edited by hand in `package.json` without running an install afterwards
 - a merge that resolved a `package.json` conflict and kept whichever lockfile arrived first
@@ -64,30 +64,28 @@ versions, so it fires on edits nobody thinks of as dependency changes:
 
 A second check runs on the resolver's configuration, and it has its own error. Adding
 `overrides: { content-type: 2.0.0 }` to a workspace whose lockfile predates it fails with
-`ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`: "the current `overrides` configuration doesn't match the value
-found in the lockfile." The lockfile pins the inputs to the resolution as well as its output, because
-one without the other would not be reproducible.
+`ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`, saying the current `overrides` do not match the lockfile. The
+lockfile pins the inputs to the resolution as well as its output, because one without the other
+would not be reproducible.
 
 None of these show up as "a dependency changed" in review. All of them make the two files disagree.
 
 ### What frozen buys, and what it costs
 
-It buys the thing the lockfile was written for: npm's stated goal is that "teammates, deployments,
-and continuous integration are guaranteed to install exactly the same dependencies", plus the
-integrity check on every download and a reviewable diff when the tree really does move. pnpm's
-supply-chain guidance reduces to the same sentence: "always lock your dependencies with a lockfile.
-Commit your lockfile to your repository to avoid unexpected updates."
+It buys the thing the lockfile was written for: npm's stated goal is that teammates, deployments and
+CI are guaranteed to install exactly the same dependencies. It also buys the integrity check on
+every download and a reviewable diff when the tree really does move. pnpm's supply-chain guidance
+says the same: lock your dependencies and commit the lockfile, to avoid unexpected updates.
 
-It costs speed and it costs drift. `npm ci` deletes what is there first: "if a `node_modules` is
-already present, it will be automatically removed before `npm ci` begins its install", which is why
-it is slower and why it is reliable. And a frozen tree does not pick up patches on its own, so the
-tree ages exactly as fast as nobody updates it. Reproducibility and freshness are the same dial,
-turned in opposite directions.
+It costs speed and it costs drift. `npm ci` removes any existing `node_modules` before it starts,
+which is why it is slower and why it is reliable. And a frozen tree does not pick up patches on its
+own, so it ages exactly as fast as nobody updates it.
 
 ## Worked example
 
-One scratch project. The lockfile pins `semver@7.8.3` and somebody has edited the range in
-`package.json` to `^6.3.0` without installing. Same command, same files, twice:
+Every command and exit code here was run against pnpm 11.5.0 on Node 24.16.0. One scratch project.
+The lockfile pins `semver@7.8.3` and somebody has edited the range in `package.json` to `^6.3.0`
+without installing. Same command, same files, twice:
 
 ```
 $ pnpm install
@@ -117,8 +115,8 @@ real conflict:
 
 The fix is always the same: run a plain `pnpm install` locally and commit the lockfile it produces.
 
-The two ways of turning frozen on are not identical, and it is worth knowing which one you have.
-With the flag, a missing lockfile is a hard failure:
+The two ways of turning frozen on are not identical. With the flag, a missing lockfile is a hard
+failure:
 
 ```
 $ pnpm install --frozen-lockfile          # no pnpm-lock.yaml in the project
@@ -161,8 +159,8 @@ the conflict go away by re-resolving the entire project, so the pull request now
 intended upgrade and several hundred unintended ones, in a diff nobody can read. Take one side of the
 conflict, run a plain install on top of it, and let the tool produce the minimum change.
 
-**A dependency was added with the frozen command and nothing happened.** `npm ci` "can only install
-entire projects at a time: individual dependencies cannot be added with this command". Adding is
-`install`'s job by design, because adding means changing the lockfile.
+**A dependency was added with the frozen command and nothing happened.** `npm ci` installs whole
+projects only, and the npm docs say it cannot add an individual dependency. Adding is `install`'s
+job by design, because adding means changing the lockfile.
 [Updating, and what a version bump carries](./updating-a-dependency.md) is the other half of that
 decision.

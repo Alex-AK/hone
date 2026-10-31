@@ -25,51 +25,49 @@ sources:
 verified: 2026-08-02
 ---
 
-Two engines on this page, and where they disagree is most of the point. The Postgres plans and error
-messages came from PostgreSQL 18.3 over the 40,000-row orders table the bug-hunt workout seeds. The
-SQLite ones came from `practice.db` on SQLite 3.51.0. All of them were produced by running the
-statement, not recalled.
-
-[How an index gets used](./how-an-index-gets-used.md) is about whether the planner picks an index it
-could use. [Column order](./composite-indexes-and-column-order.md) is about which columns go in one.
-This page is the third question: what goes into the index at all.
+Sometimes you only ever look up a small slice of a table, or search on a value worked out from a
+column, like an email address in lower case. You can index exactly that, and get something smaller
+and faster, but the database uses it only when your query asks in a form it recognises.
 
 ## The model
 
-A partial index carries a `WHERE` clause and holds only the rows that satisfy it. An expression index
-stores the result of an expression instead of a stored column value. Both break the assumption every
-other index rests on, that an entry corresponds to a column value in a row, and the planner rules
-follow from that.
+**The planner uses a partial or expression index only when it can match your query to the index's
+definition, and it matches far more literally than you would.** A partial index carries a `WHERE`
+clause and holds only the rows that satisfy it. An expression index stores the result of an
+expression instead of a column value. Postgres and SQLite both support them, and where they disagree
+is marked.
 
-For a partial index the rule is implication. Postgres states it exactly: an index of this kind "can be
-used in a query only if the system can recognize that the WHERE condition of the query mathematically
-implies the predicate of the index". Recognize is the operative word, and neither engine has a theorem
-prover behind it. Postgres handles simple inequality implications, `x < 1` implying `x < 2`, and
-otherwise wants the predicate to match part of the query's `WHERE` condition exactly. SQLite is
-blunter still: "The terms in W and X must match exactly. SQLite does not do algebra to try to get them
-to look the same." Its one generous rule is worth knowing because it fires so often. A predicate of
-`z IS NOT NULL` is implied by any of `=`, `<`, `>`, `<=`, `>=`, `<>`, `IN`, `LIKE` or `GLOB` on `z`,
-since none of those can be true of a NULL, so `WHERE restocked_at > '2024-01-01'` uses an index
-declared `WHERE restocked_at IS NOT NULL` without naming it.
+For a partial index the rule is implication. Postgres states it exactly: an index of this kind "can
+be used in a query only if the system can recognize that the WHERE condition of the query
+mathematically implies the predicate of the index". Neither engine has a theorem prover behind it.
+Postgres handles simple inequalities, `x < 1` implying `x < 2`, and otherwise wants the predicate to
+match part of the query's `WHERE` exactly. SQLite is blunter: "The terms in W and X must match
+exactly. SQLite does not do algebra to try to get them to look the same." Its one generous rule
+fires often. A predicate of `z IS NOT NULL` is implied by any of `=`, `<`, `>`, `<=`, `>=`, `<>`,
+`IN`, `LIKE` or `GLOB` on `z`, since none of those can be true of a NULL, so
+`WHERE restocked_at > '2024-01-01'` uses an index declared `WHERE restocked_at IS NOT NULL`.
 
-For an expression index the rule is narrower and easier to hold: the planner matches the expression,
-not the value it computes. An index on `lower(email)` serves `lower(email)` and nothing else, not
-`upper(email)` and not a bare `email`. What you get back for that is a place to keep statistics.
-Postgres has none for a derived value until an index names it, which is why the estimate in the
-example below is wrong before and right after.
+For an expression index the planner matches the expression, not the value it computes. An index on
+`lower(email)` serves `lower(email)` and nothing else, not `upper(email)` and not a bare `email`. In
+return you get a place to keep statistics: Postgres has none for a derived value until an index
+names it, which is why the estimate in the example below is wrong before and right after.
 
-Both kinds constrain what you may write. The predicate or the expression is evaluated once at write
-time and trusted forever after, so it has to give the same answer forever. Postgres calls that
-IMMUTABLE, SQLite calls it deterministic, and neither will build the index otherwise. Expression
-indexes also cost more to maintain than column ones, because the expression is recomputed on every
-insert and on any update that touches it.
+Both kinds constrain what you may write. The predicate or expression is evaluated at write time and
+trusted forever after, so it has to give the same answer forever. Postgres calls that IMMUTABLE,
+SQLite calls it deterministic, and neither will build the index otherwise.
+
+[How an index gets used](./how-an-index-gets-used.md) and [column
+order](./composite-indexes-and-column-order.md) cover whether an index is picked and which columns
+go in it. This page is about which rows and values go in at all.
 
 ## Worked example
 
-Two halves, because the two do different jobs.
+Every plan and error here came from running the statement. The Postgres ones are PostgreSQL 18.3
+over the 40,000-row orders table the bug-hunt workout seeds, and the SQLite ones are `practice.db`
+on SQLite 3.51.0.
 
-**A slice of the rows.** The orders list in the bug-hunt workout only ever asks for pending. Of the
-40,000 rows, 239 are `pending`, 3,615 `cancelled`, 12,049 `paid` and 24,097 `shipped`.
+**A slice of the rows.** The orders list in the bug-hunt workout only ever asks for pending orders,
+and 239 of the rows are `pending`.
 
 ```sql
 CREATE INDEX orders_created_at_idx ON orders (created_at DESC);
@@ -84,9 +82,9 @@ Limit  (cost=0.14..1.51 rows=20 width=16)
   ->  Index Scan using orders_pending_idx on orders  (cost=0.14..16.79 rows=243 width=16)
 ```
 
-No `Index Cond` line and no `Filter` line, because nothing is left to check. Every entry in that index
-is a pending order and they are already in `created_at` order, so the twenty rows come straight off
-the front. Ask for another status and the index is not unhelpful, it is inapplicable:
+No `Index Cond` and no `Filter`: every entry is a pending order already in `created_at` order, so
+the twenty rows come straight off the front. Ask for another status and the index cannot be used at
+all:
 
 ```
 Limit  (cost=1116.74..1116.79 rows=20 width=16)
@@ -116,10 +114,9 @@ Index Scan using customers_lower_email_idx on customers  (cost=0.28..8.29 rows=1
   Index Cond: (lower(email) = 'customer42@example.com'::text)
 ```
 
-The estimate is now right as well as the access method. `ANALYZE` gathers statistics for the index's
-expression once an index exists to name it, and `pg_stats` gains a row for
-`customers_lower_email_idx`. Postgres describes the effect as the system seeing the query "as just
-`WHERE indexedcolumn = 'constant'`".
+The estimate is now right too. Once an index names the expression, `ANALYZE` gathers statistics for
+it and `pg_stats` gains a row for `customers_lower_email_idx`. The Postgres docs describe the effect
+as the system seeing the query as a plain comparison of an indexed column with a constant.
 
 SQLite says the same in its own notation, against `practice.db`:
 
@@ -134,24 +131,22 @@ query and the plan is `SCAN customers`.
 
 ## Traps
 
-**The condition means exactly what the predicate means, and the plan is a scan.** Against
-`orders_pending_idx`, Postgres will not use it for
-`status <> 'shipped' AND status <> 'paid' AND status <> 'cancelled'`, though on a four-value column
-those are the same 239 rows: `Seq Scan on orders ... rows=10112`. SQLite refuses the same shape even
-where a `CHECK` constraint proves it. `practice.db` allows two statuses, and against a partial index
-declared `WHERE status = 'cancelled'` the query `WHERE status <> 'completed'` plans as `SCAN orders`.
-The one piece of algebra Postgres does is narrowing an inequality: a partial index
-`WHERE total_cents > 50000` serves `total_cents > 80000` and not `total_cents > 20000`. SQLite does
-not do even that, and skips a `WHERE rating > 3` index for `rating > 4`. Lists are their own trap:
-`status IN ('pending', 'paid')` is not implied by `status = 'pending'` and scans on both, while the
-one-element `status IN ('pending')` uses the index on Postgres, which rewrites it to equality, and
-scans on SQLite, which does not.
+**The condition means exactly what the predicate means, and the plan is a scan.** Postgres will not
+use `orders_pending_idx` for `status <> 'shipped' AND status <> 'paid' AND status <> 'cancelled'`,
+though on a four-value column those are the same rows: `Seq Scan on orders ... rows=10112`. SQLite
+refuses the same shape even where a `CHECK` constraint proves it: `practice.db` allows two statuses,
+and against an index declared `WHERE status = 'cancelled'` the query `WHERE status <> 'completed'`
+plans as `SCAN orders`. Postgres does narrow an inequality, so an index `WHERE total_cents > 50000`
+serves `total_cents > 80000` and not `total_cents > 20000`. SQLite skips a `WHERE rating > 3` index
+even for `rating > 4`. And `status IN ('pending', 'paid')` is not implied by `status = 'pending'`,
+so it scans on both, while the one-element `status IN ('pending')` uses the index on Postgres, which
+rewrites it to equality, and scans on SQLite, which does not.
 
 **It uses the index in the SQL console and not from the application.** The predicate arrived as a
-parameter. Postgres's docs say parameterized query clauses do not work with a partial index, and the
-mechanism underneath is why this shows up late rather than never: a prepared statement's first five
-executions are planned with the real values, and only after that may the server switch to a generic
-plan. The same statement, forced each way:
+parameter. The Postgres docs say parameterized query clauses do not work with a partial index, and
+this shows up late rather than never because a prepared statement's first five executions are
+planned with the real values. Only after that may the server switch to a generic plan. The same
+statement, forced each way:
 
 ```
 -- plan_cache_mode = force_custom_plan
@@ -166,25 +161,26 @@ Limit  (cost=1061.10..1061.15 rows=20 width=12)
               Filter: (status = $1)
 ```
 
-SQLite draws the line at definition time instead. Its predicate "may not contain subqueries,
-references to other tables, non-deterministic functions, or bound parameters", and a query written
-`WHERE status = ?` plans as `SCAN orders`. A partial index pays off against a condition the planner
-can read as a constant, which usually means the slice is named in the code rather than passed in.
+SQLite draws the line at definition time instead: its docs rule out subqueries, other tables,
+non-deterministic functions and bound parameters in the predicate, and a query written
+`WHERE status = ?` plans as `SCAN orders`. A partial index helps only against a condition the
+planner can read as a constant, which usually means the slice is named in the code rather than
+passed in.
 
-**`CREATE INDEX` fails with a message about IMMUTABLE or determinism.** Something in the expression or
-the predicate can change its answer without the row changing. The common one in Postgres is
+**`CREATE INDEX` fails with a message about IMMUTABLE or determinism.** Something in the expression
+or the predicate can change its answer without the row changing. The common one in Postgres is
 `date_trunc('day', created_at)` over a `timestamptz`, which reads the session's `TimeZone` setting:
 `ERROR: functions in index expression must be marked IMMUTABLE`. Pin the zone and it builds, as
 `ON orders ((created_at AT TIME ZONE 'UTC'))`. `now()` in a predicate gives the matching
 `ERROR: functions in index predicate must be marked IMMUTABLE`, which is what kills the tempting
 "index only the last 30 days". SQLite rejects `random()` while parsing, with
 `non-deterministic functions prohibited in index expressions`, and rejects
-`date(ordered_at, 'localtime')` while building, with `non-deterministic use of date() in an index`. A
-recency index has to be defined against a fixed cutoff that you move by rebuilding it.
+`date(ordered_at, 'localtime')` while building, with `non-deterministic use of date() in an index`.
+A recency index has to use a fixed cutoff that you move by rebuilding it.
 
-**Signing up with an address that was soft-deleted last year is rejected as a duplicate.** The unique
-constraint covers rows nobody can see. This is the partial index that has nothing to do with read
-speed, and both engines support it:
+**Signing up with an address that was soft-deleted last year is rejected as a duplicate.** The
+unique constraint covers rows nobody can see. This partial index is not about read speed, and both
+engines support it:
 
 ```sql
 CREATE UNIQUE INDEX users_email_live ON users (email) WHERE deleted_at IS NULL;

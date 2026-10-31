@@ -30,50 +30,41 @@ sources:
 verified: 2026-08-02
 ---
 
-Both engines are on this page, and the numbers are separated by engine. The SQLite counters came from
-the `sqlite3` shell, version 3.51.0, with `.stats on`, against `practice.db` and against a scratch
-database built for the OR example, because `practice.db` has no indexes on it. The Postgres plans
-came from `EXPLAIN ANALYZE` on PostgreSQL 18.3, against a table of 200,000 orders and 5,000 customers
-built for this page.
+Two queries can return the same rows and do very different amounts of work. Most rewrites change
+nothing, because the database sees through them. A few change what it is allowed to do, and you have
+to know where to look to see that they did.
 
 ## The model
 
-Most SQL rewrites are cosmetic: the planner sees through them and produces the same plan. The ones
-worth learning change what the planner is allowed to consider. Three of them come up often enough to
-recognise on sight, and they share a shape. Each takes a decision the planner cannot make on your
-behalf and makes it in the SQL.
+**A rewrite only matters when it makes a decision in the SQL that the planner cannot make on your
+behalf.** Most are cosmetic: the planner sees through them and produces the same plan. Three come up
+often enough to recognise on sight.
 
 **Ask whether, not how many.** `(SELECT count(*) FROM …) > 0` is an aggregate, so it has to visit
 every matching row before it can compare anything. `EXISTS` is a predicate over the same rows, and
-Postgres documents the difference: the subquery "will generally only be executed long enough to
-determine whether at least one row is returned, not all the way to completion". Early exit is the
-smaller half. The bigger half is that `EXISTS` is a form the planner can lift into the join, and an
-aggregate is not.
+the Postgres docs say its subquery generally runs only long enough to find out whether one row comes
+back. Early exit is the smaller half. The bigger half is that the planner can lift `EXISTS` into the
+join, and it cannot do that with an aggregate.
 
 **Give each branch of an `OR` its own access path.** A planner picks one way into each table per
-query. SQLite says so directly, and names the exception: "in most cases, SQLite will only use a
-single index for each table in the FROM clause of a query. The second OR-clause optimization
-described here is the exception to that rule." So an `OR` over two columns of one table is already
-handled, by SQLite splitting it across two indexes and by Postgres building a `BitmapOr`. What
-neither can do is split an `OR` whose branches live in different tables, because by then it is a
-condition on the joined row and there is nothing to seek to on either side. That is the case where
-writing the two branches out as a `UNION` changes the plan.
+query, and neither engine can split an `OR` whose branches live in different tables: by then it is a
+condition on the joined row, with nothing to seek to on either side. Writing the branches as a
+`UNION` gives each one its own index.
 
-**Unpick a correlated subquery.** A correlated scalar subquery in the select list is evaluated once
-per output row, and both engines say so in the plan: `CORRELATED SCALAR SUBQUERY` in SQLite, a
-`SubPlan` with `loops=N` in Postgres. A `LEFT JOIN` with a `GROUP BY` asks for the same numbers once,
-for the whole set, in one pass.
+**Unpick a correlated subquery.** One in the select list is evaluated once per output row, shown as
+`CORRELATED SCALAR SUBQUERY` in SQLite and a `SubPlan` with `loops=N` in Postgres. A `LEFT JOIN`
+with a `GROUP BY` gets the same numbers in one pass.
 
-None of the three changes which rows come back, if you get the details right, and the details are
-where they go wrong. That is what the traps are about.
+None of the three changes which rows come back, if you get the details right, and the traps are
+about the details.
 
 ## Worked example
 
-`practice.db` has 10 customers and 20 orders and no indexes, which is too small to time and exactly
-big enough to count. `.stats on` in the shell prints two counters that are deterministic where a
-stopwatch is not: "Fullscan Steps", which SQLite defines as "the number of times that SQLite has
-stepped forward in a table as part of a full table scan", and "Virtual Machine Steps", which the same
-page offers as "a proxy for the total work done by the prepared statement".
+Both engines are here, and each number says which. The SQLite counters come from the `sqlite3`
+shell, version 3.51.0, with `.stats on`, against `practice.db`: 10 customers, 20 orders and no
+indexes, too small to time and big enough to count. Its "Fullscan Steps" and "Virtual Machine Steps"
+counters are deterministic where a stopwatch is not, and SQLite's docs offer the second as a proxy
+for the total work.
 
 Which customers have a completed order, asked two ways:
 
@@ -89,9 +80,9 @@ WHERE EXISTS (SELECT 1 FROM orders o
               WHERE o.customer_id = c.id AND o.status = 'completed');
 ```
 
-Same 8 names, less than half the work, and `EXPLAIN QUERY PLAN` prints the identical three lines for
-both. At production size the same rewrite is not a factor of two. Here it is on Postgres, asking
-which of 5,000 customers hold one of the 200 refunded orders in a table of 200,000. The
+Same 8 names and less than half the work. At production size the gap is not a factor of two. The
+Postgres plans come from `EXPLAIN ANALYZE` on PostgreSQL 18.3, against a table of 200,000 orders and
+5,000 customers built for this page, asking which customers hold one of the refunded orders. The
 `count(*) > 0` version stayed a `SubPlan`:
 
 ```
@@ -108,7 +99,7 @@ Seq Scan on customers c (actual rows=5.00 loops=1)
                             Index Searches: 5000
 ```
 
-The `EXISTS` version collapsed into a single join against the 200 refunded orders:
+The `EXISTS` version collapsed into a single join against the refunded orders:
 
 ```
 Hash Join (actual rows=5.00 loops=1)
@@ -120,8 +111,8 @@ Hash Join (actual rows=5.00 loops=1)
                     Index Searches: 1
 ```
 
-10,000 index searches against 1. `loops` and `Index Searches` are the two numbers to find first in
-any `EXPLAIN ANALYZE` output, because they are where a per-row cost shows up.
+10,000 index searches against 1. Find `loops` and `Index Searches` first in any `EXPLAIN ANALYZE`
+output, because that is where a per-row cost shows up.
 
 The correlated subquery in a select list is the same story with the answer kept rather than tested:
 
@@ -139,8 +130,8 @@ LEFT JOIN orders o ON o.customer_id = c.id AND o.status = 'completed'
 GROUP BY c.id;
 ```
 
-Both return the same 10 rows, including the two customers sitting at 0. The join version's plan is
-worth reading, because SQLite went and built an index for the query and threw it away afterwards:
+Both return the same 10 rows, including the two customers sitting at 0. In the join version's plan,
+SQLite built an index for the query and threw it away afterwards:
 
 ```
 |--SCAN c
@@ -148,8 +139,8 @@ worth reading, because SQLite went and built an index for the query and threw it
 `--SEARCH o USING AUTOMATIC PARTIAL COVERING INDEX (customer_id=? AND status=?) LEFT-JOIN
 ```
 
-The `OR` needs indexes to show anything, so this one is Postgres, on the 200,000-row table, with
-indexes on `orders(status)`, `orders(customer_id)` and `customers(city)`:
+The `OR` needs indexes to show anything, so this one is Postgres, with indexes on `orders(status)`,
+`orders(customer_id)` and `customers(city)`:
 
 ```sql
 SELECT o.id FROM orders o JOIN customers c ON c.id = o.customer_id
@@ -188,25 +179,22 @@ HashAggregate (actual rows=600.00 loops=1)
                     Index Searches: 10
 ```
 
-600 rows either way. The second one never reads the 200,000.
+600 rows either way, and the second never reads the 200,000.
 
-`sql-not-exists` and `sql-anti-join` are the same question written two of the three ways, which is
-the rep worth doing by hand: ask for the customers who never bought Fantasy with `NOT EXISTS`, then
-ask for the books nobody reviewed with a `LEFT JOIN` and `IS NULL`, and notice that the third form,
-`NOT IN`, is the one that breaks on a NULL. [Subqueries and CTEs](../sql/subqueries-and-ctes.md) has
-why.
+`sql-not-exists` and `sql-anti-join` practise two of the three anti-join forms. The third, `NOT IN`,
+breaks on a NULL, and [Subqueries and CTEs](../sql/subqueries-and-ctes.md) has why.
 
 ## Traps
 
-**The rewrite is right and the plan is unchanged.** SQLite prints the same tree for the `count(*) > 0`
-and `EXISTS` versions above, down to labelling both `CORRELATED SCALAR SUBQUERY 1`. Early exit is not
-a node, so the tree cannot show it. `.stats on` in the shell and the "Fullscan Steps" line is the
-cheapest way to see it on SQLite; on Postgres it is `EXPLAIN ANALYZE`, and the numbers that move are
-`loops` and `Index Searches`, not the estimated costs.
+**The rewrite is right and the plan is unchanged.** SQLite prints the same tree for the
+`count(*) > 0` and `EXISTS` versions above, down to labelling both `CORRELATED SCALAR SUBQUERY 1`.
+Early exit is not a node, so the tree cannot show it. Read "Fullscan Steps" on SQLite, and `loops`
+and `Index Searches` on Postgres, not the estimated costs.
 
-**Splitting the `OR` into a `UNION` did nothing.** Both branches on one table with an index each is
-already the planner's job, and both engines do it. SQLite reports it in the plan, and its manual
-notes the other case too, that an `OR` of equalities on one column is rewritten into an `IN`:
+**Splitting the `OR` into a `UNION` did nothing.** Two branches on one table, each with an index, is
+already the planner's job, and both engines do it. SQLite's docs say it uses one index per table in
+most cases and name this as the exception. On a scratch database built with those indexes, since
+`practice.db` has none, it reports it in the plan:
 
 ```
 -- WHERE status = 'refunded' OR customer_id = 42
@@ -217,28 +205,27 @@ notes the other case too, that an `OR` of equalities on one column is rewritten 
       `--SEARCH orders USING INDEX orders_customer (customer_id=?)
 ```
 
-Postgres builds a `BitmapOr` over the same two indexes. Keep the rewrite for the case in the worked
+Postgres builds a `BitmapOr` over the same two indexes, and SQLite's manual adds that an `OR` of
+equalities on one column is rewritten into an `IN`. Keep the rewrite for the case in the worked
 example, where the branches belong to different tables.
 
-**The `UNION` version returns a different number of rows.** `UNION` de-duplicates the whole combined
-result, not just the overlap between the branches, so it is only a drop-in replacement when the
-select list is unique per row. On a variant of that table where one refunded order belongs to a Porto
-customer, selecting `o.id` gives 799 rows from the `OR` and 799 from the `UNION`, but `UNION ALL`
-gives 800, because the one order that satisfies both branches is emitted twice. Change the select
-list to `c.city` and the divergence is total: the `OR` returns 799 rows and the `UNION` returns 2.
-Decide what a row means before picking the operator; [set operations](../sql/set-operations.md) has
-the rest of that arithmetic.
+**The `UNION` version returns a different number of rows.** `UNION` de-duplicates the entire
+combined result, not just the overlap between the branches, so it is a drop-in replacement only when
+the select list is unique per row. On a variant of that table where one refunded order belongs to a
+Porto customer, selecting `o.id` gives 799 rows from both the `OR` and the `UNION`, but `UNION ALL`
+gives 800, because the order that satisfies both branches is emitted twice. Select `c.city` instead
+and the `OR` still returns 799 rows while the `UNION` returns 2. Decide what a row means before
+picking the operator; [set operations](../sql/set-operations.md) has the rest of that arithmetic.
 
-**The correlated subquery became a `LEFT JOIN` and the zeros disappeared.** Two separate ways to lose
-them, and both are quiet. An `INNER JOIN` drops every customer with no matching order, which takes
-that query on `practice.db` from 10 rows to 8. And `COUNT(*)` counts the join row rather than the
-match, so a customer with no orders comes back as 1 instead of 0; `COUNT(o.id)` counts non-null
-values and returns 0. `SUM` over no matched rows returns NULL rather than 0 and needs a `COALESCE`.
-Check the row count and the extreme values against the old query before you check the timing.
+**The correlated subquery became a `LEFT JOIN` and the zeros disappeared.** There are two quiet ways
+to lose them. An `INNER JOIN` drops every customer with no matching order, taking that query on
+`practice.db` from 10 rows to 8. And `COUNT(*)` counts the join row rather than the match, so a
+customer with no orders comes back as 1; `COUNT(o.id)` counts non-null values and returns 0. `SUM`
+over no matched rows returns NULL rather than 0 and needs a `COALESCE`. Check the row count and the
+extreme values against the old query before you check the timing.
 
 **The rewrite worked and the endpoint is still slow.** All three of these change one statement's
-plan. None of them touches how many statements the request sends, and a page that runs a query per
-row is unaffected by making each of those queries faster. That is [N+1](./n-plus-one.md), and it is
-found by counting statements rather than by reading a plan. `slow-list-endpoint-kysely` judges an
-endpoint on both at once: every statement it sends is logged with its row count, and one checkpoint
-runs `EXPLAIN` on the query it sent and reads the plan back.
+plan, not how many statements the request sends, and a page that runs a query per row stays slow
+however fast each query gets. That is [N+1](./n-plus-one.md), found by counting statements rather
+than reading a plan. `slow-list-endpoint-kysely` judges both: it logs every statement with its row
+count, and one checkpoint runs `EXPLAIN` on the query it sent.

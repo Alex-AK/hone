@@ -45,40 +45,42 @@ sources:
 verified: 2026-08-02
 ---
 
+A web framework is the library that turns an incoming HTTP request into a call to your code, and
+what your code returns into a response. Frameworks differ less in what they can do than in how much
+of that work they do without being asked. The more they do for you, the less of it you can see, and
+the part you cannot see is where the surprises come from.
+
 ## The model
 
-One route, three frameworks: `POST /reports` takes JSON, creates a report, answers 201. What changes
-between them is not what is possible. It is how much of that sentence you write down, and therefore
-how much is happening that you did not write.
+**What changes between frameworks is not what is possible but how much of the route you write down,
+and so how much is happening that you did not write.** One route, three frameworks: `POST /reports`
+takes JSON, creates a report, answers 201.
 
-**Express hands you the request and gets out of the way.** Its own docs describe it as "a routing and
-middleware web framework with minimal functionality of its own: an Express application is essentially
-a series of middleware function calls executed during the request-response cycle". The body is not
-parsed until you mount `express.json()`, which "only parses JSON and only looks at requests where the
-`Content-Type` header matches the `type` option". The status is whatever you pass `res.status()`. The
-response is whatever you pass `res.json()`, which sends "the parameter converted to a JSON string
-using `JSON.stringify()`". Almost nothing is hidden because almost nothing is supplied. The whole
-route is in front of you, including every step you forgot.
+**Express hands you the request and gets out of the way.** Its own docs call it a routing and
+middleware framework with minimal functionality of its own: an Express app is essentially a series
+of middleware function calls. The body is not parsed until you mount `express.json()`, which parses
+only JSON and only looks at requests whose `Content-Type` matches its `type` option. The status is
+whatever you pass `res.status()`. The response is whatever you pass `res.json()`, which runs it
+through `JSON.stringify()`. Almost nothing is hidden because almost nothing is supplied. Every step
+is in front of you, including the ones you forgot.
 
-**Nest declares the structure and leaves the meaning to you.** `@Controller('reports')` and `@Post()`
-say where the handler lives; the status is decided for you, "always 200 by default, except for POST
-requests which use 201", and changed with `@HttpCode()`; a returned object or array "will
-automatically be serialized to JSON". What is still yours is whether the body is any good.
-`ValidationPipe` is exported from `@nestjs/common`, but it needs `class-validator` and
-`class-transformer` installed and it needs binding, and until it is bound the decorators on your DTO
-are inert. That DTO has to be a class rather than an interface, because "Classes are part of the
-JavaScript ES6 standard, so they remain intact as real entities in the compiled JavaScript" and a
-pipe has to read something at runtime.
+**Nest declares the structure and leaves the meaning to you.** `@Controller('reports')` and
+`@Post()` say where the handler lives. The status is decided for you, 200 by default and 201 for
+POST, and changed with `@HttpCode()`. A returned object or array is serialised to JSON for you. What
+is still yours is whether the body is any good. `ValidationPipe` is exported from `@nestjs/common`,
+but it needs `class-validator` and `class-transformer` installed and it needs binding, and until it
+is bound the decorators on your DTO are inert. That DTO has to be a class rather than an interface,
+because the Nest docs point out that classes survive into the compiled JavaScript as real entities,
+and a pipe has to read something at runtime.
 
 **FastAPI declares the data and derives the rest from it.** A Pydantic model as a parameter
-annotation is the entire declaration. From it, FastAPI will "Read the body of the request as JSON",
-"Convert the corresponding types (if needed)", "Validate the data", and "Generate JSON Schema
-definitions for your model, which are part of the OpenAPI schema" and so of the interactive docs.
-Invalid data never reaches your function: FastAPI "internally raises a `RequestValidationError`", and
-422 Validation Error is the response its generated schema carries for it. The return annotation runs
-the same machinery outward and "will limit and filter the output data to what is defined in the
-return type". Status is the one thing not derived: the default is 200, and `status_code=201` goes on
-the decorator, not on the function.
+annotation is the entire declaration. From it, FastAPI reads the body as JSON, converts the types
+where needed, validates the data, and generates JSON Schema for the model, which feeds the OpenAPI
+schema and the interactive docs. Invalid data never reaches your function: FastAPI raises a
+`RequestValidationError` internally, and 422 Validation Error is the response its generated schema
+carries for it. The return annotation runs the same machinery outward, limiting and filtering the
+output to what the return type defines. Status is the one thing not derived: the default is 200, and
+`status_code=201` goes on the decorator, not on the function.
 
 | Step             | Express                            | Nest                                  | FastAPI                            |
 | ---------------- | ---------------------------------- | ------------------------------------- | ---------------------------------- |
@@ -88,11 +90,10 @@ the decorator, not on the function.
 | Success status   | `res.status(201)`, always explicit | 201 for POST, 200 otherwise           | 200, or `status_code=201`          |
 | The response     | `res.json(value)`                  | returned objects serialised for you   | the return annotation, filtered    |
 
-The trade is identical in all three, only priced differently: what a framework does for you is what
-you stop being able to see. Express reminds you of nothing and surprises you with nothing. FastAPI
-derives the most, so it fails in places you never wrote, and reading its failures means knowing what
-the annotations generate. Nest is the one that catches people out, because the structure looks like
-it implies the checking and it does not.
+Each one sets the trade between help and visibility differently. Express reminds you of nothing and
+surprises you with nothing. FastAPI derives the most, so it fails in places you never wrote, and
+reading its failures means knowing what the annotations generate. Nest is the one that catches
+people out, because the structure looks like it implies the checking and it does not.
 
 ## Worked example
 
@@ -150,10 +151,10 @@ def create_report(body: CreateReport) -> Report:
 ```
 
 Count the lines that are about HTTP rather than about reports. Express: most of them. Nest: the
-decorators. FastAPI: the two annotations, which are also the type declarations you would have written
-anyway. Then count what happens if a field is added to the report. In the third one, the request
-schema, the response filter and the published API documentation all move with the model. In the first
-one, nothing moves until someone moves it.
+decorators. FastAPI: the two annotations, which are also the type declarations you would have
+written anyway. Then add a field to the report. In the third one, the request schema, the response
+filter and the published API documentation all move with the model. In the first one, nothing moves
+until someone moves it.
 
 ## Traps
 
@@ -179,7 +180,7 @@ override the default that disagrees with it.
 
 **An async handler rejects and the process exits.** Express 4, and its docs are explicit: "Errors
 from rejected promises are not passed to `next` automatically, and this includes `async` functions",
-which "crashes the process on current Node.js versions". Express 5 changed it, so handlers "that
-return a Promise call `next(value)` automatically when they reject or throw an error". Which major
-version you are on decides whether the `try`/`catch` around every `await` is redundant or is the only
-thing keeping the server up.
+and they say that crashes the process on current Node.js versions. Express 5 changed it: a handler
+that returns a promise calls `next(value)` for you when it rejects or throws. Which major version
+you are on decides whether the `try`/`catch` around every `await` is redundant or is the only thing
+keeping the server up.

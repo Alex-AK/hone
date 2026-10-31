@@ -24,21 +24,20 @@ sources:
 verified: 2026-08-01
 ---
 
-Every query below was run against the practice database (SQLite 3.51) and every result is its real
-output. Window functions arrived in SQLite 3.25.0, released 2018-09-15. Postgres behaves the same
-way except where a trap says otherwise.
+Sometimes you want a figure that depends on other rows, like a rank, a running total or a share of
+the whole, without losing the rows. Grouping squashes each group into one row. A window function
+keeps every row, and most of its surprises come from how much of the table each row can see.
 
 ## The model
 
-`GROUP BY` trades rows for summaries. Twelve reviewed books become four genre rows and the titles
-are gone. A window function makes the opposite trade: it computes over a set of other rows and
-leaves the current row standing, so you keep the summary and the title.
+**A window function computes over a set of other rows and leaves the current row standing, so you
+keep the summary and the detail.** `GROUP BY` makes the opposite trade: twelve reviewed books become
+four genre rows and the titles are gone.
 
-`OVER` is what defines that set. SQLite draws the boundary plainly: window functions may only appear
-in the result set and in the `ORDER BY` clause of a `SELECT`. They run after `WHERE`, `GROUP BY` and
-`HAVING` have already decided which rows exist, which is the same processing order that
-[WHERE against HAVING](./where-and-having.md) is about. A window function adds a column; it never
-removes a row.
+`OVER` defines that set. SQLite allows window functions only in the result set and in the `ORDER BY`
+of a `SELECT`. They run after `WHERE`, `GROUP BY` and `HAVING` have already decided which rows
+exist, which is the same processing order that [WHERE against HAVING](./where-and-having.md) is
+about.
 
 Three things go inside `OVER`, all optional:
 
@@ -47,12 +46,12 @@ Three things go inside `OVER`, all optional:
 - `ORDER BY avg_rating DESC` — puts the partition in a sequence, which is what makes "first" and "so
   far" mean anything. Ranking needs it, and so does a running total.
 - a frame — how much of the ordered partition this row is allowed to see. You rarely write one, and
-  the default is the trap at the bottom of this page.
+  the default is the first trap.
 
 Leave all three out and `OVER ()` is one partition holding every row, unordered.
-`SUM(revenue) OVER ()` is therefore the grand total stamped onto every row, which is the whole of
-percent-of-total: `revenue * 100.0 / SUM(revenue) OVER ()`. Put an `ORDER BY` inside and the same
-`SUM` becomes a running total, because ordering brings a frame with it.
+`SUM(revenue) OVER ()` is therefore the grand total stamped onto every row, and percent-of-total is
+`revenue * 100.0 / SUM(revenue) OVER ()`. Put an `ORDER BY` inside and the same `SUM` becomes a
+running total, because ordering brings a frame with it.
 
 The three ranking functions differ only in what they do with ties, which SQLite defines in terms of
 peers: rows with equal values for every `ORDER BY` term.
@@ -66,8 +65,10 @@ peers: rows with equal values for every `ORDER BY` term.
 
 ## Worked example
 
-The four reviews of The Glass Kingdom, best rating first. Two of them are 5s, which is the only
-thing separating the three functions:
+Every query and result here is real output from the practice database on SQLite 3.51, which has had
+window functions since 3.25.0. Postgres behaves the same except where a trap says otherwise. Here
+are the four reviews of The Glass Kingdom, best rating first. Two are 5s, which is the only thing
+separating the three functions:
 
 ```sql
 SELECT rating, created_at,
@@ -91,8 +92,8 @@ rating  created_at  row_number  rank  dense_rank
 distinct rating is. `ROW_NUMBER` broke the tie on its own, and which 5 it put first is not something
 the query said.
 
-Add `PARTITION BY` and that becomes the top-one-per-group answer. The numbering restarts for each
-genre, so keeping `rn = 1` keeps the best book in each:
+With `PARTITION BY` the numbering restarts for each genre, so keeping `rn = 1` keeps the best book
+in each:
 
 ```sql
 WITH rated AS (
@@ -117,10 +118,10 @@ Mystery  Cold Type
 Science  The Restless Atom
 ```
 
-The filter sits outside the CTE because it has to. Change the partition to `book_id` and the order
-to `created_at DESC` and those same three lines answer a different question: the most recent review
-of every book, rating and date still attached. That is the de-duplication idiom, and
-[set operations](./set-operations.md) covers when to reach for it instead of `DISTINCT`.
+The filter has to sit outside the CTE. Change the partition to `book_id` and the order to
+`created_at DESC` and those same three lines answer a different question: the most recent review of
+every book, rating and date still attached. That is the de-duplication idiom, and [set
+operations](./set-operations.md) covers when to reach for it instead of `DISTINCT`.
 
 ## Traps
 
@@ -147,9 +148,9 @@ Hugo Marchand  2020       95000   888000
 
 Ben's row already contains Cara's salary. An `ORDER BY` inside `OVER` with no frame written down
 takes the default, `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`, and `RANGE` frames by value
-rather than by position: peers are always in the frame together. Three people hired in 2020 means
-one number repeated three times. `ROWS` counts rows instead, which is what nearly everyone meant,
-and since it counts positions the ordering needs a tiebreaker to make those positions deterministic:
+rather than by position: peers are always in the frame together. `ROWS` counts positions instead,
+which is what nearly everyone meant, and needs a tiebreaker in the ordering to make those positions
+deterministic:
 
 ```sql
 SUM(salary) OVER (ORDER BY strftime('%Y', hired_at), name
@@ -166,26 +167,24 @@ Hugo Marchand  2020       95000   888000
 ```
 
 Every row now adds its own salary and nothing else. The default is harmless when the ordering column
-is unique, which is why `ORDER BY month` over one row per month is safe and `ORDER BY hire_year`
-over twelve people is not.
+is unique: `ORDER BY month` over one row per month is safe, and `ORDER BY hire_year` over twelve
+people is not.
 
 **`WHERE rn = 1` is an error, not a filter.** SQLite refuses it:
 `misuse of window function ROW_NUMBER()`. Postgres forbids window functions in `WHERE`, `GROUP BY`
-and `HAVING` and says why: they logically execute after those clauses are processed. There is no
-flag that changes it. Compute the window function in a CTE or a subquery and filter one level up,
-which is what both worked examples do.
+and `HAVING` because they logically execute after those clauses, and no flag changes it. Compute the
+window function in a CTE or a subquery and filter one level up, as the worked example does.
 
 **The share-of-total column changes from row to row.** `SUM(x) OVER ()` and
-`SUM(x) OVER (ORDER BY month)` are the same aggregate, and the `ORDER BY` inside the parentheses is
-the entire difference: the empty window sees the whole partition and gives every row the same
-number, the ordered one sees the partition up to the current row. A percentage that drifts down the
-page means an `ORDER BY` meant for the output crept inside the `OVER`.
+`SUM(x) OVER (ORDER BY month)` differ only in the `ORDER BY` inside the parentheses. The empty
+window sees the entire partition and gives every row the same number; the ordered one sees the
+partition up to the current row. A percentage that drifts down the page means an `ORDER BY` meant
+for the output crept inside the `OVER`.
 
 **A top-one-per-group query returned two rows for one group.** `RANK()` gives every peer the same
-number, so `WHERE rk = 1` keeps all of them. That is correct when ties should all win and wrong when
-the query promised exactly one row per group. `ROW_NUMBER()` always returns one, at the price of
-picking the winner arbitrarily, so add a tiebreaker to the window's `ORDER BY` when two runs of the
-same query have to agree.
+number, so `WHERE rk = 1` keeps all of them: right when ties should all win, wrong when the query
+promised one row per group. `ROW_NUMBER()` always returns one but picks the winner arbitrarily, so
+add a tiebreaker to the window's `ORDER BY` when two runs of the same query have to agree.
 
 **`MAX` gave you the date and lost the rest of the row.** `GROUP BY book_id` with `MAX(created_at)`
 says when the newest review landed but cannot hand you its rating, because an aggregate does not

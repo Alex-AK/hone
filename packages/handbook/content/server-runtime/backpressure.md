@@ -33,10 +33,15 @@ sources:
 verified: 2026-08-03
 ---
 
+A stream lets a server send a large response a piece at a time instead of building it all in memory
+first. That only works if the code producing the pieces slows down when the receiver is slower than
+it. Node tells you when to slow down, but quietly: ignore the signal and nothing fails, and the
+pieces pile up in memory until the process runs out.
+
 ## The model
 
-Every stream has a buffer in the middle of it, and the one thing tying the speed of the producer to
-the speed of the consumer is the value `write()` hands back.
+**Every stream has a buffer in the middle of it, and the one thing tying the speed of the producer
+to the speed of the consumer is the value `write()` hands back.**
 
 Node states the rule directly: "While the total size of the internal write buffer is below the
 threshold set by `highWaterMark`, calls to `writable.write()` will return `true`. Once the size of
@@ -47,8 +52,7 @@ socket all start with.
 Two properties of that `false` decide how the code around it has to be written.
 
 **It does not mean the write failed.** The chunk was accepted and queued. Nothing is dropped, no
-error is raised, and the data will go out eventually. `false` is a statement about the buffer, not
-about your chunk.
+error is raised, and the data will go out eventually.
 
 **It is advice, not a wall.** The same docs: "the `highWaterMark` option is a threshold, not a
 limit: it dictates the amount of data that a stream buffers before it stops asking for more data. It
@@ -81,14 +85,13 @@ chunks at you regardless of what the handler is doing, so making that handler `a
 over a 50-chunk source with a 1ms handler, all 50 were in flight at once. The same loop written as
 `for await (const chunk of readable)` waits for its own body, and the peak was 1.
 
-`pipe` runs the whole cycle for you, and the docs say so: "The flow of data will be automatically
-managed so that the destination `Writable` stream is not overwhelmed by a faster `Readable`
-stream." What `pipe` does not do is errors. "If the `Readable` stream emits an error during
-processing, the `Writable` destination is not closed automatically. If an error occurs, it will be
-necessary to manually close each stream in order to prevent memory leaks." Fail the destination
-mid-chain and the source stays open: `source.destroyed` reads `false`, and with nothing listening
-for `error` the process exits 1. `pipeline` is the version that forwards the failure to one callback
-and destroys every stream in the chain.
+`pipe` runs the write cycle for you: the docs say it manages the flow so a faster readable does not
+overwhelm the destination. What `pipe` does not do is errors. The same docs say that when the
+readable errors, the destination is not closed for you, and you have to close each stream yourself
+to avoid leaking memory. Fail the destination mid-chain and the source stays open:
+`source.destroyed` reads `false`, and with nothing listening for `error` the process exits 1.
+`pipeline` is the version that forwards the failure to one callback and destroys every stream in the
+chain.
 
 ## Worked example
 
@@ -100,11 +103,11 @@ res.end();
 ```
 
 Against 400,000 rows of about 200 bytes, sent to a client reading 64 KiB every 10ms, that queues the
-entire 80 MB export inside the response object: peak `res.writableLength` 82.8 MB, resident size 49
-MB to 421 MB, 158 MB of it live JavaScript heap. The loop retains nothing, which is what makes it
-confusing to look at. The stream is holding all of it.
+entire export inside the response object (peak `res.writableLength` 82.8 MB), and resident size
+climbs to 421 MB. The loop retains nothing, which is what makes it confusing to look at. The stream
+is holding all of it.
 
-Reading the return value is the whole fix:
+The fix is to read the return value:
 
 ```js
 for (const row of rows) {
@@ -115,13 +118,12 @@ for (const row of rows) {
 res.end();
 ```
 
-Same rows, same slow client: peak buffered 0.1 MB, resident size 49 MB to 68 MB. What bounds the
-amount in flight is now the socket rather than the heap.
+Same rows, same slow client: peak buffered 0.1 MB. What bounds the amount in flight is now the
+socket rather than the heap.
 
-Yielding is not a substitute for reading the return value, which is worth measuring once because it
-looks like it should be. The same loop with a `setImmediate` every thousand rows and no check on
-`write()` peaked at 74.9 MB queued and 414 MB resident, because giving the loop a turn does not make
-the client read any faster.
+Yielding looks like it should help and does not. The same loop with a `setImmediate` every thousand
+rows and no check on `write()` peaked at 74.9 MB queued, because giving the loop a turn does not
+make the client read any faster.
 
 Hand-writing the loop at all is for a source that is not already a stream. When both ends are,
 `pipeline` is shorter and closes things on the way out:
@@ -132,8 +134,8 @@ import { pipeline } from 'node:stream/promises';
 await pipeline(req, zlib.createGzip(), fs.createWriteStream(path));
 ```
 
-A generator covers the export above, at 0.1 MB peak and 76 MB resident, because `Readable.from`
-pulls from it one value at a time:
+A generator covers the export above, at 0.1 MB peak, because `Readable.from` pulls from it one value
+at a time:
 
 ```js
 import { Readable } from 'node:stream';
@@ -152,9 +154,9 @@ await pipeline(Readable.from(lines()), res);
 `false` and the loop kept going, so the rows queued in the stream instead of going out on the
 socket. Nothing errors and the response is correct, so every test that checks the body passes. Note
 what is not the reason: a fast consumer does not save you. Against a client on loopback reading as
-quickly as it could, the same loop got `false` back 399,685 times out of 400,000 and still peaked at
-82.8 MB queued and 427 MB resident, because a synchronous loop never gives the stream a turn to
-flush. Reproduce against a deliberately slow consumer, where the same bug ends the process.
+quickly as it could, the same loop got `false` back on nearly every write and still peaked at 82.8
+MB queued, because a synchronous loop never gives the stream a turn to flush. Reproduce against a
+deliberately slow consumer, where the same bug ends the process.
 
 **The handler wrote one chunk and hung forever.** It awaits `drain` after every write rather than
 only after a `false` one. Nothing emits `drain` unless a write returned `false`, so the first chunk
