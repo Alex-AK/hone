@@ -383,6 +383,11 @@ export interface ProgressResponse {
   byDifficulty: DifficultyProgress[];
   byTag: TagProgress[];
   recentAttempts: RecentAttempt[];
+  /**
+   * ISO time of the latest answered rep or workout run, or null before the first. Decks are
+   * self-graded and persist nothing, so a deck alone never moves it.
+   */
+  lastPracticedAt: string | null;
 }
 
 export interface PracticeColumn {

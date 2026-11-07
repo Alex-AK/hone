@@ -16,7 +16,15 @@ import { CurrentUserService } from '../common/current-user.service';
 import { parseTags } from '../common/tags';
 import type { AppDb } from '../db/client';
 import { APP_DB } from '../db/db.module';
-import { attempts, problemProgress, problems, sessionItems, sessions } from '../db/schema';
+import {
+  attempts,
+  problemProgress,
+  problems,
+  sessionItems,
+  sessions,
+  workoutAttempts,
+} from '../db/schema';
+import { lastRunAt } from './progress.utils';
 
 const RECENT_ATTEMPT_LIMIT = 10;
 
@@ -126,7 +134,31 @@ export class ProgressService {
       byDifficulty,
       byTag,
       recentAttempts,
+      lastPracticedAt: this.lastPracticedAt(userId),
     };
+  }
+
+  private lastPracticedAt(userId: number): string | null {
+    const [latestAttempt] = this.db
+      .select({ createdAt: attempts.createdAt })
+      .from(attempts)
+      .where(eq(attempts.userId, userId))
+      .orderBy(desc(attempts.createdAt))
+      .limit(1)
+      .all();
+
+    const workoutRows = this.db
+      .select({ startedAt: workoutAttempts.startedAt, lastRun: workoutAttempts.lastRun })
+      .from(workoutAttempts)
+      .where(eq(workoutAttempts.userId, userId))
+      .all();
+
+    const times = [
+      latestAttempt?.createdAt,
+      ...workoutRows.flatMap((row) => [row.startedAt, lastRunAt(row.lastRun)]),
+    ].filter((time): time is string => typeof time === 'string');
+
+    return times.length === 0 ? null : times.reduce((a, b) => (a > b ? a : b));
   }
 
   /**

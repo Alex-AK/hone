@@ -59,6 +59,7 @@ const PROGRESS: ProgressResponse = {
       createdAt: '2026-08-02T08:00:00Z',
     },
   ],
+  lastPracticedAt: '2026-08-02T08:00:00Z',
 };
 
 const SESSION: SessionResponse = {
