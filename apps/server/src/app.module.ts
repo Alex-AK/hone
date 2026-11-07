@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { HealthController } from './common/health.controller';
 import { DbModule } from './db/db.module';
 import { DecksModule } from './decks/decks.module';
 import { HandbookModule } from './handbook/handbook.module';
@@ -24,5 +25,6 @@ import { WorkoutsModule } from './workouts/workouts.module';
     ModulesModule,
     DecksModule,
   ],
+  controllers: [HealthController],
 })
 export class AppModule {}
