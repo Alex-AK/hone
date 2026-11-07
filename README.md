@@ -53,6 +53,11 @@ skips it. Commits run `lint-staged` instead, which only touches staged files.
 `pnpm dev` only auto-seeds an **empty** database. After adding or editing problems, run `pnpm seed`
 to upsert them into an existing one.
 
+To keep it running on a machine of your own, the `Dockerfile` builds the whole app as one container
+on port 3001, with its data in `/data`. It runs whatever code is typed into it, so put it behind a
+private network and never on a public address. [ADR-0195](./docs/decisions.md) says why the image
+is shaped the way it is.
+
 ## The daily loop
 
 Four places, and the first one is where a morning starts. **Today** asks one thing, which is whether

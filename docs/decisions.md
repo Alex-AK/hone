@@ -2335,3 +2335,30 @@ Correcting a fact inside an entry is an edit; changing the decision is a new rec
   rows shows a pointer converging as well as an animation does, at no cost in application code.
   `diagram()` in `seed/problems/types.ts` is the whole mechanism, and it caps a block at about
   seventy columns because the explanation renders inside the same 68ch measure a page does.
+
+- **ADR-0195 — The author's copy runs on a home server behind a private network, and the repo ships
+  the image for it.** Running Hone locally meant starting a dev server before every session, and a
+  practice tool that costs a step before the first rep is one that stops being opened. A workout log
+  served from the same home server was opened every day for a month, so the cure was known: one
+  click from a page already open. This is the shape ADR-0145 left room for, the full app behind a
+  private network, and it changes nothing that entry or ADR-0154 decided. The app is not on any
+  public interface, and only the owner's devices reach it.
+
+  **Every objection ADR-0154 found to self-hosting is about a second person**, and there is none. One
+  hardcoded user, one workspace per workout and no admission control are all correct for a single
+  reader. `node:vm` not being a boundary is answered by who can type into it, not by a sandbox.
+
+  **The repo ships a `Dockerfile` rather than the server's own repo holding one**, because what the
+  image needs changes with Hone: the workout runner spawns vitest from the workouts package, the
+  type checker loads the compiler, and content is found by walking up from the server. So the image
+  is one stage carrying the whole workspace and its dev dependencies, which is heavy and is the only
+  shape that runs every workout. Two settings in it are load-bearing. `NODE_ENV` is left unset,
+  because suites inherit the server's environment and React's production build has no `act()`. And
+  the container seeds before it serves, because boot seeds only an empty database and a deploy is
+  how new content arrives.
+
+  **The server serves the built web app when `WEB_DIST` is set**, so the deployment is one process on
+  one port with no proxy in front of it. Development is unchanged: Vite still proxies `/api`.
+
+  Reopen if a second person needs to use it. Then everything ADR-0154 listed applies again, starting
+  with the runner timing out correct answers under load.
